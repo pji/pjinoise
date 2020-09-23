@@ -1,0 +1,14 @@
+# Ignore compiled files.
+*.pyc
+*__pycache__
+
+# Ignore output images.
+*.svg
+*.tiff
+*.gif
+
+# Ignore output configuration files.
+*.conf
+
+# Ignore macOS files.
+.DS_Store

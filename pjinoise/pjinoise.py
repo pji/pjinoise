@@ -277,11 +277,12 @@ def parse_noises_list(noises:Sequence) -> Sequence[noise.Noise]:
     """Get the list of noise objects from the configuration."""
     results = []
     for noise in noises:
-        if noise['type'] not in SUPPORTED_NOISES:
+        try:
+            cls = SUPPORTED_NOISES[noise['type']]
+        except KeyError:
             reason = ('Can only deserialize to known subclasses of Noise.')
             raise ValueError(reason)
         kwargs = {key:noise[key] for key in noise if key != 'type'}
-        cls = globals()[noise['type']]
         results.append(cls(**kwargs))
     return results
 

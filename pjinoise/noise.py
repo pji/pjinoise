@@ -48,7 +48,7 @@ class ValueNoise(Noise):
                  unit_cube:int = 1024,
                  *args, **kwargs) -> None:
         """Initialize an instance of the object."""
-        self.permutation_table = make_permutations(p=permutation_table)
+        self.permutation_table = permutation_table
         self.unit_cube = unit_cube
         super().__init__(*args, **kwargs)
     

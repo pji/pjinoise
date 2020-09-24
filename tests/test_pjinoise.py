@@ -11,51 +11,9 @@ from unittest.mock import call, mock_open, patch
 
 from PIL import Image
 
+from pjinoise import filters
+from pjinoise import noise
 from pjinoise import pjinoise
-
-
-class FilterTestCase(ut.TestCase):
-    def test_cut_shadow_filter(self):
-        """Given a 2D matrix of color values, pjinoise.cut_shadow should 
-        set the bottom half of colors to black, then rebalance the 
-        colors again.
-        """
-        exp = [
-            [255, 255, 128, 2],
-            [255, 128, 2, 0],
-            [128, 2, 0, 0],
-            [2, 0, 0, 0]
-        ]
-        test = [
-            [255, 255, 191, 128],
-            [255, 191, 128, 64],
-            [191, 128, 64, 0],
-            [128, 64, 0, 0]
-        ]
-        act = pjinoise.cut_shadow(test)
-        self.assertListEqual(exp, act)
-    
-    def test_pixelate(self):
-        """Given a 2D matrix of color values and a size, 
-        pjinoise.average_square should create squares within 
-        the matrix where the color is the average of the 
-        original colors within the square.
-        """
-        exp = [
-            [239, 239, 128, 128],
-            [239, 239, 128, 128],
-            [128, 128, 16, 16],
-            [128, 128, 16, 16],
-        ]
-        matrix = [
-            [255, 255, 191, 128],
-            [255, 191, 128, 64],
-            [191, 128, 64, 0],
-            [128, 64, 0, 0]
-        ]
-        size = 2
-        act = pjinoise.pixelate(matrix, size)
-        self.assertListEqual(exp, act)
 
 
 class PerlinGenerationTestCase(ut.TestCase):
@@ -89,9 +47,9 @@ class PerlinGenerationTestCase(ut.TestCase):
             'length': 3,
             'diff_layers': 3,
             'noises': [
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
             ],
         }
         volume = [slice for slice in pjinoise.make_noise_volume(**kwargs)]
@@ -117,13 +75,13 @@ class PerlinGenerationTestCase(ut.TestCase):
             'z': 0,
             'diff_layers': 7,
             'noises': [
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
-                pjinoise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
+                noise.OctavePerlin(permutation_table=pjinoise.P),
             ]
         }
         act = pjinoise.make_diff_layers(**kwargs)
@@ -146,7 +104,8 @@ class PerlinGenerationTestCase(ut.TestCase):
             'size': (4, 4),
             'z': 0,
             'diff_layers': 7,
-            'noises': []
+            'noises': [],
+            'permutation_table': pjinoise.P
         }
         act = pjinoise.make_diff_layers(**kwargs)
         self.assertListEqual(exp, act)
@@ -175,7 +134,7 @@ class PerlinGenerationTestCase(ut.TestCase):
             'frequency': 4,
             'repeat': 0,
         }
-        obj = pjinoise.OctavePerlin(**obj_params)
+        obj = noise.OctavePerlin(**obj_params)
         params = {
             'size': (4, 4),
             'noise_gen': obj,
@@ -184,42 +143,6 @@ class PerlinGenerationTestCase(ut.TestCase):
         act = pjinoise.make_noise_slice(**params)
         
         self.assertListEqual(exp, act)
-    
-
-class PerlinTestCase(ut.TestCase):
-    def test_perlin_class(self):
-        """Given an x, y, and z coordinates; a permutations table, 
-        and a repeat period, pjinoise.perlin should return the color 
-        value for that x, y, z coordinate.
-        """
-        exp = 128
-        p = pjinoise.Perlin(permutation_table=pjinoise.P)
-        x, y, z = 3, 3, 0
-        act = p.perlin(x, y, z)
-        self.assertEqual(exp, act)
-    
-    def test_octave_perlin_class(self):
-        """Given x, y, and z coordinates; a permutations table; 
-        pjinoise.OctavePerlin.octave_perlin should return the color 
-        value for that x, y, z coordinate.
-        """
-        exp = 132
-        
-        unit_cube = 1024
-        octaves = 6
-        persist = -4
-        amplitude = 24
-        frequency = 4
-        p = pjinoise.OctavePerlin(unit_cube=unit_cube,
-                               permutation_table=pjinoise.P,
-                               octaves=octaves,
-                               persistence=persist,
-                               amplitude=amplitude,
-                               frequency=frequency)
-        x, y, z = 3, 3, 0
-        act = p.octave_perlin(x, y, z)
-        
-        self.assertEqual(exp, act)
     
 
 class UtilityTestCase(ut.TestCase):
@@ -256,8 +179,8 @@ class UtilityTestCase(ut.TestCase):
         return a list of filters to run on the image.
         """
         exp = [
-            pjinoise.cut_shadow,
-            pjinoise.pixelate,
+            filters.cut_shadow,
+            filters.pixelate,
         ]
         text = 'cut_shadow,pixelate'
         act = pjinoise.parse_filter_list(text)

@@ -376,11 +376,41 @@ def make_noise_volume(size:Sequence[int],
             yield future.result()
 
 
-# Filters and noises must be registered here to be available to main.
 # Mainline.
-def main(config:Mapping, filename:str = 'cloud.tiff') -> None:
+def main() -> None:
     print('Creating image {filename}.')
     start_time = time.time()
+    
+    # Parse command line arguments.
+    args = parse_command_line_args()
+    filename = args.filename
+    
+    # Read script configuration from a given config file.
+    if args.config:
+        print('Reading configuration file.')
+        config = read_config(args.config)
+    
+    # Use the command line arguments to configure the script.
+    else:
+        print('Creating noise generators.')
+        noises = make_noise_generator_config(args)
+        z = args.slice_depth
+        if z is None:
+            z = random.randint(0, args.unit_cube)    
+        config = {
+            'mode': 'L',
+            'size': [args.width, args.height],
+            'diff_layers': args.diff_layers,
+            'autocontrast': args.autocontrast,
+            'z': z,
+            'filters': args.filters,
+            'save_conf': args.save_config,
+            'frames': args.frames,
+            'direction': args.direction,
+            'loops': args.loops,
+            'workers': 6,
+            'noises': noises,
+        }
     
     # Deserialize config.
     filters = parse_filter_list(config['filters'])
@@ -435,33 +465,4 @@ def main(config:Mapping, filename:str = 'cloud.tiff') -> None:
 
 
 if __name__ == '__main__':
-    # Define and parse the arguments.
-    args = parse_command_line_args()
-    
-    # Read script configuration from a given config file.
-    if args.config:
-        config = read_config(args.config)
-    
-    # Use the command line arguments to configure the script.
-    else:
-        noises = make_noise_generator_config(args)
-        z = args.slice_depth
-        if z is None:
-            z = random.randint(0, args.unit_cube)    
-        config = {
-            'mode': 'L',
-            'size': [args.width, args.height],
-            'diff_layers': args.diff_layers,
-            'autocontrast': args.autocontrast,
-            'z': z,
-            'filters': args.filters,
-            'save_conf': args.save_config,
-            'frames': args.frames,
-            'direction': args.direction,
-            'loops': args.loops,
-            'workers': 6,
-            'noises': noises,
-        }
-    
-    # Generate the image.
-    main(config, args.filename)
+    main()

@@ -106,7 +106,6 @@ class CosineNoise(ValueNoise):
         value = self._lerp(x1, x2, z_float)
         return round(value)
     
-    
     # Private methods.
     def _lerp(self, a:float, b:float, x:float) -> float:
         """Eased linear interpolation function to smooth the noise."""

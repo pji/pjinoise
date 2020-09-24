@@ -40,6 +40,7 @@ SUPPORTED_FILTERS = {
 SUPPORTED_NOISES = {
     'Noise': noise.Noise,
     'ValueNoise': noise.ValueNoise,
+    'CosineNoise': noise.CosineNoise,
     'Perlin': noise.Perlin,
     'OctavePerlin': noise.OctavePerlin,
 }

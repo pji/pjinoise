@@ -86,6 +86,34 @@ class ValueNoise(Noise):
         return n // self.unit_cube + (n % self.unit_cube) / self.unit_cube
 
 
+class CosineNoise(ValueNoise):
+    """A class to produce cosine smoothed value noise."""
+    # Public methods.
+    def noise(self, x:float, y:float, z:float, located:bool = False) -> int:
+        if not located:
+            x = self._locate(x)
+            z = self._locate(z)
+        x_int = int(x)
+        z_int = int(z)
+        x_float = x - x_int
+        z_float = z - z_int
+        x1 = self._lerp(self.permutation_table[x_int + z_int],
+                        self.permutation_table[x_int + z_int + 1],
+                        x_float)
+        x2 = self._lerp(self.permutation_table[x_int + z_int + 1],
+                        self.permutation_table[x_int + z_int + 2],
+                        x_float)
+        value = self._lerp(x1, x2, z_float)
+        return round(value)
+    
+    
+    # Private methods.
+    def _lerp(self, a:float, b:float, x:float) -> float:
+        """Eased linear interpolation function to smooth the noise."""
+        x = (1 - math.cos(x * math.pi)) / 2
+        return super()._lerp(a, b, x)
+
+
 class Perlin(Noise):
     """A class to generate Perlin noise."""
     def __init__(self,

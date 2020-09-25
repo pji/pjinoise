@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw, ImageOps
 
 from pjinoise import filters
 from pjinoise import noise
+from pjinoise import ui
 from pjinoise.constants import X, Y, Z, AXES, P
 
 
@@ -378,12 +379,10 @@ def make_noise_volume(size:Sequence[int],
 
 # Mainline.
 def main() -> None:
-    print('Creating image {filename}.')
-    start_time = time.time()
-    
     # Parse command line arguments.
     args = parse_command_line_args()
     filename = args.filename
+    status = ui.Status(filename)
     
     # Read script configuration from a given config file.
     if args.config:
@@ -392,7 +391,7 @@ def main() -> None:
     
     # Use the command line arguments to configure the script.
     else:
-        print('Creating noise generators.')
+        status.update('noise')
         noises = make_noise_generator_config(args)
         z = args.slice_depth
         if z is None:
@@ -418,7 +417,7 @@ def main() -> None:
     format = get_format(filename)
     
     # Make noise volume.
-    print('Creating slices of noise.')
+    status.update('slices')
     volume = []
     for slice in make_noise_volume(size=config['size'],
                                    z=config['z'],
@@ -426,7 +425,7 @@ def main() -> None:
                                    length=config['frames'],
                                    diff_layers=config['diff_layers'],
                                    noises=noises):
-        print(f'Created slice {slice[0] + 1}')
+        status.update('slice', slice[0])
         volume.append(slice)
     volume = sorted(volume, key=itemgetter(0))
     volume = [slice[1] for slice in volume]
@@ -460,8 +459,7 @@ def main() -> None:
     if config['save_conf']:
         save_config(filename, config)
     print(f'Image saved as {filename}')
-    duration = time.time() - start_time
-    print(f'Time to complete: {duration // 60}min {round(duration % 60)}sec.')
+    status.end()
 
 
 if __name__ == '__main__':

@@ -12,13 +12,19 @@ from pjinoise.constants import TEXT
 
 class Status():
     def __init__(self, filename:str) -> None:
+        self.filename = filename
         self.t0 = time.time()
-        msg = TEXT['start'].format(min=0, sec=0, filename=filename)
+        msg = TEXT['start'].format(min=0, sec=0, filename=self.filename)
         print(msg)
     
-    def end(self, filename:str) -> None:
+    def end(self) -> None:
         min, sec = self._duration()
-        msg = TEXT['end'].format(min=min, sec=sec, filename=filename)
+        msg = TEXT['end'].format(min=min, sec=sec, filename=self.filename)
+        print(msg)
+    
+    def update(self, key:str, *args) -> None:
+        min, sec = self._duration()
+        msg = TEXT[key].format(min, sec, *args)
         print(msg)
     
     def _duration(self) -> Tuple[int]:

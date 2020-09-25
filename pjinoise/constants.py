@@ -29,7 +29,10 @@ P.extend(P)
 
 # Text for user interaction.
 EN_TEXT = {
-    'start': '{min:>04d}:{sec:>02d} Creating {filename}.',
-    'end': '{min:>04d}:{sec:>02d} {filename} created.',
+    'start': '{min:>4d}:{sec:>02d} Creating {filename}.',
+    'end': '{min:>4d}:{sec:>02d} {filename} created.',
+    'noise': '{:>4d}:{:>02d} Creating noise generators.',
+    'slice': '{:4d}:{:>02d} Created slice {}.',
+    'slices': '{:>4d}:{:>02d} Creating noise.',
 }
 TEXT = EN_TEXT

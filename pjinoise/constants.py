@@ -26,3 +26,10 @@ P = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
      93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 
      180]
 P.extend(P)
+
+# Text for user interaction.
+EN_TEXT = {
+    'start': '{min:>04d}:{sec:>02d} Creating {filename}.',
+    'end': '{min:>04d}:{sec:>02d} {filename} created.',
+}
+TEXT = EN_TEXT

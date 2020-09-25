@@ -10,6 +10,23 @@ from pjinoise import constants
 from pjinoise import noise
 
 
+class NoNoiseTestCase(ut.TestCase):
+    def test_nonoise_class(self):
+        """An instance of noise.NoNoise should be initiated with 
+        the given attributes.
+        """
+        exp_cls = noise.NoNoise
+        exp_attrs = {
+            'color': 0,
+        }
+        act_obj = noise.NoNoise(**exp_attrs)
+        act_attrs = {
+            'color': act_obj.color,
+        }
+        self.assertTrue(isinstance(act_obj, exp_cls))
+        self.assertDictEqual(exp_attrs, act_attrs)
+
+
 class PerlinTestCase(ut.TestCase):
     def test_perlin_class(self):
         """Given an x, y, and z coordinates; a permutations table, 

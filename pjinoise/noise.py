@@ -37,6 +37,14 @@ class Noise():
         return random.random()
 
 
+# Simple solid color and gradients.
+class NoNoise(Noise):
+    def __init__(self, color:int = 255, *args, **kwargs) -> None:
+        self.color = color
+        super().__init__(*args, **kwargs)
+
+
+# Value noise.
 class ValueNoise(Noise):
     """A class to generate value noise. Reference algorithms taken 
     from:
@@ -148,6 +156,7 @@ class OctaveCosineNoise(CosineNoise):
         return round(value)
 
 
+# Perlin noise.
 class Perlin(Noise):
     """A class to generate Perlin noise."""
     def __init__(self,

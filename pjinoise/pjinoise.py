@@ -429,10 +429,10 @@ def main() -> None:
         volume.append(slice)
     volume = sorted(volume, key=itemgetter(0))
     volume = [slice[1] for slice in volume]
-    print(f'{len(volume)} slices of noise created and sorted.')
+    status.update('slices_end', len(volume))
     
     # Postprocess and turn into images.
-    print('Postprocessing noise.')
+    status.update('postprocess_start')
     images = []
     for i in range(len(volume)):
         for filter in filters:
@@ -445,10 +445,10 @@ def main() -> None:
         if config['autocontrast']:
             img = ImageOps.autocontrast(img)
         images.append(img)
-    print('Postprocessing complete.')
+    status.update('postprocess_end')
     
     # Save the image and the configuration.
-    print('Saving.')
+    status.update('save_start', filename)
     if len(images) > 1:
         images[0].save(filename, 
                        save_all=True, 
@@ -458,7 +458,7 @@ def main() -> None:
         img.save(filename, format=format)
     if config['save_conf']:
         save_config(filename, config)
-    print(f'Image saved as {filename}')
+    status.update('save_end', filename)
     status.end()
 
 

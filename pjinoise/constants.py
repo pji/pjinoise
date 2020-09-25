@@ -34,5 +34,10 @@ EN_TEXT = {
     'noise': '{:>4d}:{:>02d} Creating noise generators.',
     'slice': '{:4d}:{:>02d} Created slice {}.',
     'slices': '{:>4d}:{:>02d} Creating noise.',
+    'slices_end': '{:>4d}:{:>02d} {} slices created.',
+    'postprocess_start': '{:>4d}:{:>02d} Postprocessing noise.',
+    'postprocess_end': '{:>4d}:{:>02d} Postprocessing complete.',
+    'save_start': '{:>4d}:{:>02d} Saving {}.',
+    'save_end': '{:>4d}:{:>02d} {} saved.',
 }
 TEXT = EN_TEXT

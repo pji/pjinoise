@@ -4,12 +4,27 @@ noise
 
 These are the noise generation objects used by pjinoise.
 """
+from abc import ABC, abstractmethod
 import math
 from typing import Sequence, Union
 
 from pjinoise.constants import X, Y, Z, AXES
 
-# Classes.
+# Base classes.
+class BaseNoise(ABC):
+    """Base class to define common features of noise classes."""
+    # Public methods.
+    def asdict(self) -> dict:
+        """Serialize the object to a dictionary."""
+        attrs = self.__dict__.copy()
+        attrs['type'] = self.__class__.__name__
+        return attrs
+    
+    @abstractmethod
+    def noise(self, coords:Sequence[float]) -> None:
+        """Generate the noise value for the given coordinates."""
+
+
 class Noise():
     def __init__(self, scale:float = 255, *args, **kwargs) -> None:
         self.scale = scale
@@ -38,7 +53,7 @@ class Noise():
 
 
 # Simple solid color and gradients.
-class SolidNoise(Noise):
+class SolidNoise(BaseNoise):
     def __init__(self, color:int = 255, *args, **kwargs) -> None:
         self.color = color
         super().__init__(*args, **kwargs)

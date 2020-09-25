@@ -36,6 +36,18 @@ class SolidTestCase(ut.TestCase):
         obj = noise.SolidNoise(exp)
         act = obj.noise(coords)
         self.assertEqual(exp, act)
+    
+    def test_solidnoise_serializes_to_dict(self):
+        """SolidNoise.asdict should return a dictionary representation 
+        of itself.
+        """
+        exp = {
+            'type': 'SolidNoise',
+            'color': 128,
+        }
+        obj = noise.SolidNoise(exp['color'])
+        act = obj.asdict()
+        self.assertDictEqual(exp, act)
 
 
 class PerlinTestCase(ut.TestCase):

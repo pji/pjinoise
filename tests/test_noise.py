@@ -10,21 +10,32 @@ from pjinoise import constants
 from pjinoise import noise
 
 
-class NoNoiseTestCase(ut.TestCase):
-    def test_nonoise_class(self):
-        """An instance of noise.NoNoise should be initiated with 
+class SolidTestCase(ut.TestCase):
+    def test_solidnoise_class(self):
+        """An instance of noise.SolidNoise should be initiated with 
         the given attributes.
         """
-        exp_cls = noise.NoNoise
+        exp_cls = noise.SolidNoise
         exp_attrs = {
             'color': 0,
         }
-        act_obj = noise.NoNoise(**exp_attrs)
+        act_obj = noise.SolidNoise(**exp_attrs)
         act_attrs = {
             'color': act_obj.color,
         }
         self.assertTrue(isinstance(act_obj, exp_cls))
         self.assertDictEqual(exp_attrs, act_attrs)
+    
+    def test_solidnoise_makes_noise(self):
+        """Given a set of coordinates within a multidimensional 
+        space, SolidNoise.noise should return the color defined 
+        for the SolidNoise object.
+        """
+        exp = 128
+        coords = (1, 1, 3, 8)
+        obj = noise.SolidNoise(exp)
+        act = obj.noise(coords)
+        self.assertEqual(exp, act)
 
 
 class PerlinTestCase(ut.TestCase):

@@ -38,10 +38,14 @@ class Noise():
 
 
 # Simple solid color and gradients.
-class NoNoise(Noise):
+class SolidNoise(Noise):
     def __init__(self, color:int = 255, *args, **kwargs) -> None:
         self.color = color
         super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def noise(self, coords:Sequence[float]) -> int:
+        return self.color
 
 
 # Value noise.

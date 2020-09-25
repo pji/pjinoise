@@ -63,15 +63,15 @@ class ValueNoise(Noise):
         if not located:
             x = self._locate(x)
             z = self._locate(z)
-        x_int = int(x)
-        z_int = int(z)
+        x_int = int(x) & 255
+        z_int = int(z) & 255
         x_float = x - x_int
         z_float = z - z_int
-        x1 = self._lerp(self.permutation_table[x_int + z_int],
-                        self.permutation_table[x_int + z_int + 1],
+        x1 = self._lerp(self.permutation_table[(x_int + z_int) % pt_len],
+                        self.permutation_table[(x_int + z_int + 1) % pt_len],
                         x_float)
-        x2 = self._lerp(self.permutation_table[x_int + z_int + 1],
-                        self.permutation_table[x_int + z_int + 2],
+        x2 = self._lerp(self.permutation_table[(x_int + z_int + 1) % pt_len],
+                        self.permutation_table[(x_int + z_int + 2) % pt_len],
                         x_float)
         value = self._lerp(x1, x2, z_float)
         return round(value)
@@ -93,15 +93,16 @@ class CosineNoise(ValueNoise):
         if not located:
             x = self._locate(x)
             z = self._locate(z)
-        x_int = int(x)
-        z_int = int(z)
+        x_int = int(x) & 255
+        z_int = int(z) & 255
         x_float = x - x_int
         z_float = z - z_int
-        x1 = self._lerp(self.permutation_table[x_int + z_int],
-                        self.permutation_table[x_int + z_int + 1],
+        pt_len = len(self.permutation_table)
+        x1 = self._lerp(self.permutation_table[(x_int + z_int) % pt_len],
+                        self.permutation_table[(x_int + z_int + 1) % pt_len],
                         x_float)
-        x2 = self._lerp(self.permutation_table[x_int + z_int + 1],
-                        self.permutation_table[x_int + z_int + 2],
+        x2 = self._lerp(self.permutation_table[(x_int + z_int + 1) % pt_len],
+                        self.permutation_table[(x_int + z_int + 2) % pt_len],
                         x_float)
         value = self._lerp(x1, x2, z_float)
         return round(value)
@@ -111,6 +112,40 @@ class CosineNoise(ValueNoise):
         """Eased linear interpolation function to smooth the noise."""
         x = (1 - math.cos(x * math.pi)) / 2
         return super()._lerp(a, b, x)
+
+
+class OctaveCosineNoise(CosineNoise):
+    def __init__(self, 
+                 octaves:int = 6,
+                 persistence:float = -4,
+                 amplitude:float = 24,
+                 frequency:float = 4,
+                 *args, **kwargs) -> None:
+        self.octaves = octaves
+        self.persistence = persistence
+        self.amplitude = amplitude
+        self.frequency = frequency
+        super().__init__(*args, **kwargs)
+
+    def asdict(self) -> dict:
+        data = super().asdict()
+        data['octaves'] = self.octaves
+        data['persistence'] = self.persistence
+        data['amplitude'] = self.amplitude
+        data['frequency'] = self.frequency
+        return data
+    
+    def noise(self, x:float, _:float, z:float, located:bool = False) -> int:
+        coords = [self._locate(n) for n in (x, _, z)]
+        total = 0
+        max_value = 0
+        for i in range(self.octaves):
+            amp = self.amplitude + (self.persistence * i)
+            freq = self.frequency * 2 ** i
+            total += super().noise(*(n * freq for n in coords), True) * amp
+            max_value += amp
+        value = total / max_value
+        return round(value)
 
 
 class Perlin(Noise):
@@ -300,13 +335,13 @@ class OctavePerlin(Perlin):
         """
         coords = [self._locate(n) for n in (x, y, z)]
         total = 0
-        maxValue = 0
+        max_value = 0
         for i in range(self.octaves):
             amp = self.amplitude + (self.persistence * i)
             freq = self.frequency * 2 ** i
             total += self.perlin(*(n * freq for n in coords), True) * amp
-            maxValue += amp
-        value = total / maxValue
+            max_value += amp
+        value = total / max_value
         return round(value)
 
 

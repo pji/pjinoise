@@ -48,6 +48,17 @@ class SolidTestCase(ut.TestCase):
         obj = noise.SolidNoise(exp['color'])
         act = obj.asdict()
         self.assertDictEqual(exp, act)
+    
+    def test_gradientnoise_class(self):
+        """An instance of noise.GradientNoise should be initiated with 
+        the given attributes.
+        """
+        exp_cls = noise.GradientNoise
+        exp_attrs = {}
+        act_obj = noise.GradientNoise(**exp_attrs)
+        act_attrs = {}
+        self.assertTrue(isinstance(act_obj, exp_cls))
+        self.assertDictEqual(exp_attrs, act_attrs)
 
 
 class PerlinTestCase(ut.TestCase):

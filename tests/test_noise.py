@@ -4,6 +4,7 @@ test_noise
 
 Unit tests for the pjinoise.noise module.
 """
+import numpy as np
 import unittest as ut
 
 from pjinoise import constants
@@ -55,17 +56,60 @@ class SolidTestCase(ut.TestCase):
         """
         exp_cls = noise.GradientNoise
         exp_attrs = {
-            'unit': 32,
+            'table': [
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+            ],
+            'unit': (2, 2, 2),
         }
         act_obj = noise.GradientNoise(**exp_attrs)
-        act_attrs = {
-            'unit': act_obj.unit
-        }
+        act_attrs = act_obj.asdict()
+        act_attrs.pop('type', None)
         self.assertTrue(isinstance(act_obj, exp_cls))
         self.assertDictEqual(exp_attrs, act_attrs)
     
     def test_gradientnoise_noise(self):
-        pass
+        """Given a coordinate, noise.GradientNoise should return the 
+        correct value for that coordinate."""
+        exp = 63.5
+        
+        attrs = {
+            'table': [
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+            ],
+            'unit': (2, 2, 2),
+        }
+        obj = noise.GradientNoise(**attrs)
+        act = obj.noise((1, 1, 1))
+        
+        self.assertEqual(exp, act)
 
 
 class PerlinTestCase(ut.TestCase):

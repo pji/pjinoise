@@ -6,6 +6,7 @@ These are the noise generation objects used by pjinoise.
 """
 from abc import ABC, abstractmethod
 import math
+import numpy as np
 from typing import Sequence, Union
 
 from pjinoise.constants import X, Y, Z, AXES
@@ -66,14 +67,67 @@ class SolidNoise(BaseNoise):
 
 class GradientNoise(BaseNoise):
     """Produce a gradient over a multidimensional space."""
-    def __init__(self, unit:int = 32, *args, **kwargs) -> None:
+    def __init__(self, 
+                 unit:Sequence[int], 
+                 table:Sequence, 
+                 *args, **kwargs) -> None:
+        """Initialize an instance of GradientNoise.
+        
+        :param unit: The number of pixels between vertices along an 
+            axis. The vertices are the locations where colors for 
+            the gradient are set.
+        :param table: The colors to set for the vertices. They will 
+            repeat if there are more units along the axis in an image 
+            then there are colors defined for that axis.
+        """
         self.unit = unit
+        self.table = np.array(table)
         super().__init__(*args, **kwargs)
     
     # Public methods.
+    def asdict(self) -> dict:
+        attrs = super().asdict()
+        attrs['table'] = attrs['table'].tolist()
+        return attrs
+    
     def noise(self, coords:Sequence[float]) -> int:
-        pass
+        """Create a pixel of noise."""
+        units = [self._locate(coords[i], i) for i in range(len(coords))]
+        return self._dimensional_lerp(0, units)
+    
+    # Private methods.
+    def _dimensional_lerp(self, index:int, units:Sequence) -> float:
+        """Perform a recursive linear interpolation through all 
+        dimensions of the noise.
+        """
+        coords_a = list(units[:])
+        n_unit = int(coords_a[index] // self.unit[index])
+        n_partial = coords_a[index] - n_unit
+        coords_a[index] = n_unit
+        
+        coords_b = coords_a[:]
+        coords_b[index] += 1
+        
+        coords_a = tuple(coords_a)
+        coords_b = tuple(coords_b)
+        
+        if index == len(units) - 1:
+            a = self.table[coords_a]
+            b = self.table[coords_b]
+        else:
+            a = self._dimensional_lerp(index + 1, coords_a)
+            b = self._dimensional_lerp(index + 1, coords_b)
+        
+        return self._lerp(a, b, n_partial)
+    
+    def _lerp(self, a:float, b:float, x:float) -> float:
+        """Performs a linear interpolation."""
+        return a * (1 - x) + b * x
 
+    def _locate(self, n:int, i:int) -> float:
+        "Locate the unit position of the pixel along its axis."
+        return n // self.unit[i] + (n % self.unit[i]) / self.unit[i]
+    
 
 # Value noise.
 class ValueNoise(Noise):
@@ -385,3 +439,5 @@ class OctavePerlin(Perlin):
         return round(value)
 
 
+if __name__ == '__main__':
+    raise NotImplementedError

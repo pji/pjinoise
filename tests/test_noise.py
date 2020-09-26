@@ -54,11 +54,18 @@ class SolidTestCase(ut.TestCase):
         the given attributes.
         """
         exp_cls = noise.GradientNoise
-        exp_attrs = {}
+        exp_attrs = {
+            'unit': 32,
+        }
         act_obj = noise.GradientNoise(**exp_attrs)
-        act_attrs = {}
+        act_attrs = {
+            'unit': act_obj.unit
+        }
         self.assertTrue(isinstance(act_obj, exp_cls))
         self.assertDictEqual(exp_attrs, act_attrs)
+    
+    def test_gradientnoise_noise(self):
+        pass
 
 
 class PerlinTestCase(ut.TestCase):
@@ -97,3 +104,5 @@ class PerlinTestCase(ut.TestCase):
         self.assertEqual(exp, act)
     
 
+if __name__ == '__main__':
+    raise NotImplementedError

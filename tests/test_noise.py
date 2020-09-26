@@ -110,6 +110,41 @@ class SolidTestCase(ut.TestCase):
         act = obj.noise((1, 1, 1))
         
         self.assertEqual(exp, act)
+    
+    def test_gradientnoise_fill_with_noise(self):
+        """Given the size of each dimension of the noise, 
+        GradientNoise.fill should return an array that contains 
+        the expected noise.
+        """
+        exp = [
+            [0, 63.5, 127, 190.5, 255],
+            [0, 63.5, 127, 190.5, 255],
+            [0, 63.5, 127, 190.5, 255],
+        ]
+        
+        size = (3, 5)
+        table = [
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+            ]
+        unit = (2, 2, 2)
+        obj = noise.GradientNoise(table=table, unit=unit)
+        act = obj.fill(size).tolist()
+        
+        self.assertListEqual(exp, act)
 
 
 class PerlinTestCase(ut.TestCase):

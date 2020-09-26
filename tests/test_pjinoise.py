@@ -319,3 +319,7 @@ class UtilityTestCase(ut.TestCase):
         act_conf = json.loads(text)
         for key in exp_conf:
             self.assertEqual(exp_conf[key], act_conf[key])
+
+
+if __name__ == '__main__':
+    raise NotImplementedError

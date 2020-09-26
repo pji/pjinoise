@@ -41,6 +41,7 @@ SUPPORTED_FILTERS = {
 SUPPORTED_NOISES = {
     'Noise': noise.Noise,
     'SolidNoise': noise.SolidNoise,
+    'GradientNoise': noise.GradientNoise,
     'ValueNoise': noise.ValueNoise,
     'CosineNoise': noise.CosineNoise,
     'OctaveCosineNoise': noise.OctaveCosineNoise,

@@ -29,6 +29,7 @@ P.extend(P)
 
 # Text for user interaction.
 EN_TEXT = {
+    # UI Status.
     'start': '{min:>4d}:{sec:>02d} Creating {filename}.',
     'end': '{min:>4d}:{sec:>02d} {filename} created.',
     'noise': '{:>4d}:{:>02d} Creating noise generators.',
@@ -39,5 +40,8 @@ EN_TEXT = {
     'postprocess_end': '{:>4d}:{:>02d} Postprocessing complete.',
     'save_start': '{:>4d}:{:>02d} Saving {}.',
     'save_end': '{:>4d}:{:>02d} {} saved.',
+    
+    # Exception messages.
+    'vol_dim_oob': 'Noise cannot have more generations than the table.',
 }
 TEXT = EN_TEXT

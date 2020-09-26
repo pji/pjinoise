@@ -66,6 +66,10 @@ class SolidNoise(BaseNoise):
 
 class GradientNoise(BaseNoise):
     """Produce a gradient over a multidimensional space."""
+    def __init__(self, unit:int = 32, *args, **kwargs) -> None:
+        self.unit = unit
+        super().__init__(*args, **kwargs)
+    
     # Public methods.
     def noise(self, coords:Sequence[float]) -> int:
         pass

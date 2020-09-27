@@ -22,11 +22,15 @@ class CLITestCase(ut.TestCase):
         exp = {
             'filename': 'spam.tiff',
             'format': 'TIFF',
+            'size': [64, 64],
         }
         
         sys.argv = [
             'python3.8 -m pjinoise.pjinoise', 
-            'spam.tiff',
+            '-s',
+            str(exp['size'][0]),
+            str(exp['size'][1]),
+            exp['filename'],
         ]
         pn.configure()
         act = pn.CONFIG

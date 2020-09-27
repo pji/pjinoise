@@ -30,6 +30,14 @@ def configure() -> None:
     # Read the command line arguments.
     p = argparse.ArgumentParser('Generate noise.')
     p.add_argument(
+        '-s', '--size',
+        type=int,
+        nargs=2,
+        default=[256, 256],
+        action='store',
+        help='The dimensions of the output file.'
+    )
+    p.add_argument(
         'filename',
         type=str,
         action='store',
@@ -39,8 +47,8 @@ def configure() -> None:
     
     # Turn the command line arguments into configuration.
     CONFIG['filename'] = args.filename
-#     CONFIG['format'] = get_format(args.filename)
-    CONFIG['format'] = 'TIFF'
+    CONFIG['format'] = get_format(args.filename)
+    CONFIG['size'] = args.size
 
 
 def get_format(filename:str) -> str:
@@ -64,4 +72,5 @@ def save_image(noise:'numpy.array') -> None:
 
 
 if __name__ == '__main__':
+    print(sys.argv)
     raise NotImplementedError

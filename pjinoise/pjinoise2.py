@@ -14,6 +14,7 @@ import sys
 
 from PIL import Image
 
+from pjinoise import noise
 from pjinoise.constants import SUPPORTED_FORMATS
 
 
@@ -21,6 +22,12 @@ from pjinoise.constants import SUPPORTED_FORMATS
 CONFIG = {
     'filename': '',
     'format': '',
+    'noise': '',
+    'size': (0, 0),
+    'unit': (0, 0),
+}
+SUPPORTED_NOISES = {
+    'GradientNoise': noise.GradientNoise,
 }
 
 
@@ -30,25 +37,44 @@ def configure() -> None:
     # Read the command line arguments.
     p = argparse.ArgumentParser('Generate noise.')
     p.add_argument(
+        '-n', '--noise_type',
+        type=str,
+        nargs='*',
+        action='store',
+        default=['GradientNoise',],
+        required=False,
+        help='The noise generator to use.'
+    )
+    p.add_argument(
+        '-o', '--output_file',
+        type=str,
+        action='store',
+        help='The name for the output file.'
+    )
+    p.add_argument(
         '-s', '--size',
         type=int,
-        nargs=2,
+        nargs='*',
         default=[256, 256],
         action='store',
         help='The dimensions of the output file.'
     )
     p.add_argument(
-        'filename',
-        type=str,
+        '-u', '--unit',
+        type=int,
+        nargs='*',
+        default=[256, 256],
         action='store',
-        help='The name for the output file.'
+        help='The dimensions in pixels of a unit of noise.'
     )
     args = p.parse_args()
     
     # Turn the command line arguments into configuration.
-    CONFIG['filename'] = args.filename
-    CONFIG['format'] = get_format(args.filename)
+    CONFIG['filename'] = args.output_file
+    CONFIG['format'] = get_format(args.output_file)
+    CONFIG['noise'] = [SUPPORTED_NOISES[item] for item in args.noise_type]
     CONFIG['size'] = args.size
+    CONFIG['unit'] = args.unit
 
 
 def get_format(filename:str) -> str:

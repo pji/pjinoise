@@ -10,6 +10,7 @@ import sys
 
 import numpy as np
 
+from pjinoise import noise
 from pjinoise import pjinoise2 as pn
 
 
@@ -22,14 +23,22 @@ class CLITestCase(ut.TestCase):
         exp = {
             'filename': 'spam.tiff',
             'format': 'TIFF',
+            'noise': [noise.GradientNoise,],
             'size': [64, 64],
+            'unit': [32, 32],
         }
         
         sys.argv = [
             'python3.8 -m pjinoise.pjinoise', 
+            '-n',
+            'GradientNoise',
             '-s',
             str(exp['size'][0]),
             str(exp['size'][1]),
+            '-u',
+            str(exp['unit'][0]),
+            str(exp['unit'][1]),
+            '-o',
             exp['filename'],
         ]
         pn.configure()

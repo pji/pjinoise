@@ -6,10 +6,32 @@ Unit tests for pjinoise.pjinoise2.
 """
 import unittest as ut
 from unittest.mock import call, patch
+import sys
 
 import numpy as np
 
 from pjinoise import pjinoise2 as pn
+
+
+class CLITestCase(ut.TestCase):
+    def test_configure_from_command_line(self):
+        """When the script is invoked with command line arguments, 
+        pjinoise.configure should update the script configuration 
+        based on those arguments.
+        """
+        exp = {
+            'filename': 'spam.tiff',
+            'format': 'TIFF',
+        }
+        
+        sys.argv = [
+            'python3.8 -m pjinoise.pjinoise', 
+            'spam.tiff',
+        ]
+        pn.configure()
+        act = pn.CONFIG
+        
+        self.assertDictEqual(exp, act)
 
 
 class ImageFileTestCase(ut.TestCase):

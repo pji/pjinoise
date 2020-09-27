@@ -45,3 +45,14 @@ EN_TEXT = {
     'vol_dim_oob': 'Noise cannot have more generations than the table.',
 }
 TEXT = EN_TEXT
+
+# Valid data registration.
+SUPPORTED_FORMATS = {
+    'bmp': 'BMP',
+    'gif': 'GIF',
+    'jpeg': 'JPEG',
+    'jpg': 'JPEG',
+    'png': 'PNG',
+    'tif': 'TIFF',
+    'tiff': 'TIFF',
+}

@@ -15,7 +15,8 @@ from pjinoise import pjinoise2 as pn
 
 
 class CLITestCase(ut.TestCase):
-    def test_configure_from_command_line(self):
+    @patch('random.randrange', return_value=127)
+    def test_configure_from_command_line(self, _):
         """When the script is invoked with command line arguments, 
         pjinoise.configure should update the script configuration 
         based on those arguments.
@@ -23,10 +24,11 @@ class CLITestCase(ut.TestCase):
         exp = {
             'filename': 'spam.tiff',
             'format': 'TIFF',
-            'noise': [noise.GradientNoise,],
-            'size': [64, 64],
-            'unit': [32, 32],
+            'ntypes': [noise.GradientNoise,],
+            'size': [3, 3],
+            'unit': [2, 2],
         }
+        exp['noises'] = [exp['ntypes'][0](unit=exp['unit'], size=exp['size']),]
         
         sys.argv = [
             'python3.8 -m pjinoise.pjinoise', 

@@ -7,13 +7,22 @@ These are the noise generation objects used by pjinoise.
 from abc import ABC, abstractmethod
 import math
 import numpy as np
-from typing import Sequence, Union
+import random
+from typing import List, Sequence, Union
 
 from pjinoise.constants import X, Y, Z, AXES, TEXT
 
 # Base classes.
 class BaseNoise(ABC):
     """Base class to define common features of noise classes."""
+    def __init__(self, scale:int = 255) -> None:
+        self.scale = 255
+    
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return self.asdict() == other.asdict()
+    
     # Public methods.
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
@@ -69,20 +78,28 @@ class GradientNoise(BaseNoise):
     """Produce a gradient over a multidimensional space."""
     def __init__(self, 
                  unit:Sequence[int], 
-                 table:Sequence, 
+                 size:Union[Sequence[int], None] = None, 
+                 table:Union[Sequence, None] = None, 
                  *args, **kwargs) -> None:
         """Initialize an instance of GradientNoise.
         
         :param unit: The number of pixels between vertices along an 
             axis. The vertices are the locations where colors for 
             the gradient are set.
-        :param table: The colors to set for the vertices. They will 
-            repeat if there are more units along the axis in an image 
-            then there are colors defined for that axis.
+        :param size: (Optional.) The expected size of the noise that 
+            will be generated. This is only used if no table is passed. 
+        :param table: (Optional.) The colors to set for the vertices. 
+            They will repeat if there are more units along the axis 
+            in an image then there are colors defined for that axis.
         """
-        self.unit = unit
-        self.table = np.array(table)
         super().__init__(*args, **kwargs)
+        self.unit = unit
+        if size and not table:
+            table = self._make_table(size)
+        elif not size and not table:
+            cls = self.__class__.__name__
+            raise ValueError(TEXT['table_or_size'].format(cls))
+        self.table = np.array(table)
     
     # Public methods.
     def asdict(self) -> dict:
@@ -158,6 +175,25 @@ class GradientNoise(BaseNoise):
         "Locate the unit position of the pixel along its axis."
         return n // self.unit[i] + (n % self.unit[i]) / self.unit[i]
     
+    def _make_table(self, size:Sequence[int]) -> List:
+        """Create a color table for vertices."""
+        def fill_table(dim:Sequence[int]) -> List:
+            """Recursively fill a table of the given dimensions."""
+            if len(dim) > 1:
+                result = [fill_table(dim[1:]) for _ in range(dim[0])]
+            else:
+                result = [random.randrange(self.scale) for _ in range(dim[0])]
+            return result
+        
+        # Determine the dimensions of the table.
+        # The "upside down" floor division here is the equivalent to 
+        # ceiling division without the messy float conversion of the 
+        # math.ceil() function.
+        dim = [-(-n // u) for n, u in zip(size, self.unit)]
+        
+        # Create the table.
+        return fill_table(dim)
+
 
 # Value noise.
 class ValueNoise(Noise):

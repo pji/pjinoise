@@ -43,6 +43,8 @@ EN_TEXT = {
     
     # Exception messages.
     'vol_dim_oob': 'Noise cannot have more generations than the table.',
+    'table_or_size': ('Must provide either a table or an expected size ' 
+                      'when initializing a {} object.'),
 }
 TEXT = EN_TEXT
 

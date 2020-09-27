@@ -11,6 +11,7 @@ from:
 """
 import argparse
 import sys
+from typing import List
 
 from PIL import Image
 
@@ -22,7 +23,7 @@ from pjinoise.constants import SUPPORTED_FORMATS
 CONFIG = {
     'filename': '',
     'format': '',
-    'noise': '',
+    'ntypes': [],
     'size': (0, 0),
     'unit': (0, 0),
 }
@@ -37,13 +38,13 @@ def configure() -> None:
     # Read the command line arguments.
     p = argparse.ArgumentParser('Generate noise.')
     p.add_argument(
-        '-n', '--noise_type',
+        '-n', '--ntypes',
         type=str,
         nargs='*',
         action='store',
         default=['GradientNoise',],
         required=False,
-        help='The noise generator to use.'
+        help='The noise generators to use.'
     )
     p.add_argument(
         '-o', '--output_file',
@@ -72,9 +73,10 @@ def configure() -> None:
     # Turn the command line arguments into configuration.
     CONFIG['filename'] = args.output_file
     CONFIG['format'] = get_format(args.output_file)
-    CONFIG['noise'] = [SUPPORTED_NOISES[item] for item in args.noise_type]
+    CONFIG['ntypes'] = [SUPPORTED_NOISES[item] for item in args.ntypes]
     CONFIG['size'] = args.size
     CONFIG['unit'] = args.unit
+    CONFIG['noises'] = make_noises_from_config()
 
 
 def get_format(filename:str) -> str:
@@ -88,6 +90,15 @@ def get_format(filename:str) -> str:
         supported = ', '.join(SUPPORTED_FORMATS)
         print(f'The supported formats are: {supported}.')
         raise SystemExit
+
+
+def make_noises_from_config() -> List[noise.BaseNoise]:
+    """Make noises from the command line configuration."""
+    kwargs = {
+        'size': CONFIG['size'],
+        'unit': CONFIG['unit'],
+    }
+    return [cls(**kwargs) for cls in CONFIG['ntypes']]
 
 
 # Image handling.

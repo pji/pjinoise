@@ -6,6 +6,7 @@ Unit tests for the pjinoise.noise module.
 """
 import numpy as np
 import unittest as ut
+from unittest.mock import patch
 
 from pjinoise import constants
 from pjinoise import noise
@@ -45,6 +46,7 @@ class SolidTestCase(ut.TestCase):
         exp = {
             'type': 'SolidNoise',
             'color': 128,
+            'scale': 255,
         }
         obj = noise.SolidNoise(exp['color'])
         act = obj.asdict()
@@ -74,6 +76,7 @@ class SolidTestCase(ut.TestCase):
                 ],
             ],
             'unit': (2, 2, 2),
+            'scale': 255,
         }
         act_obj = noise.GradientNoise(**exp_attrs)
         act_attrs = act_obj.asdict()
@@ -144,6 +147,24 @@ class SolidTestCase(ut.TestCase):
         obj = noise.GradientNoise(table=table, unit=unit)
         act = obj.fill(size).tolist()
         
+        self.assertListEqual(exp, act)
+    
+    @patch('random.randrange', return_value=127)
+    def test_gradientnosie_make_table(self, _):
+        """If not passed a color table for its vertices, 
+        noise.GradientNoise should create one.
+        """
+        exp = [
+            [127, 127, 127],
+            [127, 127, 127],
+            [127, 127, 127],
+        ]
+        kwargs = {
+            'size': (5, 5),
+            'unit': (2, 2),
+        }
+        obj = noise.GradientNoise(**kwargs)
+        act = obj.table.tolist()
         self.assertListEqual(exp, act)
 
 

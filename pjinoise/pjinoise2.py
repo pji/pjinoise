@@ -11,7 +11,7 @@ from:
 """
 import argparse
 import sys
-from typing import List
+from typing import List, Sequence
 
 from PIL import Image
 
@@ -28,6 +28,7 @@ CONFIG = {
     'unit': (0, 0),
 }
 SUPPORTED_NOISES = {
+    'SolidNoise': noise.SolidNoise,
     'GradientNoise': noise.GradientNoise,
 }
 
@@ -102,10 +103,16 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
 
 
 # Image handling.
-def save_image(noise:'numpy.array') -> None:
+def save_image(noise:'numpy.ndarray') -> None:
     """Save the given array as an image to disk."""
     img = Image.fromarray(noise)
     img.save(CONFIG['filename'], CONFIG['format'])
+
+
+# Noise creation.
+def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
+    """Create a space filled with noise."""
+    return n.fill(size)
 
 
 if __name__ == '__main__':

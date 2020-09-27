@@ -30,10 +30,40 @@ class BaseNoise(ABC):
         attrs['type'] = self.__class__.__name__
         return attrs
     
+    def fill(self, size:Sequence[int]) -> np.array:
+        """Return a space filled with noise."""
+        # Create the space.
+        result = np.zeros(size)
+        
+        # Pad missing dimensions in the size.
+        size = size[:]
+        if len(self.table.shape) < len(size):
+            raise ValueError(TEXT['vol_dim_oob'])
+        elif len(self.table.shape) > len(size):
+            diff = len(self.table.shape) - len(size)
+            padding = [0 for i in range(diff)]
+        
+        # Fill the space with noise.
+        index = [0 for i in range(len(size))]
+        while index[0] < size[0]:
+            full_index = padding[:]
+            full_index.extend(index)
+            result[tuple(index)] = self.noise(full_index)
+            index[-1] += 1
+            for i in range(1, len(size))[::-1]:
+                if index[i] == size[i]:
+                    index[i] = 0
+                    index[i - 1] += 1
+                else:
+                    break
+        
+        # Return the noise-filled space.
+        return result
+
     @abstractmethod
     def noise(self, coords:Sequence[float]) -> None:
         """Generate the noise value for the given coordinates."""
-
+    
 
 class Noise():
     def __init__(self, scale:float = 255, *args, **kwargs) -> None:
@@ -106,36 +136,6 @@ class GradientNoise(BaseNoise):
         attrs = super().asdict()
         attrs['table'] = attrs['table'].tolist()
         return attrs
-    
-    def fill(self, size:Sequence[int]) -> np.array:
-        """Return a space filled with noise."""
-        # Create the space.
-        result = np.zeros(size)
-        
-        # Pad missing dimensions in the size.
-        size = size[:]
-        if len(self.table.shape) < len(size):
-            raise ValueError(TEXT['vol_dim_oob'])
-        elif len(self.table.shape) > len(size):
-            diff = len(self.table.shape) - len(size)
-            padding = [0 for i in range(diff)]
-        
-        # Fill the space with noise.
-        index = [0 for i in range(len(size))]
-        while index[0] < size[0]:
-            full_index = padding[:]
-            full_index.extend(index)
-            result[tuple(index)] = self.noise(full_index)
-            index[-1] += 1
-            for i in range(1, len(size))[::-1]:
-                if index[i] == size[i]:
-                    index[i] = 0
-                    index[i - 1] += 1
-                else:
-                    break
-        
-        # Return the noise-filled space.
-        return result
     
     def noise(self, coords:Sequence[float]) -> int:
         """Create a pixel of noise."""

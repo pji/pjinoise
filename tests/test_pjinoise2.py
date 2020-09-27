@@ -72,5 +72,44 @@ class ImageFileTestCase(ut.TestCase):
         self.assertListEqual(exp, act)
 
 
+class NoiseTestCase(ut.TestCase):
+    """Test cases for the creation of noise."""
+    def test_create_single_noise_volume(self):
+        """Given a noise object and a size of the noise to generate, 
+        pjinoise.make_noise should return a numpy.ndarray object 
+        containing the noise.
+        """
+        exp = [
+            [0, 63.5, 127, 190.5, 255],
+            [0, 63.5, 127, 190.5, 255],
+            [0, 63.5, 127, 190.5, 255],
+        ]
+        
+        size = (3, 5)
+        table = [
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+                [
+                    [0, 127, 255],
+                    [0, 127, 255],
+                    [0, 127, 255],
+                ],
+            ]
+        unit = (2, 2, 2)
+        obj = noise.GradientNoise(table=table, unit=unit)
+        array = pn.make_noise(obj, size)
+        act = array.tolist()
+        
+        self.assertListEqual(exp, act)
+
+
 if __name__ == '__main__':
     raise NotImplementedError

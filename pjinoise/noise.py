@@ -39,9 +39,8 @@ class BaseNoise(ABC):
         size = size[:]
         if len(self.table.shape) < len(size):
             raise ValueError(TEXT['vol_dim_oob'])
-        elif len(self.table.shape) > len(size):
-            diff = len(self.table.shape) - len(size)
-            padding = [0 for i in range(diff)]
+        diff = len(self.table.shape) - len(size)
+        padding = [0 for i in range(diff)]
         
         # Fill the space with noise.
         index = [0 for i in range(len(size))]
@@ -148,7 +147,7 @@ class GradientNoise(BaseNoise):
         dimensions of the noise.
         """
         coords_a = list(units[:])
-        n_unit = int(coords_a[index] // self.unit[index])
+        n_unit = int(coords_a[index])
         n_partial = coords_a[index] - n_unit
         coords_a[index] = n_unit
         
@@ -164,7 +163,7 @@ class GradientNoise(BaseNoise):
         else:
             a = self._dimensional_lerp(index + 1, coords_a)
             b = self._dimensional_lerp(index + 1, coords_b)
-        
+                        
         return self._lerp(a, b, n_partial)
     
     def _lerp(self, a:float, b:float, x:float) -> float:
@@ -189,10 +188,11 @@ class GradientNoise(BaseNoise):
         # The "upside down" floor division here is the equivalent to 
         # ceiling division without the messy float conversion of the 
         # math.ceil() function.
-        dim = [-(-n // u) for n, u in zip(size, self.unit)]
+        dim = [-(-n // u) + 1 for n, u in zip(size, self.unit)]
         
         # Create the table.
-        return fill_table(dim)
+        table = fill_table(dim)
+        return table
 
 
 # Value noise.

@@ -60,14 +60,18 @@ class ImageFileTestCase(ut.TestCase):
         filename = 'spam'
         format = 'TIFF'
         exp = [
-            call(array), 
-            call().save(filename, format),
+            ['', [array.tolist(),], {'mode': 'L',}], 
+            ['().save', [filename, format], {}],
         ]
         
         pn.CONFIG['filename'] = filename
         pn.CONFIG['format'] = format
         pn.save_image(array)
-        act = mock_fromarray.mock_calls
+        calls = mock_fromarray.mock_calls
+        act = [list(item) for item in calls]
+        for item in act:
+            item[1] = [thing for thing in item[1]]
+        act[0][1][0] = act[0][1][0].tolist()
                 
         self.assertListEqual(exp, act)
 
@@ -80,27 +84,30 @@ class NoiseTestCase(ut.TestCase):
         containing the noise.
         """
         exp = [
-            [0, 63.5, 127, 190.5, 255],
-            [0, 63.5, 127, 190.5, 255],
-            [0, 63.5, 127, 190.5, 255],
+            [0.0, 63.5, 127.0, 191.0, 255.0],
+            [0.0, 63.5, 127.0, 191.0, 255.0],
+            [0.0, 63.5, 127.0, 191.0, 255.0],
         ]
         
         size = (3, 5)
         table = [
                 [
-                    [0, 127, 255],
-                    [0, 127, 255],
-                    [0, 127, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
                 ],
                 [
-                    [0, 127, 255],
-                    [0, 127, 255],
-                    [0, 127, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
                 ],
                 [
-                    [0, 127, 255],
-                    [0, 127, 255],
-                    [0, 127, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
                 ],
             ]
         unit = (2, 2, 2)

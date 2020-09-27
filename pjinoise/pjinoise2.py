@@ -13,6 +13,7 @@ import argparse
 import sys
 from typing import List, Sequence
 
+import numpy as np
 from PIL import Image
 
 from pjinoise import noise
@@ -98,14 +99,23 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
     kwargs = {
         'size': CONFIG['size'],
         'unit': CONFIG['unit'],
+#         'table': [
+#             [0, 63, 127, 191, 255],
+#             [0, 63, 127, 191, 255][::-1],
+#             [0, 63, 127, 191, 255],
+#             [0, 63, 127, 191, 255],
+#             [0, 63, 127, 191, 255],
+#         ],
     }
     return [cls(**kwargs) for cls in CONFIG['ntypes']]
 
 
 # Image handling.
-def save_image(noise:'numpy.ndarray') -> None:
+def save_image(n:'numpy.ndarray') -> None:
     """Save the given array as an image to disk."""
-    img = Image.fromarray(noise)
+    n = n.round()
+    n = n.astype(np.uint8)
+    img = Image.fromarray(n, mode='L')
     img.save(CONFIG['filename'], CONFIG['format'])
 
 
@@ -115,6 +125,13 @@ def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
     return n.fill(size)
 
 
+# Mainline.
+def main() -> None:
+    """Mainline."""
+    configure()
+    space = make_noise(CONFIG['noises'][0], CONFIG['size'])
+    save_image(space)
+
+
 if __name__ == '__main__':
-    print(sys.argv)
-    raise NotImplementedError
+    main()    

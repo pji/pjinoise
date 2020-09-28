@@ -24,6 +24,7 @@ from pjinoise.constants import SUPPORTED_FORMATS
 CONFIG = {
     'filename': '',
     'format': '',
+    'loops': 0,
     'ntypes': [],
     'size': (0, 0),
     'unit': (0, 0),
@@ -113,10 +114,21 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
 # Image handling.
 def save_image(n:'numpy.ndarray') -> None:
     """Save the given array as an image to disk."""
+    # Ensure the values in the array are valid within the color 
+    # space of the image.
     n = n.round()
     n = n.astype(np.uint8)
-    img = Image.fromarray(n, mode='L')
-    img.save(CONFIG['filename'], CONFIG['format'])
+    
+    if len(n.shape) == 2:
+        img = Image.fromarray(n, mode='L')
+        img.save(CONFIG['filename'], CONFIG['format'])
+    
+    if len(n.shape) == 3:
+        frames = [Image.fromarray(n[i], mode='L') for i in range(n.shape[0])]
+        frames[0].save(CONFIG['filename'], 
+                       save_all=True,
+                       append_images=frames[1:],
+                       loop=CONFIG['loops'])
 
 
 # Noise creation.

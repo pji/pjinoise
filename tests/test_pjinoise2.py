@@ -9,6 +9,7 @@ from unittest.mock import call, patch
 import sys
 
 import numpy as np
+from PIL import Image
 
 from pjinoise import noise
 from pjinoise import pjinoise2 as pn
@@ -24,6 +25,7 @@ class CLITestCase(ut.TestCase):
         exp = {
             'filename': 'spam.tiff',
             'format': 'TIFF',
+            'loops': 0,
             'ntypes': [noise.GradientNoise,],
             'size': [3, 3],
             'unit': [2, 2],
@@ -73,6 +75,54 @@ class ImageFileTestCase(ut.TestCase):
             item[1] = [thing for thing in item[1]]
         act[0][1][0] = act[0][1][0].tolist()
                 
+        self.assertListEqual(exp, act)
+    
+    
+    @patch('PIL.Image.Image.save')
+    @patch('PIL.Image.fromarray')
+    def test_save_animation(self, mock_fromarray, mock_save):
+        """Given a three dimensional numpy.array, pjinoise.save_image 
+        should create PIL.Image that is an animation, with each two 
+        dimensional slice being a frame, and save it to disk.
+        """
+        array = np.array([
+            [
+                [0, 127, 255], 
+                [0, 127, 255]
+            ],
+            [
+                [0, 127, 255], 
+                [0, 127, 255]
+            ],
+        ]
+        )
+        filename = 'spam'
+        format = 'GIF'
+        loop = 0
+        img = Image.fromarray(array[1])
+        exp = [
+            ['', [array.tolist()[0],], {}],     # Artifact from two lines up.
+            ['', [array.tolist()[0],], {'mode': 'L',}], 
+            ['', [array.tolist()[1],], {'mode': 'L',}], 
+            ['().save', [filename], {
+                'save_all': True,
+                'append_images': [img,],
+                'loop': loop,
+            }],
+        ]
+        
+        pn.CONFIG['filename'] = filename
+        pn.CONFIG['format'] = format
+        pn.CONFIG['loop'] = 0
+        pn.save_image(array)
+        calls = mock_fromarray.mock_calls
+        act = [list(item) for item in calls]
+        for item in act:
+            item[1] = [thing for thing in item[1]]
+        act[0][1][0] = act[0][1][0].tolist()
+        act[1][1][0] = act[1][1][0].tolist()
+        act[2][1][0] = act[2][1][0].tolist()
+        
         self.assertListEqual(exp, act)
 
 

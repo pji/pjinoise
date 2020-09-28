@@ -6,7 +6,7 @@ Unit tests for the pjinoise.noise module.
 """
 import numpy as np
 import unittest as ut
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from pjinoise import constants
 from pjinoise import noise
@@ -170,6 +170,47 @@ class SolidTestCase(ut.TestCase):
         obj = noise.GradientNoise(**kwargs)
         act = obj.table.tolist()
         self.assertListEqual(exp, act)
+
+
+class ValueTestCase(ut.TestCase):
+    def test_valuenoise_makes_noise(self):
+        """Given the size of each dimension of the noise, 
+        ValueNoise.fill should return a space of that size 
+        filled with noise.
+        """
+        exp = [
+            [255, 255, 255],
+            [255, 255, 255],
+            [255, 255, 255],
+        ]
+        
+        kwargs = {
+            'table': [255 for _ in range(512)],
+            'unit': (2, 2),
+        }
+        obj = noise.ValueNoise(**kwargs)
+        array = obj.fill((3, 3))
+        act = array.tolist()
+        
+        self.assertListEqual(exp, act)
+    
+    @patch('random.shuffle')
+    def test_valuenoise_makes_table(self, mock_random):
+        """If not given a permutations table, noise.ValueNoise will 
+        create one on initialization.
+        """
+        exp = [n for n in range(256)]
+        exp.extend([n for n in range(256)])
+        exp_random = [
+            call(exp),
+        ]
+        
+        n = noise.ValueNoise(unit=[32, 32])
+        act = n.table.tolist()
+        act_random = mock_random.mock_calls
+        
+        self.assertListEqual(exp, act)
+        self.assertListEqual(exp_random, act_random)
 
 
 class PerlinTestCase(ut.TestCase):

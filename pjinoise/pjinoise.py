@@ -385,7 +385,7 @@ def main() -> None:
     # Parse command line arguments.
     args = parse_command_line_args()
     filename = args.filename
-    status = ui.Status(filename)
+    status = ui.Status()
     
     # Read script configuration from a given config file.
     if args.config:

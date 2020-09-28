@@ -15,14 +15,14 @@ class StatusTestCase(ut.TestCase):
     @patch('pjinoise.ui.print')
     def test_start_and_end_script(self, mock_print, mock_time):
         filename = 'spam'
-        start = ui.TEXT['start'].format(min=0, sec=0, filename=filename)
-        end = ui.TEXT['end'].format(min=1, sec=1, filename=filename)
+        start = ui.TEXT['start'].format(min=0, sec=0)
+        end = ui.TEXT['end'].format(min=1, sec=1)
         exp = [
             call(start),
             call(end),
         ]
         
-        status = ui.Status(filename)
+        status = ui.Status()
         mock_time.return_value = 61
         status.end()
         act = mock_print.mock_calls
@@ -33,7 +33,7 @@ class StatusTestCase(ut.TestCase):
     @patch('pjinoise.ui.print')
     def test_update_status(self, mock_print, mock_time):
         filename = 'spam'
-        start = ui.TEXT['start'].format(min=0, sec=0, filename=filename)
+        start = ui.TEXT['start'].format(min=0, sec=0)
         update = ui.TEXT['noise'].format(1, 1)
         exp = [
             call(start),
@@ -41,7 +41,7 @@ class StatusTestCase(ut.TestCase):
         ]
         
         text_key = 'noise'
-        status = ui.Status(filename)
+        status = ui.Status()
         mock_time.return_value = 61
         status.update(text_key)
         act = mock_print.mock_calls

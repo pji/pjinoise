@@ -11,15 +11,14 @@ from pjinoise.constants import TEXT
 
 
 class Status():
-    def __init__(self, filename:str) -> None:
-        self.filename = filename
+    def __init__(self) -> None:
         self.t0 = time.time()
-        msg = TEXT['start'].format(min=0, sec=0, filename=self.filename)
+        msg = TEXT['start'].format(min=0, sec=0)
         print(msg)
     
     def end(self) -> None:
         min, sec = self._duration()
-        msg = TEXT['end'].format(min=min, sec=sec, filename=self.filename)
+        msg = TEXT['end'].format(min=min, sec=sec)
         print(msg)
     
     def update(self, key:str, *args) -> None:

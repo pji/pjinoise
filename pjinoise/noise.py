@@ -136,7 +136,7 @@ class GradientNoise(BaseNoise):
         attrs['table'] = attrs['table'].tolist()
         return attrs
     
-    def noise(self, coords:Sequence[float]) -> int:
+    def noise(self, coords:Sequence[float]) -> float:
         """Create a pixel of noise."""
         units = [self._locate(coords[i], i) for i in range(len(coords))]
         return self._dimensional_lerp(0, units)
@@ -196,53 +196,79 @@ class GradientNoise(BaseNoise):
 
 
 # Value noise.
-class ValueNoise(Noise):
+# class ValueNoise(Noise):
+class ValueNoise(GradientNoise):
     """A class to generate value noise. Reference algorithms taken 
     from:
     
     https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/procedural-patterns-noise-part-1/creating-simple-1D-noise
     """
     def __init__(self, 
-                 permutation_table:Union[Sequence[int], None] = None,
-                 unit_cube:int = 1024,
+                 unit:Sequence[int], 
+                 table:Union[Sequence[int], None] = None,
                  *args, **kwargs) -> None:
-        """Initialize an instance of the object."""
-        self.permutation_table = permutation_table
-        self.unit_cube = unit_cube
-        super().__init__(*args, **kwargs)
+        self.unit = unit
+        if not table:
+            table = self._make_table()
+        self.table = np.array(table)
     
     # Public methods.
-    def asdict(self) -> dict:
-        data = super().asdict()
-        data['permutation_table'] = self.permutation_table
-        data['unit_cube'] = self.unit_cube
-        return data
-    
-    def noise(self, x:float, y:float, z:float, located:bool = False) -> int:
-        if not located:
-            x = self._locate(x)
-            z = self._locate(z)
-        x_int = int(x) & 255
-        z_int = int(z) & 255
-        x_float = x - x_int
-        z_float = z - z_int
-        x1 = self._lerp(self.permutation_table[(x_int + z_int) % pt_len],
-                        self.permutation_table[(x_int + z_int + 1) % pt_len],
-                        x_float)
-        x2 = self._lerp(self.permutation_table[(x_int + z_int + 1) % pt_len],
-                        self.permutation_table[(x_int + z_int + 2) % pt_len],
-                        x_float)
-        value = self._lerp(x1, x2, z_float)
-        return round(value)
-    
+    def fill(self, size:Sequence[int]) -> np.array:
+        """Return a space filled with noise."""
+        # Create the space.
+        result = np.zeros(size)
+        
+        # Fill the space with noise.
+        index = [0 for i in range(len(size))]
+        while index[0] < size[0]:
+            result[tuple(index)] = self.noise(index)
+            index[-1] += 1
+            for i in range(1, len(size))[::-1]:
+                if index[i] == size[i]:
+                    index[i] = 0
+                    index[i - 1] += 1
+                else:
+                    break
+        
+        # Return the noise-filled space.
+        return result
+
+    def noise(self, coords:Sequence[float]) -> int:
+        units = [self._locate(coords[i], i) for i in range(len(coords))]
+        if len(units) % 2 == 0:
+            return self._dimensional_lerp(0, units[1::2])
+        return self._dimensional_lerp(0, units[::2])
+
     # Private methods.
-    def _lerp(self, a:float, b:float, x:float) -> float:
-        """Performs a linear interpolation."""
-        return a * (1 - x) + b * x
+    def _dimensional_lerp(self, index:int, units:Sequence) -> float:
+        """Perform a recursive linear interpolation through all 
+        dimensions of the noise.
+        """
+        coords_a = list(units[:])
+        n_unit = int(coords_a[index])
+        n_partial = coords_a[index] - n_unit
+        coords_a[index] = n_unit
+        
+        coords_b = coords_a[:]
+        coords_b[index] += 1
+        
+        if index == len(units) - 1:
+            sum_a = sum(coords_a) % len(self.table)
+            sum_b = sum(coords_b) % len(self.table)
+        
+            a = self.table[sum_a]
+            b = self.table[sum_b]
+        else:
+            a = self._dimensional_lerp(index + 1, coords_a)
+            b = self._dimensional_lerp(index + 1, coords_b)
+                        
+        return self._lerp(a, b, n_partial)
     
-    def _locate(self, n:float) -> float:
-        """Locates the point in the unit cube."""
-        return n // self.unit_cube + (n % self.unit_cube) / self.unit_cube
+    def _make_table(self) -> List:
+        table = [n for n in range(256)]
+        table.extend(table)
+        random.shuffle(table)
+        return table
 
 
 class CosineNoise(ValueNoise):

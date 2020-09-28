@@ -17,6 +17,7 @@ import numpy as np
 from PIL import Image
 
 from pjinoise import noise
+from pjinoise import ui
 from pjinoise.constants import SUPPORTED_FORMATS
 
 
@@ -32,6 +33,7 @@ CONFIG = {
 SUPPORTED_NOISES = {
     'SolidNoise': noise.SolidNoise,
     'GradientNoise': noise.GradientNoise,
+    'ValueNoise': noise.ValueNoise,
 }
 
 
@@ -77,8 +79,8 @@ def configure() -> None:
     CONFIG['filename'] = args.output_file
     CONFIG['format'] = get_format(args.output_file)
     CONFIG['ntypes'] = [SUPPORTED_NOISES[item] for item in args.ntypes]
-    CONFIG['size'] = args.size
-    CONFIG['unit'] = args.unit
+    CONFIG['size'] = args.size[::-1]
+    CONFIG['unit'] = args.unit[::-1]
     CONFIG['noises'] = make_noises_from_config()
 
 
@@ -100,13 +102,6 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
     kwargs = {
         'size': CONFIG['size'],
         'unit': CONFIG['unit'],
-#         'table': [
-#             [0, 63, 127, 191, 255],
-#             [0, 63, 127, 191, 255][::-1],
-#             [0, 63, 127, 191, 255],
-#             [0, 63, 127, 191, 255],
-#             [0, 63, 127, 191, 255],
-#         ],
     }
     return [cls(**kwargs) for cls in CONFIG['ntypes']]
 
@@ -140,9 +135,12 @@ def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
 # Mainline.
 def main() -> None:
     """Mainline."""
+    status = ui.Status()
     configure()
     space = make_noise(CONFIG['noises'][0], CONFIG['size'])
     save_image(space)
+    status.update('save_end', CONFIG['filename'])
+    status.end()
 
 
 if __name__ == '__main__':

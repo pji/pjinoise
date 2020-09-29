@@ -10,6 +10,7 @@ from:
     http://samclane.github.io/Perlin-Noise-Python/
 """
 import argparse
+from concurrent import futures
 from copy import deepcopy
 import json
 import sys
@@ -20,7 +21,7 @@ from PIL import Image
 
 from pjinoise import noise
 from pjinoise import ui
-from pjinoise.constants import SUPPORTED_FORMATS
+from pjinoise.constants import SUPPORTED_FORMATS, WORKERS
 
 
 # Script configuration.
@@ -242,7 +243,34 @@ def save_image(n:'numpy.ndarray') -> None:
 # Noise creation.
 def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
     """Create a space filled with noise."""
-    return n.fill(size)
+    if len(size) == 2:
+        return n.fill(size)
+    
+    result = np.zeros(size)
+    slice_loc = [0 for _ in range(len(size[:-2]))]
+    with futures.ProcessPoolExecutor(WORKERS) as executor:
+        to_do = []
+        while slice_loc[0] < size[0]:
+            job = executor.submit(make_noise_slice, n, size[-2:], slice_loc[:])
+            to_do.append(job)
+            slice_loc[-1] += 1
+            for i in range(1, len(slice_loc))[::-1]:
+                if slice_loc[i] == size[i]:
+                    slice_loc[i] = 0
+                    slice_loc[i - 1] += 1
+    
+    for future in futures.as_completed(to_do):
+        loc, slice = future.result()
+        result[loc] = slice
+    
+    return result
+        
+
+def make_noise_slice(n:noise.BaseNoise, 
+                     size:Sequence[int],
+                     slice_loc:Sequence[int]) -> 'np.array':
+    """Create a two dimensional slice of noise."""
+    return (slice_loc, n.fill(size, slice_loc))
 
 
 # Mainline.

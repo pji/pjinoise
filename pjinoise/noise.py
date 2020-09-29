@@ -214,7 +214,7 @@ class ValueNoise(GradientNoise):
         self.table = np.array(table)
     
     # Public methods.
-    def fill(self, size:Sequence[int]) -> np.array:
+    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
         """Return a space filled with noise."""
         # Create the space.
         result = np.zeros(size)
@@ -222,7 +222,11 @@ class ValueNoise(GradientNoise):
         # Fill the space with noise.
         index = [0 for i in range(len(size))]
         while index[0] < size[0]:
-            result[tuple(index)] = self.noise(index)
+            coords = []
+            if loc:
+                coords = loc[:]
+            coords.extend(index)
+            result[tuple(index)] = self.noise(coords)
             index[-1] += 1
             for i in range(1, len(size))[::-1]:
                 if index[i] == size[i]:

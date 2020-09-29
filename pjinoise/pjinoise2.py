@@ -53,6 +53,13 @@ def configure() -> None:
         help='Save the config to a file.'
     )
     p.add_argument(
+        '-C', '--load_config',
+        type=str,
+        action='store',
+        required=False,
+        help='Read config from a file. Overrides most other arguments.'
+    )
+    p.add_argument(
         '-n', '--ntypes',
         type=str,
         nargs='*',
@@ -85,13 +92,29 @@ def configure() -> None:
     )
     args = p.parse_args()
     
+    # Read the configuration from a file.
+    if args.load_config:
+        read_config(args.load_config)
+    
     # Turn the command line arguments into configuration.
+    else:
+        CONFIG['ntypes'] = args.ntypes
+        CONFIG['size'] = args.size[::-1]
+        CONFIG['unit'] = args.unit[::-1]
+        CONFIG['noises'] = make_noises_from_config()
+    
+    # Configure arguments not overridden by the config file.
     CONFIG['filename'] = args.output_file
     CONFIG['format'] = get_format(args.output_file)
+    
+    # Deserialize serialized objects in the configuration.
     CONFIG['ntypes'] = [SUPPORTED_NOISES[item] for item in args.ntypes]
-    CONFIG['size'] = args.size[::-1]
-    CONFIG['unit'] = args.unit[::-1]
-    CONFIG['noises'] = make_noises_from_config()
+    noises = []
+    for kwargs in CONFIG['noises']:
+        cls = SUPPORTED_NOISES[kwargs['type']]
+        n = cls(**kwargs)
+        noises.append(n)
+    CONFIG['noises'] = noises
 
 
 def get_format(filename:str) -> str:
@@ -108,12 +131,16 @@ def get_format(filename:str) -> str:
 
 
 def make_noises_from_config() -> List[noise.BaseNoise]:
-    """Make noises from the command line configuration."""
-    kwargs = {
-        'size': CONFIG['size'],
-        'unit': CONFIG['unit'],
-    }
-    return [cls(**kwargs) for cls in CONFIG['ntypes']]
+    """Make serialized noises from the command line configuration."""
+    result = []
+    for ntype in CONFIG['ntypes']:
+        kwargs = {
+            'type': ntype,
+            'size': CONFIG['size'],
+            'unit': CONFIG['unit'],
+        }
+        result.append(kwargs)
+    return result
 
 
 # File handling.

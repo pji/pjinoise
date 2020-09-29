@@ -25,19 +25,31 @@ from pjinoise.constants import SUPPORTED_FORMATS
 
 # Script configuration.
 CONFIG = {
+    # General script configuration,
     'filename': '',
     'format': '',
-    'loops': 0,
-    'ntypes': [],
     'save_config': True,
+    
+    # Noise generation configuration.
+    'ntypes': [],
     'size': (0, 0),
     'unit': (0, 0),
+    
+    # Octave noise configuration.
+    'octaves': 0,
+    'persistence': 0,
+    'amplitude': 0,
+    'frequency': 0,
+    
+    # Animation configuration.
+    'loops': 0,
 }
 SUPPORTED_NOISES = {
     'SolidNoise': noise.SolidNoise,
     'GradientNoise': noise.GradientNoise,
     'ValueNoise': noise.ValueNoise,
     'CosineNoise': noise.CosineNoise,
+    'OctaveCosineNoise': noise.OctaveCosineNoise,
 }
 
 
@@ -60,6 +72,22 @@ def configure() -> None:
         help='Read config from a file. Overrides most other arguments.'
     )
     p.add_argument(
+        '-a', '--amplitude',
+        type=float,
+        action='store',
+        required=False,
+        default=24,
+        help='The starting amplitude for octave noise generation.'
+    )
+    p.add_argument(
+        '-f', '--frequency',
+        type=float,
+        action='store',
+        required=False,
+        default=4,
+        help='The starting frequency for octave noise generation.'
+    )
+    p.add_argument(
         '-n', '--ntypes',
         type=str,
         nargs='*',
@@ -73,6 +101,22 @@ def configure() -> None:
         type=str,
         action='store',
         help='The name for the output file.'
+    )
+    p.add_argument(
+        '-O', '--octaves',
+        type=int,
+        action='store',
+        required=False,
+        default=6,
+        help='The octaves of noise for octave noise generation.'
+    )
+    p.add_argument(
+        '-p', '--persistence',
+        type=float,
+        action='store',
+        required=False,
+        default=-4,
+        help='How the impact of each octave changes in octave noise generation.'
     )
     p.add_argument(
         '-s', '--size',
@@ -101,6 +145,10 @@ def configure() -> None:
         CONFIG['ntypes'] = args.ntypes
         CONFIG['size'] = args.size[::-1]
         CONFIG['unit'] = args.unit[::-1]
+        CONFIG['octaves'] = args.octaves
+        CONFIG['persistence'] = args.persistence
+        CONFIG['amplitude'] = args.amplitude
+        CONFIG['frequency'] = args.frequency
         CONFIG['noises'] = make_noises_from_config()
     
     # Configure arguments not overridden by the config file.
@@ -138,6 +186,10 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
             'type': ntype,
             'size': CONFIG['size'],
             'unit': CONFIG['unit'],
+            'octaves': CONFIG['octaves'],
+            'persistence': CONFIG['persistence'],
+            'amplitude': CONFIG['amplitude'],
+            'frequency': CONFIG['frequency'],
         }
         result.append(kwargs)
     return result

@@ -302,14 +302,14 @@ class OctaveCosineNoise(CosineNoise):
         data['frequency'] = self.frequency
         return data
     
-    def noise(self, x:float, _:float, z:float, located:bool = False) -> int:
-        coords = [self._locate(n) for n in (x, _, z)]
+    def noise(self, coords:Sequence[float]) -> int:
         total = 0
         max_value = 0
         for i in range(self.octaves):
             amp = self.amplitude + (self.persistence * i)
             freq = self.frequency * 2 ** i
-            total += super().noise(*(n * freq for n in coords), True) * amp
+            new_coords = tuple(n * freq for n in coords)
+            total += super().noise(new_coords) * amp
             max_value += amp
         value = total / max_value
         return round(value)

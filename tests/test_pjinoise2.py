@@ -18,13 +18,24 @@ from pjinoise import pjinoise2 as pn
 
 
 CONFIG = {
+    # General script configuration.
     'filename': 'spam.tiff',
     'format': 'TIFF',
-    'loops': 0,
-    'ntypes': [noise.ValueNoise,],
     'save_config': True,
+    
+    # General noise generation configuration.
+    'ntypes': [noise.ValueNoise,],
     'size': [3, 3],
     'unit': [2, 2],
+    
+    # Octave noise configuration.
+    'octaves': 6,
+    'persistence': -4,
+    'amplitude': 24,
+    'frequency': 4,
+    
+    # Animation configuration.
+    'loops': 0,
 }
 CONFIG['noises'] = [CONFIG['ntypes'][0](unit=CONFIG['unit'], 
                                         table=[0 for _ in range(512)]),]
@@ -48,6 +59,14 @@ class CLITestCase(ut.TestCase):
             '-u',
             str(exp['unit'][0]),
             str(exp['unit'][1]),
+            '-O',
+            str(exp['octaves']),
+            '-p',
+            str(exp['persistence']),
+            '-a',
+            str(exp['amplitude']),
+            '-f',
+            str(exp['frequency']),
             '-o',
             exp['filename'],
         ]

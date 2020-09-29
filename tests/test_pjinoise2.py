@@ -22,6 +22,7 @@ CONFIG = {
     'format': 'TIFF',
     'loops': 0,
     'ntypes': [noise.ValueNoise,],
+    'save_config': True,
     'size': [3, 3],
     'unit': [2, 2],
 }
@@ -58,6 +59,28 @@ class CLITestCase(ut.TestCase):
 
 
 class FileTestCase(ut.TestCase):
+    def test_read_configuration_file(self):
+        """When given a filename, pjinoise.read_config should 
+        configure the script using the details in the given file.
+        """
+        namepart = CONFIG["filename"].split(".")[0]
+        filename = f'{namepart}.conf'
+        exp_conf = deepcopy(CONFIG)
+        exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
+        exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
+        exp_open = (filename,)
+        
+        contents = json.dumps(exp_conf, indent=4)
+        open_mock = mock_open()
+        with patch("pjinoise.pjinoise2.open", open_mock, create=True):
+            open_mock.return_value.read.return_value = contents
+            pn.read_config(filename)
+            act_conf = pn.CONFIG
+        
+        open_mock.assert_called_with(*exp_open)
+        for key in exp_conf:
+            self.assertEqual(exp_conf[key], act_conf[key])
+    
     def test_save_configuration_file(self):
         """When called, pjinoise.save_config should write the 
         current configuration to a file.
@@ -67,7 +90,7 @@ class FileTestCase(ut.TestCase):
         exp_conf = deepcopy(CONFIG)
         pn.CONFIG = deepcopy(CONFIG)
         exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
-        exp_conf['noises'][0] = exp_conf['noises'][0].asdict()
+        exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
         exp_open = (filename, 'w')
         
         open_mock = mock_open()

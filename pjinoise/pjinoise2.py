@@ -29,6 +29,7 @@ CONFIG = {
     'format': '',
     'loops': 0,
     'ntypes': [],
+    'save_config': True,
     'size': (0, 0),
     'unit': (0, 0),
 }
@@ -45,6 +46,12 @@ def configure() -> None:
     """Configure the script from command line arguments."""
     # Read the command line arguments.
     p = argparse.ArgumentParser('Generate noise.')
+    p.add_argument(
+        '-c', '--save_config',
+        action='store_true',
+        required=False,
+        help='Save the config to a file.'
+    )
     p.add_argument(
         '-n', '--ntypes',
         type=str,
@@ -110,6 +117,19 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
 
 
 # File handling.
+def read_config(filename:str) -> None:
+    """Read the script configuration from a file."""
+    # The global keyword has to be used here because I'll be changing 
+    # the dictionary CONFIG points to. It doesn't need to be used in 
+    # configure() because there I'm only changing the keys in the 
+    # dictionary.
+    global CONFIG
+    
+    with open(filename) as fh:
+        contents = fh.read()
+    CONFIG = json.loads(contents)
+
+
 def save_config() -> None:
     """Save the current configuration to a file."""
     namepart = CONFIG["filename"].split(".")[0]
@@ -154,6 +174,8 @@ def main() -> None:
     space = make_noise(CONFIG['noises'][0], CONFIG['size'])
     save_image(space)
     status.update('save_end', CONFIG['filename'])
+    if CONFIG['save_config']:
+        save_config()
     status.end()
 
 

@@ -5,12 +5,13 @@ noise
 These are the noise generation objects used by pjinoise.
 """
 from abc import ABC, abstractmethod
+from concurrent import futures
 import math
 import numpy as np
 import random
-from typing import List, Sequence, Union
+from typing import List, Sequence, Tuple, Union
 
-from pjinoise.constants import X, Y, Z, AXES, TEXT
+from pjinoise.constants import X, Y, Z, AXES, TEXT, WORKERS
 
 # Base classes.
 class BaseNoise(ABC):
@@ -273,25 +274,6 @@ class ValueNoise(GradientNoise):
 
 class CosineNoise(ValueNoise):
     """A class to produce cosine smoothed value noise."""
-    # Public methods.
-    def noise(self, x:float, y:float, z:float, located:bool = False) -> int:
-        if not located:
-            x = self._locate(x)
-            z = self._locate(z)
-        x_int = int(x) & 255
-        z_int = int(z) & 255
-        x_float = x - x_int
-        z_float = z - z_int
-        pt_len = len(self.permutation_table)
-        x1 = self._lerp(self.permutation_table[(x_int + z_int) % pt_len],
-                        self.permutation_table[(x_int + z_int + 1) % pt_len],
-                        x_float)
-        x2 = self._lerp(self.permutation_table[(x_int + z_int + 1) % pt_len],
-                        self.permutation_table[(x_int + z_int + 2) % pt_len],
-                        x_float)
-        value = self._lerp(x1, x2, z_float)
-        return round(value)
-    
     # Private methods.
     def _lerp(self, a:float, b:float, x:float) -> float:
         """Eased linear interpolation function to smooth the noise."""

@@ -10,6 +10,8 @@ from:
     http://samclane.github.io/Perlin-Noise-Python/
 """
 import argparse
+from copy import deepcopy
+import json
 import sys
 from typing import List, Sequence
 
@@ -34,6 +36,7 @@ SUPPORTED_NOISES = {
     'SolidNoise': noise.SolidNoise,
     'GradientNoise': noise.GradientNoise,
     'ValueNoise': noise.ValueNoise,
+    'CosineNoise': noise.CosineNoise,
 }
 
 
@@ -106,7 +109,18 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
     return [cls(**kwargs) for cls in CONFIG['ntypes']]
 
 
-# Image handling.
+# File handling.
+def save_config() -> None:
+    """Save the current configuration to a file."""
+    namepart = CONFIG["filename"].split(".")[0]
+    filename = f'{namepart}.conf'
+    config = deepcopy(CONFIG)
+    config['ntypes'] = [cls.__name__ for cls in config['ntypes']]
+    config['noises'] = [n.asdict() for n in config['noises']]
+    with open(filename, 'w') as fh:
+        fh.write(json.dumps(config))
+
+
 def save_image(n:'numpy.ndarray') -> None:
     """Save the given array as an image to disk."""
     # Ensure the values in the array are valid within the color 

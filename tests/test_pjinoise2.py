@@ -4,8 +4,10 @@ test_pjinoise
 
 Unit tests for pjinoise.pjinoise2.
 """
+from copy import deepcopy
+import json
 import unittest as ut
-from unittest.mock import call, patch
+from unittest.mock import call, mock_open, patch
 import sys
 
 import numpy as np
@@ -15,27 +17,30 @@ from pjinoise import noise
 from pjinoise import pjinoise2 as pn
 
 
+CONFIG = {
+    'filename': 'spam.tiff',
+    'format': 'TIFF',
+    'loops': 0,
+    'ntypes': [noise.ValueNoise,],
+    'size': [3, 3],
+    'unit': [2, 2],
+}
+CONFIG['noises'] = [CONFIG['ntypes'][0](unit=CONFIG['unit'], 
+                                        table=[0 for _ in range(512)]),]
+
+
 class CLITestCase(ut.TestCase):
-    @patch('random.randrange', return_value=127)
-    def test_configure_from_command_line(self, _):
+    def test_configure_from_command_line(self):
         """When the script is invoked with command line arguments, 
         pjinoise.configure should update the script configuration 
         based on those arguments.
         """
-        exp = {
-            'filename': 'spam.tiff',
-            'format': 'TIFF',
-            'loops': 0,
-            'ntypes': [noise.GradientNoise,],
-            'size': [3, 3],
-            'unit': [2, 2],
-        }
-        exp['noises'] = [exp['ntypes'][0](unit=exp['unit'], size=exp['size']),]
+        exp = CONFIG
         
         sys.argv = [
             'python3.8 -m pjinoise.pjinoise', 
             '-n',
-            'GradientNoise',
+            'ValueNoise',
             '-s',
             str(exp['size'][0]),
             str(exp['size'][1]),
@@ -46,12 +51,36 @@ class CLITestCase(ut.TestCase):
             exp['filename'],
         ]
         pn.configure()
+        pn.CONFIG['noises'][0].table = np.array([0 for _ in range(512)])
         act = pn.CONFIG
         
         self.assertDictEqual(exp, act)
 
 
-class ImageFileTestCase(ut.TestCase):
+class FileTestCase(ut.TestCase):
+    def test_save_configuration_file(self):
+        """When called, pjinoise.save_config should write the 
+        current configuration to a file.
+        """
+        namepart = CONFIG["filename"].split(".")[0]
+        filename = f'{namepart}.conf'
+        exp_conf = deepcopy(CONFIG)
+        pn.CONFIG = deepcopy(CONFIG)
+        exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
+        exp_conf['noises'][0] = exp_conf['noises'][0].asdict()
+        exp_open = (filename, 'w')
+        
+        open_mock = mock_open()
+        with patch('pjinoise.pjinoise2.open', open_mock, create=True):
+            pn.save_config()
+        
+        open_mock.assert_called_with(*exp_open)
+        
+        text = open_mock.return_value.write.call_args[0][0]
+        act_conf = json.loads(text)
+        for key in exp_conf:
+            self.assertEqual(exp_conf[key], act_conf[key])
+        
     @patch('PIL.Image.Image.save')
     @patch('PIL.Image.fromarray')
     def test_save_image(self, mock_fromarray, mock_save):
@@ -76,7 +105,6 @@ class ImageFileTestCase(ut.TestCase):
         act[0][1][0] = act[0][1][0].tolist()
                 
         self.assertListEqual(exp, act)
-    
     
     @patch('PIL.Image.Image.save')
     @patch('PIL.Image.fromarray')

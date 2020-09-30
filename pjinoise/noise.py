@@ -9,7 +9,7 @@ from concurrent import futures
 import math
 import numpy as np
 import random
-from typing import List, Sequence, Tuple, Union
+from typing import List, Mapping, Sequence, Tuple, Union
 
 from pjinoise.constants import X, Y, Z, AXES, TEXT, WORKERS
 
@@ -333,7 +333,6 @@ class Perlin(ValueNoise):
     
     # Public methods.
     def noise(self, coords:Sequence[float]) -> float:
-        coords = coords[::-1]
         units = [self._locate(coords[i], i) for i in range(len(coords))]
         if self.repeat:
             units = [n % self.repeat[i] for i in range(len(self.repeat))]
@@ -342,28 +341,40 @@ class Perlin(ValueNoise):
         units_float = [n - n_int for n, n_int in zip(units, units_int)]
         units_fade = [self._fade(n) for n in units_float]
         
-        hashes = [f'{n:>03b}' for n in range(8)]
+        hashes = [f'{n:>03b}'[::-1] for n in range(2 ** len(units))]
         hash_table = {hash: self._hash(hash, units_int) for hash in hashes}
     
-        x1 = self._lerp(self._grad('000', hash_table, units_float),
-                        self._grad('100', hash_table, units_float),
-                        units_fade[X])
-        x2 = self._lerp(self._grad('010', hash_table, units_float),
-                        self._grad('110', hash_table, units_float),
-                        units_fade[X])
-        y1 = self._lerp(x1, x2, units_fade[Y])
-        x1 = self._lerp(self._grad('001', hash_table, units_float),
-                        self._grad('101', hash_table, units_float),
-                        units_fade[X])
-        x2 = self._lerp(self._grad('011', hash_table, units_float),
-                        self._grad('111', hash_table, units_float),
-                        units_fade[X])
-        y2 = self._lerp(x1, x2, units_fade[Y])
-        
-        value = (self._lerp(y1, y2, units_fade[Z]) + 1) / 2
+        value = self._dimensional_lerp(0, units_float, units_fade, hash_table)
         return round(self.scale * value)
     
     # Private methods.
+    def _dimensional_lerp(self, 
+                          index:int, 
+                          floats:Sequence[float],
+                          fades:Sequence[float],
+                          hashes:Mapping[str, int],
+                          mask = '') -> float:
+        mask_a = mask
+        mask_b = mask
+        if len(floats) - index <= 3:
+            mask_a += '0'
+            mask_b += '1'
+        
+        if index == len(floats) - 1:
+            a = self._grad(mask_a, hashes, floats)
+            b = self._grad(mask_b, hashes, floats)
+            return self._lerp(a, b, fades[index])
+        
+        elif index == len(floats) - 2:
+            a = self._dimensional_lerp(index + 1, floats, fades, hashes, mask_a)
+            b = self._dimensional_lerp(index + 1, floats, fades, hashes, mask_b)
+            return self._lerp(a, b, fades[index])
+        
+        else:
+            a = self._dimensional_lerp(index + 1, floats, fades, hashes, mask_a)
+            b = self._dimensional_lerp(index + 1, floats, fades, hashes, mask_b)
+            return (self._lerp(a, b, fades[index]) + 1) / 2    
+    
     def _fade(self, t:float) -> float:
         """An easing function for Perlin noise generation."""
         return 6 * t ** 5 - 15 * t ** 4 + 10 * t ** 3
@@ -372,7 +383,7 @@ class Perlin(ValueNoise):
         """Return the dot product of the gradient and the location 
         vectors.
         """
-        coords = coords[:]
+        coords = coords[-3:]
         hash = hash_table[mask]
         for axis in AXES:
             if mask[axis] == '1':
@@ -418,13 +429,17 @@ class Perlin(ValueNoise):
 
     def _hash(self, pattern:str, coords:Sequence[int]) -> int:
         """Generate a hash for the given coordinates."""
-        coords = coords[:]
-        for axis in AXES:
-            if pattern[axis] == '1':
-                coords[axis] = self._inc(coords[axis])
-        xy = self.table[coords[X]] + coords[Y]
-        xyz = self.table[xy] + coords[Z]
-        return self.table[xyz]
+        coords = coords[-3:]
+        
+        for i in range(len(coords)):
+            if pattern[i] == '1':
+                coords[i] = self._inc(coords[i])
+        
+        coords = coords[::-1]
+        result = coords[0]
+        for n in coords[1:]:
+            result = self.table[result] + n
+        return result
     
     def _inc(self, value:int, repeat:int = 0) -> int:
         """Increments the passed value, rolling over if repeat is given."""

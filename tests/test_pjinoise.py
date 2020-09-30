@@ -16,6 +16,7 @@ from pjinoise import noise
 from pjinoise import pjinoise
 
 
+@ut.skip
 class PerlinGenerationTestCase(ut.TestCase):
     def test_make_animation_frames(self):
         """Given a size, a Z coordinate, a direction, a length, 

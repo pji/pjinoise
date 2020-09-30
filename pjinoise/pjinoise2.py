@@ -55,6 +55,7 @@ SUPPORTED_NOISES = {
     'ValueNoise': noise.ValueNoise,
     'CosineNoise': noise.CosineNoise,
     'OctaveCosineNoise': noise.OctaveCosineNoise,
+    'Perlin': noise.Perlin,
 }
 
 

@@ -207,11 +207,13 @@ class ValueNoise(GradientNoise):
     def __init__(self, 
                  unit:Sequence[int], 
                  table:Union[Sequence[int], None] = None,
+                 scale:int = 255,
                  *args, **kwargs) -> None:
         self.unit = unit
         if not table:
             table = self._make_table()
         self.table = np.array(table)
+        self.scale = scale
     
     # Public methods.
     def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
@@ -323,64 +325,43 @@ class OctaveCosineNoise(CosineNoise):
 
 
 # Perlin noise.
-class Perlin(Noise):
+class Perlin(ValueNoise):
     """A class to generate Perlin noise."""
-    def __init__(self,
-                 permutation_table:Union[Sequence[int], None] = None,
-                 unit_cube:int = 1024,
-                 repeat:int = 0,
-                 *args, **kwargs) -> None:
-        """Initialize an instance of the object."""
-        self.permutation_table = permutation_table
-        self.unit_cube = unit_cube
+    def __init__(self, repeat:Sequence[float] = None, *args, **kwargs) -> None:
         self.repeat = repeat
         super().__init__(*args, **kwargs)
     
     # Public methods.
-    def asdict(self) -> dict:
-        data = super().asdict()
-        data['permutation_table'] = self.permutation_table
-        data['unit_cube'] = self.unit_cube
-        data['repeat'] = self.repeat
-        return data
-    
-    def perlin(self, x:float, y:float, z:float, located:bool = False) -> int:
-        """Calculate the value of a pixel using a Perlin noise function."""
-        if not located:
-            coords = [self._locate(n) for n in (x, y, z)]
-        else:
-            coords = [x, y, z]
+    def noise(self, coords:Sequence[float]) -> float:
+        coords = coords[::-1]
+        units = [self._locate(coords[i], i) for i in range(len(coords))]
+        if self.repeat:
+            units = [n % self.repeat[i] for i in range(len(self.repeat))]
         
-        if self.repeat > 0:
-            coords = [coords[axis] % self.repeat for axis in AXES]
-        
-        coords_int = [int(coords[axis]) & 255 for axis in AXES]
-        coords_float = [coords[axis] - int(coords[axis]) for axis in AXES]
-        u, v, w = [self._fade(n) for n in coords_float]
+        units_int = [int(n) % 255 for n in units]
+        units_float = [n - n_int for n, n_int in zip(units, units_int)]
+        units_fade = [self._fade(n) for n in units_float]
         
         hashes = [f'{n:>03b}' for n in range(8)]
-        hash_table = {hash: self._hash(hash, coords_int) for hash in hashes}
+        hash_table = {hash: self._hash(hash, units_int) for hash in hashes}
     
-        x1 = self._lerp(self._grad('000', hash_table, coords_float),
-                        self._grad('100', hash_table, coords_float),
-                        u)
-        x2 = self._lerp(self._grad('010', hash_table, coords_float),
-                        self._grad('110', hash_table, coords_float),
-                        u)
-        y1 = self._lerp(x1, x2, v)
-        x1 = self._lerp(self._grad('001', hash_table, coords_float),
-                        self._grad('101', hash_table, coords_float),
-                        u)
-        x2 = self._lerp(self._grad('011', hash_table, coords_float),
-                        self._grad('111', hash_table, coords_float),
-                        u)
-        y2 = self._lerp(x1, x2, v)
+        x1 = self._lerp(self._grad('000', hash_table, units_float),
+                        self._grad('100', hash_table, units_float),
+                        units_fade[X])
+        x2 = self._lerp(self._grad('010', hash_table, units_float),
+                        self._grad('110', hash_table, units_float),
+                        units_fade[X])
+        y1 = self._lerp(x1, x2, units_fade[Y])
+        x1 = self._lerp(self._grad('001', hash_table, units_float),
+                        self._grad('101', hash_table, units_float),
+                        units_fade[X])
+        x2 = self._lerp(self._grad('011', hash_table, units_float),
+                        self._grad('111', hash_table, units_float),
+                        units_fade[X])
+        y2 = self._lerp(x1, x2, units_fade[Y])
         
-        value = (self._lerp(y1, y2, w) + 1) / 2
+        value = (self._lerp(y1, y2, units_fade[Z]) + 1) / 2
         return round(self.scale * value)
-    
-    def noise(self, *args, **kwargs) -> int:
-        return self.perlin(*args, **kwargs)
     
     # Private methods.
     def _fade(self, t:float) -> float:
@@ -396,7 +377,8 @@ class Perlin(Noise):
         for axis in AXES:
             if mask[axis] == '1':
                 coords[axis] = coords[axis] - 1
-        x, y, z = coords
+#         x, y, z = coords
+        z, y, x = coords
         
         n = hash & 0xF
         out = 0
@@ -440,9 +422,9 @@ class Perlin(Noise):
         for axis in AXES:
             if pattern[axis] == '1':
                 coords[axis] = self._inc(coords[axis])
-        xy = self.permutation_table[coords[X]] + coords[Y]
-        xyz = self.permutation_table[xy] + coords[Z]
-        return self.permutation_table[xyz]
+        xy = self.table[coords[X]] + coords[Y]
+        xyz = self.table[xy] + coords[Z]
+        return self.table[xyz]
     
     def _inc(self, value:int, repeat:int = 0) -> int:
         """Increments the passed value, rolling over if repeat is given."""
@@ -450,14 +432,6 @@ class Perlin(Noise):
         if repeat > 0:
             value %= repeat
         return value
-
-    def _lerp(self, a:float, b:float, x:float) -> float:
-        """Performs a linear interpolation."""
-        return a + x * (b - a)
-    
-    def _locate(self, n:float) -> float:
-        """Locates the point in the unit cube."""
-        return n // self.unit_cube + (n % self.unit_cube) / self.unit_cube
 
 
 class OctavePerlin(Perlin):

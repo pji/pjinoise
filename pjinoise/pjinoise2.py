@@ -17,7 +17,7 @@ import sys
 from typing import List, Sequence
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 from pjinoise import noise
 from pjinoise import ui
@@ -44,7 +44,11 @@ CONFIG = {
     
     # Animation configuration.
     'loops': 0,
+    
+    # Postprocessing configuration.
+    'autocontrast': False,
 }
+STATUS = None
 SUPPORTED_NOISES = {
     'SolidNoise': noise.SolidNoise,
     'GradientNoise': noise.GradientNoise,
@@ -60,6 +64,21 @@ def configure() -> None:
     # Read the command line arguments.
     p = argparse.ArgumentParser('Generate noise.')
     p.add_argument(
+        '-a', '--amplitude',
+        type=float,
+        action='store',
+        required=False,
+        default=24,
+        help='The starting amplitude for octave noise generation.'
+    )
+    p.add_argument(
+        '-A', '--autocontrast',
+        action='store_true',
+        required=False,
+        default=False,
+        help='Automatically adjust the contrast of the image.'
+    )
+    p.add_argument(
         '-c', '--save_config',
         action='store_true',
         required=False,
@@ -71,14 +90,6 @@ def configure() -> None:
         action='store',
         required=False,
         help='Read config from a file. Overrides most other arguments.'
-    )
-    p.add_argument(
-        '-a', '--amplitude',
-        type=float,
-        action='store',
-        required=False,
-        default=24,
-        help='The starting amplitude for octave noise generation.'
     )
     p.add_argument(
         '-f', '--frequency',
@@ -150,6 +161,7 @@ def configure() -> None:
         CONFIG['persistence'] = args.persistence
         CONFIG['amplitude'] = args.amplitude
         CONFIG['frequency'] = args.frequency
+        CONFIG['autocontrast'] = args.autocontrast
         CONFIG['noises'] = make_noises_from_config()
     
     # Configure arguments not overridden by the config file.
@@ -230,10 +242,14 @@ def save_image(n:'numpy.ndarray') -> None:
     
     if len(n.shape) == 2:
         img = Image.fromarray(n, mode='L')
+        if CONFIG['autocontrast']:
+            img = ImageOps.autocontrast(img)
         img.save(CONFIG['filename'], CONFIG['format'])
     
     if len(n.shape) == 3:
         frames = [Image.fromarray(n[i], mode='L') for i in range(n.shape[0])]
+        if CONFIG['autocontrast']:
+            frames = [ImageOps.autocontrast(frame) for frame in frames]
         frames[0].save(CONFIG['filename'], 
                        save_all=True,
                        append_images=frames[1:],
@@ -251,7 +267,11 @@ def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
     with futures.ProcessPoolExecutor(WORKERS) as executor:
         to_do = []
         while slice_loc[0] < size[0]:
-            job = executor.submit(make_noise_slice, n, size[-2:], slice_loc[:])
+            job = executor.submit(make_noise_slice, 
+                                  n, 
+                                  size[-2:], 
+                                  slice_loc[:],
+                                  STATUS)
             to_do.append(job)
             slice_loc[-1] += 1
             for i in range(1, len(slice_loc))[::-1]:
@@ -268,22 +288,26 @@ def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
 
 def make_noise_slice(n:noise.BaseNoise, 
                      size:Sequence[int],
-                     slice_loc:Sequence[int]) -> 'np.array':
+                     slice_loc:Sequence[int],
+                     status:ui.Status = None) -> 'np.array':
     """Create a two dimensional slice of noise."""
+    if status:
+        status.update('slice', slice_loc)
     return (slice_loc, n.fill(size, slice_loc))
 
 
 # Mainline.
 def main() -> None:
     """Mainline."""
-    status = ui.Status()
+    global STATUS
+    STATUS = ui.Status()
     configure()
     space = make_noise(CONFIG['noises'][0], CONFIG['size'])
     save_image(space)
-    status.update('save_end', CONFIG['filename'])
+    STATUS.update('save_end', CONFIG['filename'])
     if CONFIG['save_config']:
         save_config()
-    status.end()
+    STATUS.end()
 
 
 if __name__ == '__main__':

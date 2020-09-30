@@ -36,6 +36,9 @@ CONFIG = {
     
     # Animation configuration.
     'loops': 0,
+    
+    # Postprocessing configuration.
+    'autocontrast': False,
 }
 CONFIG['noises'] = [CONFIG['ntypes'][0](unit=CONFIG['unit'], 
                                         table=[0 for _ in range(512)]),]

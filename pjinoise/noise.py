@@ -286,11 +286,14 @@ class CosineNoise(ValueNoise):
 
 
 class OctaveCosineNoise(CosineNoise):
+    """Generate octaves of alternating dimensional value noise with a 
+    cosine-based easing function.
+    """
     def __init__(self, 
-                 octaves:int = 6,
-                 persistence:float = -4,
-                 amplitude:float = 24,
-                 frequency:float = 4,
+                 octaves:int = 4,
+                 persistence:float = 8,
+                 amplitude:float = 8,
+                 frequency:float = 2,
                  *args, **kwargs) -> None:
         self.octaves = octaves
         self.persistence = persistence

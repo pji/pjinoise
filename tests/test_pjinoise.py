@@ -27,6 +27,7 @@ CONFIG = {
     'ntypes': [noise.ValueNoise,],
     'size': [3, 3],
     'unit': [2, 2],
+    'difference_layers': 0,
     
     # Octave noise configuration.
     'octaves': 6,
@@ -236,6 +237,70 @@ class NoiseTestCase(ut.TestCase):
         unit = (2, 2, 2)
         obj = noise.GradientNoise(table=table, unit=unit)
         array = pn.make_noise(obj, size)
+        act = array.tolist()
+        
+        self.assertListEqual(exp, act)
+
+
+    def test_create_difference_noise_volume(self):
+        """Given a sequence of noise objects and a size of the 
+        noise to generate, pjinoise.make_difference_noise should 
+        return a numpy.ndarray object containing noise that is 
+        the difference of the noise generated from each object.
+        """
+        exp = [[
+            [127.0, 63.5, 0.0, 64.0, 128.0],
+            [127.0, 63.5, 0.0, 64.0, 128.0],
+            [127.0, 63.5, 0.0, 64.0, 128.0],
+        ],]
+        
+        size = (1, 3, 5)
+        table1 = [
+                [
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                ],
+                [
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                ],
+                [
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                ],
+            ]
+        table2 = [
+                [
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                ],
+                [
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                ],
+                [
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                    [127, 127, 127, 255],
+                ],
+            ]
+        unit = (2, 2, 2)
+        objs = [
+            noise.GradientNoise(table=table1, unit=unit),
+            noise.GradientNoise(table=table2, unit=unit),
+        ]
+        array = pn.make_difference_noise(objs, size)
         act = array.tolist()
         
         self.assertListEqual(exp, act)

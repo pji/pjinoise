@@ -16,6 +16,9 @@ class Status():
         msg = TEXT['start'].format(min=0, sec=0)
         print(msg)
     
+    def __repr__(self):
+        return f'{self.__class__.__name__}()'
+    
     def end(self) -> None:
         min, sec = self._duration()
         msg = TEXT['end'].format(min=min, sec=sec)

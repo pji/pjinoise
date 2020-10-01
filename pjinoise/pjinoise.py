@@ -14,7 +14,7 @@ from concurrent import futures
 from copy import deepcopy
 import json
 import sys
-from typing import List, Sequence
+from typing import List, Sequence, Union
 
 import numpy as np
 from PIL import Image, ImageOps
@@ -30,6 +30,7 @@ CONFIG = {
     'filename': '',
     'format': '',
     'save_config': True,
+    'difference_layers': 0,
     
     # Noise generation configuration.
     'ntypes': [],
@@ -92,6 +93,14 @@ def configure() -> None:
         action='store',
         required=False,
         help='Read config from a file. Overrides most other arguments.'
+    )
+    p.add_argument(
+        '-d', '--difference_layers',
+        type=int,
+        action='store',
+        required=False,
+        default=0,
+        help='The number of noise spaces to difference.'
     )
     p.add_argument(
         '-f', '--frequency',
@@ -159,6 +168,7 @@ def configure() -> None:
         CONFIG['ntypes'] = args.ntypes
         CONFIG['size'] = args.size[::-1]
         CONFIG['unit'] = args.unit[::-1]
+        CONFIG['difference_layers'] = args.difference_layers
         CONFIG['octaves'] = args.octaves
         CONFIG['persistence'] = args.persistence
         CONFIG['amplitude'] = args.amplitude
@@ -207,6 +217,11 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
             'frequency': CONFIG['frequency'],
         }
         result.append(kwargs)
+    
+    while len(result) < CONFIG['difference_layers'] + 1:
+        new_noise = deepcopy(result[0])
+        result.append(new_noise)
+    
     return result
 
 
@@ -259,7 +274,43 @@ def save_image(n:'numpy.ndarray') -> None:
 
 
 # Noise creation.
-def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
+def make_difference_noise(noises:Sequence[noise.BaseNoise],
+                          size:Sequence[int]) -> 'numpy.ndarray':
+    """Create a space filled with the difference of several 
+    difference noise spaces.
+    """
+    spaces = [np.zeros(size) for _ in range(len(noises))]
+    with futures.ProcessPoolExecutor(WORKERS) as executor:
+        to_do = []
+        for i in range(len(noises)):
+            slice_loc = [0 for _ in range(len(size[:-2]))]
+            while slice_loc[0] < size[0]:
+                job = executor.submit(make_noise_slice, 
+                                      noises[i],
+                                      size[-2:],
+                                      slice_loc[:],
+                                      STATUS,
+                                      i)
+                to_do.append(job)
+                slice_loc[-1] += 1
+                for j in range(1, len(slice_loc))[::-1]:
+                    if slice_loc[j] == size[j]:
+                        slice_loc[j] = 0
+                        slice_loc[j - 1] += 1
+        
+    for future in futures.as_completed(to_do):
+        noise_loc, slice_loc, slice = future.result()
+        spaces[noise_loc][slice_loc] = slice
+    
+    
+    result = spaces.pop()
+    while spaces:
+        result = abs(result - spaces.pop())
+    
+    return result
+
+
+def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'numpy.ndarray':
     """Create a space filled with noise."""
     if len(size) == 2:
         return n.fill(size)
@@ -291,11 +342,17 @@ def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
 def make_noise_slice(n:noise.BaseNoise, 
                      size:Sequence[int],
                      slice_loc:Sequence[int],
-                     status:ui.Status = None) -> 'np.array':
+                     status:ui.Status = None,
+                     noise_loc:Union[int, None] = None) -> 'numpy.ndarray':
     """Create a two dimensional slice of noise."""
+    if noise_loc is None:
+        if status:
+            status.update('slice', slice_loc)
+        return (slice_loc, n.fill(size, slice_loc))
+    
     if status:
-        status.update('slice', slice_loc)
-    return (slice_loc, n.fill(size, slice_loc))
+        status.update('slice', [noise_loc, slice_loc])
+    return (noise_loc, slice_loc, n.fill(size, slice_loc))
 
 
 # Mainline.
@@ -304,7 +361,12 @@ def main() -> None:
     global STATUS
     STATUS = ui.Status()
     configure()
-    space = make_noise(CONFIG['noises'][0], CONFIG['size'])
+    
+    if CONFIG['difference_layers']:
+        space = make_difference_noise(CONFIG['noises'], CONFIG['size'])
+    else:
+        space = make_noise(CONFIG['noises'][0], CONFIG['size'])
+    
     save_image(space)
     STATUS.update('save_end', CONFIG['filename'])
     if CONFIG['save_config']:

@@ -9,7 +9,7 @@ from concurrent import futures
 import math
 import numpy as np
 import random
-from typing import List, Mapping, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Sequence, Tuple, Union
 
 from pjinoise.constants import TEXT, WORKERS
 
@@ -32,7 +32,7 @@ class BaseNoise(ABC):
         attrs['type'] = self.__class__.__name__
         return attrs
     
-    def fill(self, size:Sequence[int]) -> np.array:
+    def fill(self, size:Sequence[int], _:Any = None) -> np.array:
         """Return a space filled with noise."""
         # Create the space.
         result = np.zeros(size)

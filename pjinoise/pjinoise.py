@@ -11,35 +11,45 @@ from:
 """
 import argparse
 from concurrent import futures
+from copy import deepcopy
 import json
-from operator import itemgetter
-import random
-import time
-from typing import Callable, List, Mapping, Sequence, Union
+import sys
+from typing import List, Sequence
 
-from PIL import Image, ImageDraw, ImageOps
+import numpy as np
+from PIL import Image, ImageOps
 
-from pjinoise import filters
 from pjinoise import noise
 from pjinoise import ui
-from pjinoise.constants import X, Y, Z, AXES, P
+from pjinoise.constants import SUPPORTED_FORMATS, WORKERS
 
 
-SUPPORTED_FORMATS = {
-    'bmp': 'BMP',
-    'gif': 'GIF',
-    'jpeg': 'JPEG',
-    'jpg': 'JPEG',
-    'png': 'PNG',
-    'tif': 'TIFF',
-    'tiff': 'TIFF',
+# Script configuration.
+CONFIG = {
+    # General script configuration,
+    'filename': '',
+    'format': '',
+    'save_config': True,
+    
+    # Noise generation configuration.
+    'ntypes': [],
+    'size': (0, 0),
+    'unit': (0, 0),
+    
+    # Octave noise configuration.
+    'octaves': 0,
+    'persistence': 0,
+    'amplitude': 0,
+    'frequency': 0,
+    
+    # Animation configuration.
+    'loops': 0,
+    
+    # Postprocessing configuration.
+    'autocontrast': False,
 }
-SUPPORTED_FILTERS = {
-    'cut_shadow': filters.cut_shadow,
-    'pixelate': filters.pixelate,
-}
+STATUS = None
 SUPPORTED_NOISES = {
-    'Noise': noise.Noise,
     'SolidNoise': noise.SolidNoise,
     'GradientNoise': noise.GradientNoise,
     'ValueNoise': noise.ValueNoise,
@@ -50,7 +60,126 @@ SUPPORTED_NOISES = {
 }
 
 
-# Utility functions.
+# Script initialization.
+def configure() -> None:
+    """Configure the script from command line arguments."""
+    # Read the command line arguments.
+    p = argparse.ArgumentParser('Generate noise.')
+    p.add_argument(
+        '-a', '--amplitude',
+        type=float,
+        action='store',
+        required=False,
+        default=24,
+        help='The starting amplitude for octave noise generation.'
+    )
+    p.add_argument(
+        '-A', '--autocontrast',
+        action='store_true',
+        required=False,
+        default=False,
+        help='Automatically adjust the contrast of the image.'
+    )
+    p.add_argument(
+        '-c', '--save_config',
+        action='store_true',
+        required=False,
+        help='Save the config to a file.'
+    )
+    p.add_argument(
+        '-C', '--load_config',
+        type=str,
+        action='store',
+        required=False,
+        help='Read config from a file. Overrides most other arguments.'
+    )
+    p.add_argument(
+        '-f', '--frequency',
+        type=float,
+        action='store',
+        required=False,
+        default=4,
+        help='The starting frequency for octave noise generation.'
+    )
+    p.add_argument(
+        '-n', '--ntypes',
+        type=str,
+        nargs='*',
+        action='store',
+        default=['GradientNoise',],
+        required=False,
+        help='The noise generators to use.'
+    )
+    p.add_argument(
+        '-o', '--output_file',
+        type=str,
+        action='store',
+        help='The name for the output file.'
+    )
+    p.add_argument(
+        '-O', '--octaves',
+        type=int,
+        action='store',
+        required=False,
+        default=6,
+        help='The octaves of noise for octave noise generation.'
+    )
+    p.add_argument(
+        '-p', '--persistence',
+        type=float,
+        action='store',
+        required=False,
+        default=-4,
+        help='How the impact of each octave changes in octave noise generation.'
+    )
+    p.add_argument(
+        '-s', '--size',
+        type=int,
+        nargs='*',
+        default=[256, 256],
+        action='store',
+        help='The dimensions of the output file.'
+    )
+    p.add_argument(
+        '-u', '--unit',
+        type=int,
+        nargs='*',
+        default=[256, 256],
+        action='store',
+        help='The dimensions in pixels of a unit of noise.'
+    )
+    args = p.parse_args()
+    
+    # Read the configuration from a file.
+    if args.load_config:
+        read_config(args.load_config)
+    
+    # Turn the command line arguments into configuration.
+    else:
+        CONFIG['ntypes'] = args.ntypes
+        CONFIG['size'] = args.size[::-1]
+        CONFIG['unit'] = args.unit[::-1]
+        CONFIG['octaves'] = args.octaves
+        CONFIG['persistence'] = args.persistence
+        CONFIG['amplitude'] = args.amplitude
+        CONFIG['frequency'] = args.frequency
+        CONFIG['autocontrast'] = args.autocontrast
+        CONFIG['noises'] = make_noises_from_config()
+    
+    # Configure arguments not overridden by the config file.
+    CONFIG['filename'] = args.output_file
+    CONFIG['format'] = get_format(args.output_file)
+    
+    # Deserialize serialized objects in the configuration.
+    CONFIG['ntypes'] = [SUPPORTED_NOISES[item] for item in args.ntypes]
+    noises = []
+    for kwargs in CONFIG['noises']:
+        cls = SUPPORTED_NOISES[kwargs['type']]
+        n = cls(**kwargs)
+        noises.append(n)
+    CONFIG['noises'] = noises
+
+
 def get_format(filename:str) -> str:
     """Determine the image type based on the filename."""
     name_part = filename.split('.')[-1]
@@ -64,406 +193,124 @@ def get_format(filename:str) -> str:
         raise SystemExit
 
 
-def make_noise_generator_config(args:argparse.Namespace) -> Sequence[dict]:
-    """Get the attributes of new noise objects from command line 
-    arguments.
-    """
-    workers = 6
-    noises = []
-    with futures.ProcessPoolExecutor(workers) as executor:
-        actual_workers = executor._max_workers
-        to_do = []
-        for t in range(args.diff_layers):
-            value = None
-            if args.use_default_permutation_table:
-                value = P
-            job = executor.submit(make_permutations, 2, value)
-            to_do.append(job)
-        
-        for future in futures.as_completed(to_do):
-            kwargs = {
-                'type': args.noise_type,
-                'scale': 255,
-                'unit_cube': args.unit_cube,
-                'repeat': 0,
-                'permutation_table': future.result(),
-                'octaves': args.octaves,
-                'persistence': args.persistence,
-                'amplitude': args.amplitude,
-                'frequency': args.frequency,
-            }
-            noises.append(kwargs)
-    return noises
+def make_noises_from_config() -> List[noise.BaseNoise]:
+    """Make serialized noises from the command line configuration."""
+    result = []
+    for ntype in CONFIG['ntypes']:
+        kwargs = {
+            'type': ntype,
+            'size': CONFIG['size'],
+            'unit': CONFIG['unit'],
+            'octaves': CONFIG['octaves'],
+            'persistence': CONFIG['persistence'],
+            'amplitude': CONFIG['amplitude'],
+            'frequency': CONFIG['frequency'],
+        }
+        result.append(kwargs)
+    return result
 
 
-def make_permutations(copies:int = 2, p:Sequence = None) -> Sequence[int]:
-    """Return a hash lookup table."""
-    try:
-        if not p:
-            values = list(range(256))
-            random.shuffle(values)
-            p = values[:]
-            while copies > 1:
-                random.shuffle(values)
-                p.extend(values[:])
-                copies -= 1
-        elif len(p) < 512:
-            reason = ('Permutation tables must have more than 512 values. ', 
-                      f'The given table had {len(p)} values.')
-            raise ValueError(reason)
-    except TypeError:
-        reason = ('The permustation table must be a Sequence or None. ', 
-                  f'The given table was type {type(p)}.')
-        raise TypeError(reason)
-    return p
-
-
-def parse_command_line_args() -> argparse.Namespace:
-    """Parse the command line arguments."""
-    p = argparse.ArgumentParser(description='Generate Perlin noise.')
-    p.add_argument(
-        '-a', '--autocontrast',
-        action='store_true',
-        required=False,
-        help='Correct the contrast of the image.'
-    )
-    p.add_argument(
-        '-A', '--amplitude',
-        type=float,
-        action='store',
-        default=24.0,
-        required=False,
-        help='How much the first octave affects the noise.'
-    )
-    p.add_argument(
-        '-c', '--config',
-        type=str,
-        action='store',
-        default='',
-        required=False,
-        help='How much the first octave affects the noise.'
-    )
-    p.add_argument(
-        '-d', '--diff_layers',
-        type=int,
-        action='store',
-        default=1,
-        required=False,
-        help='Number of difference cloud layers.'
-    )
-    p.add_argument(
-        '-D', '--direction',
-        type=int,
-        nargs=3,
-        action='store',
-        default=[0, 0, 1],
-        required=False,
-        help='The direction an animation travels through the noise volume.'
-    )
-    p.add_argument(
-        '-f', '--frequency',
-        type=float,
-        action='store',
-        default=4,
-        required=False,
-        help='How the scan changes between octaves.'
-    )
-    p.add_argument(
-        '-F', '--filters',
-        type=str,
-        action='store',
-        default='',
-        required=False,
-        help=('A comma separated list of filters to run on the image. '
-              f'The available filters are: {", ".join(SUPPORTED_FILTERS)}')
-    )
-    p.add_argument(
-        '-l', '--loops',
-        type=int,
-        action='store',
-        default=1,
-        required=False,
-        help='The number of times the animation should loop.'
-    )
-    p.add_argument(
-        '-n', '--noise_type',
-        type=str,
-        action='store',
-        default='OctavePerlin',
-        required=False,
-        help='The noise generator to use.'
-    )
-    p.add_argument(
-        '-o', '--octaves',
-        type=int,
-        action='store',
-        default=6,
-        required=False,
-        help='The levels of detail in the noise.'
-    )
-    p.add_argument(
-        '-p', '--persistence',
-        type=float,
-        action='store',
-        default=-4.0,
-        required=False,
-        help='The size of major features in the noise.'
-    )
-    p.add_argument(
-        '-r', '--frames',
-        type=int,
-        action='store',
-        default=1,
-        required=False,
-        help='The number of frames of animation.'
-    )
-    p.add_argument(
-        '-s', '--save_config',
-        action='store_true',
-        required=False,
-        help='Whether to save the noise configuration to a file.'
-    )
-    p.add_argument(
-        '-u', '--unit_cube',
-        type=int,
-        action='store',
-        default=1024,
-        required=False,
-        help='The size of major features in the noise.'
-    )
-    p.add_argument(
-        '-T', '--use_default_permutation_table',
-        action='store_true',
-        required=False,
-        help='Use the default permutation table.'
-    )
-    p.add_argument(
-        '-x', '--width',
-        type=int,
-        action='store',
-        default=256,
-        required=False,
-        help='The width of the image.'
-    )
-    p.add_argument(
-        '-y', '--height',
-        type=int,
-        action='store',
-        default=256,
-        required=False,
-        help='The height of the image.'
-    )
-    p.add_argument(
-        '-z', '--slice_depth',
-        type=int,
-        action='store',
-        default=None,
-        required=False,
-        help='The Z axis point for the 2-D slice of 3-D noise.'
-    )
-    p.add_argument(
-        'filename',
-        type=str,
-        action='store',
-        help='The name for the output file.'
-    )
-    return p.parse_args()
-
-
-def parse_filter_list(text) -> Sequence[Callable]:
-    """Get the list of filters to run on the image."""
-    if not text:
-        return []
-    filters = text.split(',')
-    return [SUPPORTED_FILTERS[filter] for filter in filters]
+# File handling.
+def read_config(filename:str) -> None:
+    """Read the script configuration from a file."""
+    # The global keyword has to be used here because I'll be changing 
+    # the dictionary CONFIG points to. It doesn't need to be used in 
+    # configure() because there I'm only changing the keys in the 
+    # dictionary.
+    global CONFIG
     
-
-def parse_noises_list(noises:Sequence) -> Sequence[noise.Noise]:
-    """Get the list of noise objects from the configuration."""
-    results = []
-    for noise in noises:
-        try:
-            cls = SUPPORTED_NOISES[noise['type']]
-        except KeyError:
-            reason = ('Can only deserialize to known subclasses of Noise.')
-            raise ValueError(reason)
-        kwargs = {key:noise[key] for key in noise if key != 'type'}
-        results.append(cls(**kwargs))
-    return results
-
-
-def read_config(filename:str) -> dict:
-    """Read noise creation configuration from a file."""
     with open(filename) as fh:
         contents = fh.read()
-    return json.loads(contents)
+    CONFIG = json.loads(contents)
 
 
-def save_config(filename:str, conf:dict) -> None:
-    """Write the noise generation configuration to a file to allow 
-    generated noise to be reproduced.
-    """
-    conffile = f'{filename.split(".")[0]}.conf'
-    contents = conf.copy()
-    text = json.dumps(contents, indent=4)
-    with open(conffile, 'w') as fh:
-        fh.write(text)
+def save_config() -> None:
+    """Save the current configuration to a file."""
+    namepart = CONFIG["filename"].split(".")[0]
+    filename = f'{namepart}.conf'
+    config = deepcopy(CONFIG)
+    config['ntypes'] = [cls.__name__ for cls in config['ntypes']]
+    config['noises'] = [n.asdict() for n in config['noises']]
+    with open(filename, 'w') as fh:
+        fh.write(json.dumps(config))
 
 
-# Generation functions.
-def make_diff_layers(size:Sequence[int], 
-                     z:int, 
-                     diff_layers:int,
-                     noises:Sequence[noise.Noise],
-                     noise_type:noise.Noise = noise.OctavePerlin,
-                     x:int = 0, y:int = 0,
-                     with_z:bool = False,
-                     **kwargs) -> List[List[int]]:
-    """Manage the process of adding difference layers of additional 
-    noise to create marbled or veiny patterns.
-    """
-    while len(noises) < diff_layers:
-        noises.append(noise_type(**kwargs))
-    matrix = [[0 for y in range(size[Y])] for x in range(size[X])]
-    for layer, noise in zip(range(diff_layers), noises):
-        slice = make_noise_slice(size, z, noise, x, y)
-        matrix = [[abs(matrix[x][y] - slice[x][y]) for y in range(size[Y])]
-                                                   for x in range(size[X])]
-    if with_z:
-        return z, matrix
-    return matrix
+def save_image(n:'numpy.ndarray') -> None:
+    """Save the given array as an image to disk."""
+    # Ensure the values in the array are valid within the color 
+    # space of the image.
+    n = n.round()
+    n = n.astype(np.uint8)
+    
+    if len(n.shape) == 2:
+        img = Image.fromarray(n, mode='L')
+        if CONFIG['autocontrast']:
+            img = ImageOps.autocontrast(img)
+        img.save(CONFIG['filename'], CONFIG['format'])
+    
+    if len(n.shape) == 3:
+        frames = [Image.fromarray(n[i], mode='L') for i in range(n.shape[0])]
+        if CONFIG['autocontrast']:
+            frames = [ImageOps.autocontrast(frame) for frame in frames]
+        frames[0].save(CONFIG['filename'], 
+                       save_all=True,
+                       append_images=frames[1:],
+                       loop=CONFIG['loops'])
 
 
-def make_noise_slice(size:Sequence[int], 
-                     z:int, 
-                     noise_gen:noise.Noise,
-                     x_offset:int = 0, 
-                     y_offset:int = 0) -> list:
-    """Create a two dimensional slice of Perlin noise."""
-    slice = []
-    for x in range(x_offset, size[X] + x_offset):
-        col = []
-        for y in range(y_offset, size[Y] + y_offset):                
-            value = noise_gen.noise(x, y, z)
-            col.append(value)
-        slice.append(col)
-    return slice
-
-
-def make_noise_volume(size:Sequence[int],
-                      z:int,
-                      direction:Sequence[int],
-                      length:int,
-                      diff_layers:int,
-                      noises:Sequence[noise.Noise] = None,
-                      workers:int = 6) -> Sequence[int]:
-    """Create the frames to animate travel through the noise space. 
-    This should look like roiling or turbulent clouds.
-    """
-    location = [0, 0, z]
-    with futures.ProcessPoolExecutor(workers) as executor:
-        actual_workers = executor._max_workers
+# Noise creation.
+def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'np.ndarray':
+    """Create a space filled with noise."""
+    if len(size) == 2:
+        return n.fill(size)
+    
+    result = np.zeros(size)
+    slice_loc = [0 for _ in range(len(size[:-2]))]
+    with futures.ProcessPoolExecutor(WORKERS) as executor:
         to_do = []
-        for t in range(length):
-            job = executor.submit(make_diff_layers, 
-                                  size, 
-                                  location[Z], 
-                                  diff_layers, 
-                                  noises, 
-                                  x=location[X],
-                                  y=location[Y],
-                                  with_z=True)
+        while slice_loc[0] < size[0]:
+            job = executor.submit(make_noise_slice, 
+                                  n, 
+                                  size[-2:], 
+                                  slice_loc[:],
+                                  STATUS)
             to_do.append(job)
-            location = [location[axis] + direction[axis] for axis in AXES]
+            slice_loc[-1] += 1
+            for i in range(1, len(slice_loc))[::-1]:
+                if slice_loc[i] == size[i]:
+                    slice_loc[i] = 0
+                    slice_loc[i - 1] += 1
+    
+    for future in futures.as_completed(to_do):
+        loc, slice = future.result()
+        result[loc] = slice
+    
+    return result
         
-        for future in futures.as_completed(to_do):
-            yield future.result()
+
+def make_noise_slice(n:noise.BaseNoise, 
+                     size:Sequence[int],
+                     slice_loc:Sequence[int],
+                     status:ui.Status = None) -> 'np.array':
+    """Create a two dimensional slice of noise."""
+    if status:
+        status.update('slice', slice_loc)
+    return (slice_loc, n.fill(size, slice_loc))
 
 
 # Mainline.
 def main() -> None:
-    # Parse command line arguments.
-    args = parse_command_line_args()
-    filename = args.filename
-    status = ui.Status()
-    
-    # Read script configuration from a given config file.
-    if args.config:
-        print('Reading configuration file.')
-        config = read_config(args.config)
-    
-    # Use the command line arguments to configure the script.
-    else:
-        status.update('noise')
-        noises = make_noise_generator_config(args)
-        z = args.slice_depth
-        if z is None:
-            z = random.randint(0, args.unit_cube)    
-        config = {
-            'mode': 'L',
-            'size': [args.width, args.height],
-            'diff_layers': args.diff_layers,
-            'autocontrast': args.autocontrast,
-            'z': z,
-            'filters': args.filters,
-            'save_conf': args.save_config,
-            'frames': args.frames,
-            'direction': args.direction,
-            'loops': args.loops,
-            'workers': 6,
-            'noises': noises,
-        }
-    
-    # Deserialize config.
-    filters = parse_filter_list(config['filters'])
-    noises = parse_noises_list(config['noises'])
-    format = get_format(filename)
-    
-    # Make noise volume.
-    status.update('slices')
-    volume = []
-    for slice in make_noise_volume(size=config['size'],
-                                   z=config['z'],
-                                   direction=config['direction'],
-                                   length=config['frames'],
-                                   diff_layers=config['diff_layers'],
-                                   noises=noises):
-        status.update('slice', slice[0])
-        volume.append(slice)
-    volume = sorted(volume, key=itemgetter(0))
-    volume = [slice[1] for slice in volume]
-    status.update('slices_end', len(volume))
-    
-    # Postprocess and turn into images.
-    status.update('postprocess_start')
-    images = []
-    for i in range(len(volume)):
-        for filter in filters:
-            volume[i] = filter(volume[i])
-        img = Image.new(config['mode'], config['size'])
-        drw = ImageDraw.Draw(img)
-        for x in range(config['size'][X]):
-            for y in range(config['size'][Y]):
-                drw.point([x, y], volume[i][x][y])
-        if config['autocontrast']:
-            img = ImageOps.autocontrast(img)
-        images.append(img)
-    status.update('postprocess_end')
-    
-    # Save the image and the configuration.
-    status.update('save_start', filename)
-    if len(images) > 1:
-        images[0].save(filename, 
-                       save_all=True, 
-                       append_images=images[1:],
-                       loop=config['loops'])
-    else:
-        img.save(filename, format=format)
-    if config['save_conf']:
-        save_config(filename, config)
-    status.update('save_end', filename)
-    status.end()
+    """Mainline."""
+    global STATUS
+    STATUS = ui.Status()
+    configure()
+    space = make_noise(CONFIG['noises'][0], CONFIG['size'])
+    save_image(space)
+    STATUS.update('save_end', CONFIG['filename'])
+    if CONFIG['save_config']:
+        save_config()
+    STATUS.end()
 
 
 if __name__ == '__main__':
-    main()
+    main()    

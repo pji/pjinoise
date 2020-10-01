@@ -1,318 +1,123 @@
 """
 test_pjinoise
-~~~~~~~~~~
+~~~~~~~~~~~~~
 
-Unit tests for the pjinoise.pjinoise module.
+Unit tests for pjinoise.pjinoise.
 """
+from copy import deepcopy
 import json
-from operator import itemgetter
 import unittest as ut
 from unittest.mock import call, mock_open, patch
+import sys
 
+import numpy as np
 from PIL import Image
 
-from pjinoise import filters
 from pjinoise import noise
-from pjinoise import pjinoise
+from pjinoise import pjinoise as pn
 
 
-@ut.skip
-class PerlinGenerationTestCase(ut.TestCase):
-    def test_make_animation_frames(self):
-        """Given a size, a Z coordinate, a direction, a length, 
-        a number of diference layers, and a sequence of noise 
-        generators, pjinoise.make_noise_volume should return a 
-        sequence of noise slices that travel in the given direction 
-        through the noise space for a number of frames 
-        equal to length.
-        """
-        exp = [
-            (0, [
-                [128, 127],
-                [130, 130],
-            ]),
-            (1, [
-                [133, 132],
-                [135, 134],
-            ]),
-            (2, [
-                [137, 135],
-                [137, 136],
-            ]),
-        ]
-        
-        kwargs = {
-            'size': [2, 2],
-            'z': 0,
-            'direction': (1, 1, 1),
-            'length': 3,
-            'diff_layers': 3,
-            'noises': [
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-            ],
-        }
-        volume = [slice for slice in pjinoise.make_noise_volume(**kwargs)]
-        act = sorted(volume, key=itemgetter(0))
-        
-        self.assertListEqual(exp, act)
+CONFIG = {
+    # General script configuration.
+    'filename': 'spam.tiff',
+    'format': 'TIFF',
+    'save_config': True,
     
-    def test_make_diff_layer(self):
-        """Given an image size, a Z coordinate, a number 
-        of difference layers, and a list of Noise objects, 
-        pjinoise.make_diff_layers should return a list of lists 
-        that contain the color values for a slice of "marbled" 
-        noise.
-        """
-        exp = [
-            [128, 127, 126, 126],
-            [130, 130, 129, 128],
-            [132, 132, 131, 130],
-            [133, 133, 133, 132],
-        ]
-        kwargs = {
-            'size': (4, 4),
-            'z': 0,
-            'diff_layers': 7,
-            'noises': [
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-                noise.OctavePerlin(permutation_table=pjinoise.P),
-            ]
-        }
-        act = pjinoise.make_diff_layers(**kwargs)
-        self.assertListEqual(exp, act)
+    # General noise generation configuration.
+    'ntypes': [noise.ValueNoise,],
+    'size': [3, 3],
+    'unit': [2, 2],
     
-    @patch('pjinoise.pjinoise.make_permutations', return_value=pjinoise.P)
-    def test_make_diff_layer_no_noise(self, _):
-        """Given an image size, a Z coordinate, a number 
-        of difference layers, and no Noise objects, 
-        pjinoise.make_diff_layers should create a list of 
-        Noise objects to use.
-        """
-        exp = [
-            [128, 127, 126, 126],
-            [130, 130, 129, 128],
-            [132, 132, 131, 130],
-            [133, 133, 133, 132],
-        ]
-        kwargs = {
-            'size': (4, 4),
-            'z': 0,
-            'diff_layers': 7,
-            'noises': [],
-            'permutation_table': pjinoise.P
-        }
-        act = pjinoise.make_diff_layers(**kwargs)
-        self.assertListEqual(exp, act)
+    # Octave noise configuration.
+    'octaves': 6,
+    'persistence': -4,
+    'amplitude': 24,
+    'frequency': 4,
+    
+    # Animation configuration.
+    'loops': 0,
+    
+    # Postprocessing configuration.
+    'autocontrast': False,
+}
+CONFIG['noises'] = [CONFIG['ntypes'][0](unit=CONFIG['unit'], 
+                                        table=[0 for _ in range(512)]),]
 
-    def test_make_noise_slice(self):
-        """Given a matrix size, a z coordinate, a permutations table, 
-        a unit cube size, a number of octaves, a persistence value, 
-        an amplitude value, a frequency value, a number of difference 
-        levels, and a repeat value pjinoise.make_noise_slice should 
-        return a two-dimensional slice of Perlin noise as a list of 
-        lists.
-        """
-        exp = [
-            [128, 127, 126, 126],
-            [130, 130, 129, 128],
-            [132, 132, 131, 130],
-            [133, 133, 133, 132],
-        ]
-        
-        obj_params = {
-            'permutation_table': pjinoise.P,
-            'unit_cube': 1024,
-            'octaves': 6,
-            'persistence': -4,
-            'amplitude': 24,
-            'frequency': 4,
-            'repeat': 0,
-        }
-        obj = noise.OctavePerlin(**obj_params)
-        params = {
-            'size': (4, 4),
-            'noise_gen': obj,
-            'z': 0,
-        }
-        act = pjinoise.make_noise_slice(**params)
-        
-        self.assertListEqual(exp, act)
-    
 
-class UtilityTestCase(ut.TestCase):
-    def test_file_extension_should_determine_format(self):
-        """Given a filename, pjinoise.get_format should return the 
-        image format.
+class CLITestCase(ut.TestCase):
+    def test_configure_from_command_line(self):
+        """When the script is invoked with command line arguments, 
+        pjinoise.configure should update the script configuration 
+        based on those arguments.
         """
-        exp = 'TIFF'
-        value = 'spam.tiff'
-        act = pjinoise.get_format(value)
-        self.assertEqual(exp, act)
-    
-    @patch('pjinoise.pjinoise.print')
-    def test_file_type_unsupported(self, mock_print):
-        """Given a filename with an unsupported file extension, 
-        pjinoise.get_format should print a message saying what types 
-        are supported and exit.
-        """
-        type = 'spam'
-        supported = ', '.join(pjinoise.SUPPORTED_FORMATS)
-        exp_msg = [
-            call(f'The file type {type} is not supported.'),
-            call(f'The supported formats are: {supported}.'),
+        exp = CONFIG
+        
+        sys.argv = [
+            'python3.8 -m pjinoise.pjinoise', 
+            '-n',
+            'ValueNoise',
+            '-s',
+            str(exp['size'][0]),
+            str(exp['size'][1]),
+            '-u',
+            str(exp['unit'][0]),
+            str(exp['unit'][1]),
+            '-O',
+            str(exp['octaves']),
+            '-p',
+            str(exp['persistence']),
+            '-a',
+            str(exp['amplitude']),
+            '-f',
+            str(exp['frequency']),
+            '-o',
+            exp['filename'],
         ]
-        exp_except = SystemExit
-        filename = f'eggs.{type}'
-        with self.assertRaises(exp_except):
-            _ = pjinoise.get_format(filename)
-        act_msg = mock_print.mock_calls
-        self.assertListEqual(exp_msg, act_msg)
-    
-    def test_return_filter_list(self):
-        """Given a comma separated list, pjinoise.parse_filter_list should 
-        return a list of filters to run on the image.
+        pn.configure()
+        pn.CONFIG['noises'][0].table = np.array([0 for _ in range(512)])
+        act = pn.CONFIG
+        
+        self.assertDictEqual(exp, act)
+
+
+class FileTestCase(ut.TestCase):
+    def test_read_configuration_file(self):
+        """When given a filename, pjinoise.read_config should 
+        configure the script using the details in the given file.
         """
-        exp = [
-            filters.cut_shadow,
-            filters.pixelate,
-        ]
-        text = 'cut_shadow,pixelate'
-        act = pjinoise.parse_filter_list(text)
-        self.assertListEqual(exp, act)
-    
-    def test_read_image_creation_details(self):
-        """Given a filename, pjinoise.read_conf should read the 
-        configuration details from the file and return those 
-        details as a dictionary.
-        """
-        filename = 'spam.conf'
-        exp_conf = {
-            'mode': 'L',
-            'size': [4, 4],
-            'diff_layers': 3,
-            'autocontrast': False,
-            'z': 0,
-            'filters': '',
-            'save_conf': True,
-            'frames': 1,
-            'direction': [0, 0, 1],
-            'loops': 1,
-            'workers': 1,
-            'noises': [
-                {
-                    'type': 'OctavePerlin',
-                    'scale': 255,
-                    'permutation_table': pjinoise.P,
-                    'unit_cube': 1024,
-                    'repeat': 0,
-                    'octaves': 6,
-                    'persistence': -4,
-                    'amplitude': 24,
-                    'frequency': 4,
-                },
-                {
-                    'type': 'OctavePerlin',
-                    'scale': 255,
-                    'permutation_table': pjinoise.P,
-                    'unit_cube': 1024,
-                    'repeat': 0,
-                    'octaves': 6,
-                    'persistence': -4,
-                    'amplitude': 24,
-                    'frequency': 4,
-                },
-                {
-                    'type': 'OctavePerlin',
-                    'scale': 255,
-                    'permutation_table': pjinoise.P,
-                    'unit_cube': 1024,
-                    'repeat': 0,
-                    'octaves': 6,
-                    'persistence': -4,
-                    'amplitude': 24,
-                    'frequency': 4,
-                },
-            ],
-        }
+        namepart = CONFIG["filename"].split(".")[0]
+        filename = f'{namepart}.conf'
+        exp_conf = deepcopy(CONFIG)
+        exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
+        exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
         exp_open = (filename,)
         
         contents = json.dumps(exp_conf, indent=4)
         open_mock = mock_open()
         with patch("pjinoise.pjinoise.open", open_mock, create=True):
             open_mock.return_value.read.return_value = contents
-            act_conf = pjinoise.read_config(filename)
+            pn.read_config(filename)
+            act_conf = pn.CONFIG
         
         open_mock.assert_called_with(*exp_open)
         for key in exp_conf:
             self.assertEqual(exp_conf[key], act_conf[key])
     
-    def test_save_image_creation_details(self):
-        """Given a dictionary of configuration settings and a file 
-        name, pjinoise.save_config should save the configuration settings 
-        into a JSON file based on the given file name.
+    def test_save_configuration_file(self):
+        """When called, pjinoise.save_config should write the 
+        current configuration to a file.
         """
-        name = 'spam'
-        exp_conf = {
-            'mode': 'L',
-            'size': [4, 4],
-            'diff_layers': 3,
-            'autocontrast': False,
-            'z': 0,
-            'filters': '',
-            'save_conf': True,
-            'frames': 1,
-            'direction': [0, 0, 1],
-            'loops': 1,
-            'workers': 1,
-            'noises': [
-                {
-                    'type': 'OctavePerlin',
-                    'scale': 255,
-                    'permutation_table': pjinoise.P,
-                    'unit_cube': 1024,
-                    'repeat': 0,
-                    'octaves': 6,
-                    'persistence': -4,
-                    'amplitude': 24,
-                    'frequency': 4,
-                },
-                {
-                    'type': 'OctavePerlin',
-                    'scale': 255,
-                    'permutation_table': pjinoise.P,
-                    'unit_cube': 1024,
-                    'repeat': 0,
-                    'octaves': 6,
-                    'persistence': -4,
-                    'amplitude': 24,
-                    'frequency': 4,
-                },
-                {
-                    'type': 'OctavePerlin',
-                    'scale': 255,
-                    'permutation_table': pjinoise.P,
-                    'unit_cube': 1024,
-                    'repeat': 0,
-                    'octaves': 6,
-                    'persistence': -4,
-                    'amplitude': 24,
-                    'frequency': 4,
-                },
-            ],
-        }
-        exp_open = (f'{name}.conf', 'w')
+        namepart = CONFIG["filename"].split(".")[0]
+        filename = f'{namepart}.conf'
+        exp_conf = deepcopy(CONFIG)
+        pn.CONFIG = deepcopy(CONFIG)
+        exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
+        exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
+        exp_open = (filename, 'w')
         
-        filename = f'{name}.tiff'
         open_mock = mock_open()
-        with patch("pjinoise.pjinoise.open", open_mock, create=True):
-            pjinoise.save_config(filename, exp_conf)
+        with patch('pjinoise.pjinoise.open', open_mock, create=True):
+            pn.save_config()
         
         open_mock.assert_called_with(*exp_open)
         
@@ -320,6 +125,120 @@ class UtilityTestCase(ut.TestCase):
         act_conf = json.loads(text)
         for key in exp_conf:
             self.assertEqual(exp_conf[key], act_conf[key])
+        
+    @patch('PIL.Image.Image.save')
+    @patch('PIL.Image.fromarray')
+    def test_save_image(self, mock_fromarray, mock_save):
+        """Given a two dimensional numpy.array, pjinoise.save_image 
+        should create PIL.Image for the array and save it to disk.
+        """
+        array = np.array([[0, 127, 255], [0, 127, 255]])
+        filename = 'spam'
+        format = 'TIFF'
+        exp = [
+            ['', [array.tolist(),], {'mode': 'L',}], 
+            ['().save', [filename, format], {}],
+        ]
+        
+        pn.CONFIG['filename'] = filename
+        pn.CONFIG['format'] = format
+        pn.save_image(array)
+        calls = mock_fromarray.mock_calls
+        act = [list(item) for item in calls]
+        for item in act:
+            item[1] = [thing for thing in item[1]]
+        act[0][1][0] = act[0][1][0].tolist()
+                
+        self.assertListEqual(exp, act)
+    
+    @patch('PIL.Image.Image.save')
+    @patch('PIL.Image.fromarray')
+    def test_save_animation(self, mock_fromarray, mock_save):
+        """Given a three dimensional numpy.array, pjinoise.save_image 
+        should create PIL.Image that is an animation, with each two 
+        dimensional slice being a frame, and save it to disk.
+        """
+        array = np.array([
+            [
+                [0, 127, 255], 
+                [0, 127, 255]
+            ],
+            [
+                [0, 127, 255], 
+                [0, 127, 255]
+            ],
+        ]
+        )
+        filename = 'spam'
+        format = 'GIF'
+        loop = 0
+        img = Image.fromarray(array[1])
+        exp = [
+            ['', [array.tolist()[0],], {}],     # Artifact from two lines up.
+            ['', [array.tolist()[0],], {'mode': 'L',}], 
+            ['', [array.tolist()[1],], {'mode': 'L',}], 
+            ['().save', [filename], {
+                'save_all': True,
+                'append_images': [img,],
+                'loop': loop,
+            }],
+        ]
+        
+        pn.CONFIG['filename'] = filename
+        pn.CONFIG['format'] = format
+        pn.CONFIG['loop'] = 0
+        pn.save_image(array)
+        calls = mock_fromarray.mock_calls
+        act = [list(item) for item in calls]
+        for item in act:
+            item[1] = [thing for thing in item[1]]
+        act[0][1][0] = act[0][1][0].tolist()
+        act[1][1][0] = act[1][1][0].tolist()
+        act[2][1][0] = act[2][1][0].tolist()
+        
+        self.assertListEqual(exp, act)
+
+
+class NoiseTestCase(ut.TestCase):
+    """Test cases for the creation of noise."""
+    def test_create_single_noise_volume(self):
+        """Given a noise object and a size of the noise to generate, 
+        pjinoise.make_noise should return a numpy.ndarray object 
+        containing the noise.
+        """
+        exp = [
+            [0.0, 63.5, 127.0, 191.0, 255.0],
+            [0.0, 63.5, 127.0, 191.0, 255.0],
+            [0.0, 63.5, 127.0, 191.0, 255.0],
+        ]
+        
+        size = (3, 5)
+        table = [
+                [
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                ],
+                [
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                ],
+                [
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                    [0, 127, 255, 255],
+                ],
+            ]
+        unit = (2, 2, 2)
+        obj = noise.GradientNoise(table=table, unit=unit)
+        array = pn.make_noise(obj, size)
+        act = array.tolist()
+        
+        self.assertListEqual(exp, act)
 
 
 if __name__ == '__main__':

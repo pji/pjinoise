@@ -11,7 +11,8 @@ import numpy as np
 import random
 from typing import List, Mapping, Sequence, Tuple, Union
 
-from pjinoise.constants import X, Y, Z, AXES, TEXT, WORKERS
+from pjinoise.constants import TEXT, WORKERS
+
 
 # Base classes.
 class BaseNoise(ABC):
@@ -385,10 +386,9 @@ class Perlin(ValueNoise):
         """
         coords = coords[-3:]
         hash = hash_table[mask]
-        for axis in AXES:
+        for axis in range(len(coords)):
             if mask[axis] == '1':
                 coords[axis] = coords[axis] - 1
-#         x, y, z = coords
         z, y, x = coords
         
         n = hash & 0xF
@@ -477,33 +477,25 @@ class OctavePerlin(Perlin):
         super().__init__(*args, **kwargs)
     
     # Public methods.
-    def asdict(self) -> dict:
-        data = super().asdict()
-        data['octaves'] = self.octaves
-        data['persistence'] = self.persistence
-        data['amplitude'] = self.amplitude
-        data['frequency'] = self.frequency
-        return data
-    
-    def noise(self, *args) -> float:
-        return self.octave_perlin(*args)
-    
-    def octave_perlin(self, x, y, z) -> int:
+    def noise(self, coords:Sequence[float]) -> int:
         """Create the perlin noise with the given octaves and persistence.
     
         :param x: The x location of the pixel within the unit cube.
         :param y: The y location of the pixel within the unit cube.
         :param z: The z location of the pixel within the unit cube.
+        
+        :param coords: The coordinates within the overall noise space 
+            for the noise.
         :return: The color value of the pixel.
         :rtype: float
         """
-        coords = [self._locate(n) for n in (x, y, z)]
         total = 0
         max_value = 0
         for i in range(self.octaves):
             amp = self.amplitude + (self.persistence * i)
             freq = self.frequency * 2 ** i
-            total += self.perlin(*(n * freq for n in coords), True) * amp
+            coords_freq = tuple(n * freq for n in coords)
+            total += super().noise(coords_freq) * amp
             max_value += amp
         value = total / max_value
         return round(value)

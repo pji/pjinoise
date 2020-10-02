@@ -247,7 +247,7 @@ def save_config() -> None:
     config['ntypes'] = [cls.__name__ for cls in config['ntypes']]
     config['noises'] = [n.asdict() for n in config['noises']]
     with open(filename, 'w') as fh:
-        fh.write(json.dumps(config))
+        fh.write(json.dumps(config, indent=4))
 
 
 def save_image(n:'numpy.ndarray') -> None:

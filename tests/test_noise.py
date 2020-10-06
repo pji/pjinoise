@@ -178,11 +178,11 @@ class ValueTestCase(ut.TestCase):
         ValueNoise.fill should return a space of that size 
         filled with noise.
         """
-        exp = [
-            [255, 255, 255],
-            [255, 255, 255],
-            [255, 255, 255],
-        ]
+        exp = [[
+            [255.0, 255.0, 255.0],
+            [255.0, 255.0, 255.0],
+            [255.0, 255.0, 255.0],
+        ],]
         
         kwargs = {
             'table': [255 for _ in range(512)],
@@ -232,7 +232,7 @@ class PerlinTestCase(ut.TestCase):
         pjinoise.OctavePerlin.octave_perlin should return the color 
         value for that x, y, z coordinate.
         """
-        exp = 129
+        exp = 130
         
         unit = (1024, 1024, 1024)
         octaves = 6

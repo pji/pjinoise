@@ -26,7 +26,7 @@ CONFIG = {
     # General noise generation configuration.
     'ntypes': [noise.ValueNoise,],
     'size': [3, 3],
-    'unit': [2, 2],
+    'unit': [2, 2, 2],
     'difference_layers': 0,
     
     # Octave noise configuration.
@@ -63,6 +63,7 @@ class CLITestCase(ut.TestCase):
             '-u',
             str(exp['unit'][0]),
             str(exp['unit'][1]),
+            str(exp['unit'][2]),
             '-O',
             str(exp['octaves']),
             '-p',
@@ -78,7 +79,8 @@ class CLITestCase(ut.TestCase):
         pn.CONFIG['noises'][0].table = np.array([0 for _ in range(512)])
         act = pn.CONFIG
         
-        self.assertDictEqual(exp, act)
+        for key in act:
+            self.assertEqual(exp[key], act[key])
 
 
 class FileTestCase(ut.TestCase):

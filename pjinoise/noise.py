@@ -11,7 +11,7 @@ import numpy as np
 import random
 from typing import Any, List, Mapping, Sequence, Tuple, Union
 
-from pjinoise.constants import TEXT, WORKERS
+from pjinoise.constants import P, TEXT, WORKERS, X, Y, Z
 
 
 # Base classes.
@@ -101,6 +101,10 @@ class SolidNoise(BaseNoise):
         super().__init__(*args, **kwargs)
     
     # Public methods.
+    def fill(self, size:Sequence[int], _:Any = None) -> np.array:
+        space = np.zeros(size)
+        return space.fill(self.color)
+    
     def noise(self, coords:Sequence[float]) -> int:
         return self.color
 
@@ -174,7 +178,10 @@ class GradientNoise(BaseNoise):
 
     def _locate(self, n:int, i:int) -> float:
         "Locate the unit position of the pixel along its axis."
-        return n // self.unit[i] + (n % self.unit[i]) / self.unit[i]
+        try:
+            return n // self.unit[i] + (n % self.unit[i]) / self.unit[i]
+        except IndexError:
+            raise ValueError(n, i)
     
     def _make_table(self, size:Sequence[int]) -> List:
         """Create a color table for vertices."""
@@ -208,8 +215,11 @@ class ValueNoise(GradientNoise):
     def __init__(self, 
                  unit:Sequence[int], 
                  table:Union[Sequence[int], None] = None,
-                 scale:int = 255,
+                 scale:int = 256,
                  *args, **kwargs) -> None:
+        while len(unit) < 3:
+            unit = list(unit)
+            unit.insert(0, scale)
         self.unit = unit
         if not table:
             table = self._make_table()
@@ -219,34 +229,67 @@ class ValueNoise(GradientNoise):
     # Public methods.
     def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
         """Return a space filled with noise."""
-        # Create the space.
+        # Problems to solve:
+        # * Create the initial grid based on the X and Z axis.
+        # * Stretch the X values over the Y axis.
+        # * Use masks to increment coordinates for interpolation.
+        
+        # Start by creating the two-dimensional matrix with the X 
+        # and Z axis in order to save time by not running repetitive 
+        # actions along the Y axis. Each position within the matrix 
+        # represents a pixel in the final image.
+        while len(size) < 3:
+            size = list(size)
+            size.insert(0, 1)
+        xz_size = (size[Z], size[X])
+        indices = np.indices(xz_size)
+        
+        # Since we are changing the indices of the axes, everything 
+        # based on the two-dimensional XZ axes will lowercase the 
+        # axis names. Everything based on the three-dimensional XYZ 
+        # axes will continue to capitalize the axis names.
+        x, z = -1, -2
+        
+        # Adjust the value of the indices by loc. This will offset the 
+        # generated noise within the space of potential noise.
+        if loc is None:
+            loc = []
+        while len(loc) < 3:
+            loc.append(0)
+        indices[x] = indices[x] + loc[X]
+        indices[z] = indices[z] + loc[Z]
+        
+        # Translate the pixel measurements of the indices into unit 
+        # measurements based on the unit size of noise given to the 
+        # noise object.
+        unit = np.array((self.unit[Z], self.unit[X]))
+        unit_distance = indices / unit[:, np.newaxis, np.newaxis]
+        unit_floor = indices // unit[:, np.newaxis, np.newaxis]
+        unit_distance = unit_distance - unit_floor
+        
+        # Look up and interpolate values.
+        lerp = np.vectorize(self._lookup_and_lerp)
+        zx_values = lerp(unit_floor[z], unit_distance[z], 
+                         unit_floor[x], unit_distance[x])
+        
+        # Stretch X over the Y axis.
         result = np.zeros(size)
+        for i in range(result.shape[Z]):
+            try:
+                result[i] = np.tile(zx_values[i], (result.shape[Y], 1))
+            except TypeError as e:
+                raise ValueError(f'i={i}, size={size}')
+            except ValueError:
+                raise ValueError(f'i={i}, size={size}')
         
-        # Fill the space with noise.
-        index = [0 for i in range(len(size))]
-        while index[0] < size[0]:
-            coords = []
-            if loc:
-                coords = loc[:]
-            coords.extend(index)
-            result[tuple(index)] = self.noise(coords)
-            index[-1] += 1
-            for i in range(1, len(size))[::-1]:
-                if index[i] == size[i]:
-                    index[i] = 0
-                    index[i - 1] += 1
-                else:
-                    break
-        
-        # Return the noise-filled space.
         return result
-
+    
     def noise(self, coords:Sequence[float]) -> int:
         units = [self._locate(coords[i], i) for i in range(len(coords))]
         if len(units) % 2 == 0:
             return self._dimensional_lerp(0, units[1::2])
         return self._dimensional_lerp(0, units[::2])
-
+    
     # Private methods.
     def _dimensional_lerp(self, index:int, units:Sequence) -> float:
         """Perform a recursive linear interpolation through all 
@@ -272,11 +315,44 @@ class ValueNoise(GradientNoise):
                         
         return self._lerp(a, b, n_partial)
     
+    def _lookup_and_lerp(self, z:int, zd:float, x:int, xd:float) -> float:
+        vertex_mask = np.array([
+            [0, 0],
+            [0, 1],
+            [1, 0],
+            [1, 1],
+        ])
+        base_location = np.array([z, x])
+        vertices = vertex_mask + base_location
+        vertices = vertices.astype(int)
+#         for vertex in vertices:
+#             print((zd, xd), vertex, sum(vertex))
+        
+        try:
+            x1a = self.table[sum(vertices[0]) % len(self.table)]
+            x1b = self.table[sum(vertices[1]) % len(self.table)]
+            x1 = self._lerp(x1a, x1b, xd)
+            x2a = self.table[sum(vertices[2]) % len(self.table)]
+            x2b = self.table[sum(vertices[3]) % len(self.table)]
+            x2 = self._lerp(x2a, x2b, xd)
+        except IndexError:
+            msg = f'{sum(vertices[0])} % {len(self.table)}'
+            raise ValueError(msg)
+        
+#         print(vertices[0], sum(vertices[0]))
+#         print(vertices[1], sum(vertices[1]))
+#         print(x1a, x1b)
+#         print(x1, x2, zd)
+        return self._lerp(x1, x2, zd)
+    
     def _make_table(self) -> List:
         table = [n for n in range(256)]
         table.extend(table)
-        random.shuffle(table)
+        random.shuffle(table)        
         return table
+    
+    def _table_lookup(self, x):
+        return self.table[x]
 
 
 class CosineNoise(ValueNoise):
@@ -323,6 +399,20 @@ class OctaveCosineNoise(CosineNoise):
             max_value += amp
         value = total / max_value
         return round(value)
+    
+    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
+        total = 0
+        max_value = 0
+        for i in range(self.octaves):
+            amp = self.amplitude + (self.persistence * i)
+            freq = self.frequency * 2 ** i
+            kwargs = self.asdict()
+            kwargs['unit'] = [n * freq for n in self.unit]
+            octave = CosineNoise(**kwargs)
+            total += octave.fill(size, loc) * amp
+            max_value += amp
+        value = total / max_value
+        return value
 
 
 # Perlin noise.
@@ -502,4 +592,35 @@ class OctavePerlin(Perlin):
 
 
 if __name__ == '__main__':
-    raise NotImplementedError
+    unit = (2, 4, 4)
+#     table = [
+#         [n * 255 / 4 for n in range(5)][::-1],
+#         [n * 255 / 4 for n in range(5)][::-1],
+#         [n * 255 / 4 for n in range(5)][::-1],
+#         [n * 255 / 4 for n in range(5)][::-1],
+#         [n * 255 / 4 for n in range(5)][::-1],
+#     ]
+#     table = [
+#         [255 for n in range(5)][::-1],
+#         [255 for n in range(5)][::-1],
+#         [255 for n in range(5)][::-1],
+#         [255 for n in range(5)][::-1],
+#         [255 for n in range(5)][::-1],
+#     ]
+#     table = P
+#     table = [255 for i in range(512)]
+    table = [255 for i in range(512)]
+    for i in range(len(table)):
+        if i % 2 == 0:
+            table[i] = 0
+    n = ValueNoise(unit=unit, table=table)
+    size = (1, 8, 8)
+#     size = (1, 2, 2)
+    
+    for z in range(6):
+        img = n.fill(size, [z, 0, 0])
+        print(img)
+    
+#     loc = (3, 0, 0)
+#     print(n.fill(size, loc))
+#     print(n.table)

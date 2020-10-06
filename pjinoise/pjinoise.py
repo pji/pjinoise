@@ -275,7 +275,8 @@ def save_image(n:'numpy.ndarray') -> None:
 
 # Noise creation.
 def make_difference_noise(noises:Sequence[noise.BaseNoise],
-                          size:Sequence[int]) -> 'numpy.ndarray':
+                          size:Sequence[int],
+                          rotate:bool = False) -> 'numpy.ndarray':
     """Create a space filled with the difference of several 
     difference noise spaces.
     """
@@ -302,12 +303,18 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
         noise_loc, slice_loc, slice = future.result()
         spaces[noise_loc][slice_loc] = slice
     
+    result = np.zeros(spaces[0].shape)
     
-    result = spaces.pop()
-    while spaces:
-        result = abs(result - spaces.pop())
+    for i in range(len(spaces)):
+        space = spaces[i]
+        if i % 2 != 0 and rotate:
+            space = space.transpose((0, 2, 1))
+        result = abs(result - space)
     
-    return result
+    if rotate:
+        return result[1:]
+    else:
+        return result
 
 
 def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'numpy.ndarray':

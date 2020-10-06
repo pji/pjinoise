@@ -7,6 +7,8 @@
 *.tiff
 *.gif
 *.afphoto
+*.tif
+*.jpg
 
 # Ignore output configuration files.
 *.conf

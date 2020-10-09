@@ -40,6 +40,7 @@ CONFIG = {
     
     # Postprocessing configuration.
     'autocontrast': False,
+    'colorize': [],
 }
 CONFIG['noises'] = [CONFIG['ntypes'][0](unit=CONFIG['unit'], 
                                         table=[0 for _ in range(512)]),]

@@ -17,11 +17,13 @@ import sys
 from typing import List, Sequence, Union
 
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageColor
+from scipy import misc, signal
 
 from pjinoise import noise
 from pjinoise import ui
-from pjinoise.constants import SUPPORTED_FORMATS, WORKERS
+from pjinoise import filters
+from pjinoise.constants import COLOR, SUPPORTED_FORMATS, WORKERS, X, Y, Z
 
 
 # Script configuration.
@@ -34,8 +36,8 @@ CONFIG = {
     
     # Noise generation configuration.
     'ntypes': [],
-    'size': (0, 0),
-    'unit': (0, 0),
+    'size': (256, 256),
+    'unit': (256, 256),
     
     # Octave noise configuration.
     'octaves': 0,
@@ -48,6 +50,7 @@ CONFIG = {
     
     # Postprocessing configuration.
     'autocontrast': False,
+    'colorize': None,
 }
 STATUS = None
 SUPPORTED_NOISES = {
@@ -64,8 +67,23 @@ SUPPORTED_NOISES = {
 # Script initialization.
 def configure() -> None:
     """Configure the script from command line arguments."""
+    epilog = ('COLORIZE: AVAILABLE COLORS\n'
+              'The colors available for the --colorize option are:\r\n'
+              '\n')
+    color_temp = '{:>4}\t{}, {}\n'
+    for color in COLOR:
+        if color in ['t', 'T', '']:
+            continue
+        epilog += color_temp.format(color, COLOR[color][0], COLOR[color][1])
+    epilog += ' \n'
+    
     # Read the command line arguments.
-    p = argparse.ArgumentParser('Generate noise.')
+    p = argparse.ArgumentParser(
+        prog='PJINOISE',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='Generate noise.',
+        epilog=epilog
+    )
     p.add_argument(
         '-a', '--amplitude',
         type=float,
@@ -111,6 +129,14 @@ def configure() -> None:
         help='The starting frequency for octave noise generation.'
     )
     p.add_argument(
+        '-k', '--colorize',
+        type=str,
+        action='store',
+        default='',
+        required=False,
+        help='Use the given color to colorize the noise.'
+    )
+    p.add_argument(
         '-n', '--ntypes',
         type=str,
         nargs='*',
@@ -145,7 +171,6 @@ def configure() -> None:
         '-s', '--size',
         type=int,
         nargs='*',
-        default=[256, 256],
         action='store',
         help='The dimensions of the output file.'
     )
@@ -153,7 +178,6 @@ def configure() -> None:
         '-u', '--unit',
         type=int,
         nargs='*',
-        default=[256, 256],
         action='store',
         help='The dimensions in pixels of a unit of noise.'
     )
@@ -162,6 +186,17 @@ def configure() -> None:
     # Read the configuration from a file.
     if args.load_config:
         read_config(args.load_config)
+        
+        if args.colorize:
+            CONFIG['colorize'] = COLOR[args.colorize]
+        if args.size:
+            CONFIG['size'] = args.size[::-1]
+        if args.unit:
+            CONFIG['unit'] = args.unit[::-1]
+            for noise in CONFIG['noises']:
+                noise['unit'] = args.unit[::-1]
+        if not args.save_config:
+            CONFIG['save_config'] = False
     
     # Turn the command line arguments into configuration.
     else:
@@ -174,6 +209,7 @@ def configure() -> None:
         CONFIG['amplitude'] = args.amplitude
         CONFIG['frequency'] = args.frequency
         CONFIG['autocontrast'] = args.autocontrast
+        CONFIG['colorize'] = COLOR[args.colorize]
         CONFIG['noises'] = make_noises_from_config()
     
     # Configure arguments not overridden by the config file.
@@ -267,6 +303,10 @@ def save_image(n:'numpy.ndarray') -> None:
         frames = [Image.fromarray(n[i], mode='L') for i in range(n.shape[0])]
         if CONFIG['autocontrast']:
             frames = [ImageOps.autocontrast(frame) for frame in frames]
+        if CONFIG['colorize']:
+            black = CONFIG['colorize'][0]
+            white = CONFIG['colorize'][1]
+            frames = [ImageOps.colorize(f, black, white) for f in frames]
         frames[0].save(CONFIG['filename'], 
                        save_all=True,
                        append_images=frames[1:],
@@ -276,7 +316,8 @@ def save_image(n:'numpy.ndarray') -> None:
 # Noise creation.
 def make_difference_noise(noises:Sequence[noise.BaseNoise],
                           size:Sequence[int],
-                          rotate:bool = False) -> 'numpy.ndarray':
+                          rotate:bool = False,
+                          skew:bool = 0) -> 'numpy.ndarray':
     """Create a space filled with the difference of several 
     difference noise spaces.
     """
@@ -309,9 +350,20 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
         space = spaces[i]
         if i % 2 != 0 and rotate:
             space = space.transpose((0, 2, 1))
+        if i % 3 == 1 and skew:
+            space = filters.skew(space, skew)
+        if i % 3 == 2 and skew:
+            space = filters.skew(space, -skew)
         result = abs(result - space)
     
-    if rotate:
+    if skew:
+        start_y = result.shape[Y] // (skew * 2) + 1
+        end_y = start_y + 600
+        start_x = result.shape[X] // (skew * 2) + 1
+        end_x = start_x + 600
+        result = result[..., start_y:end_y, start_x:end_x]
+    
+    if rotate or skew:
         return result[1:]
     else:
         return result

@@ -7,8 +7,40 @@ Postprocessing filters to use on noise images.
 from itertools import chain
 from typing import Sequence
 
+import numpy as np
 
-# Filters.
+from pjinoise.constants import X, Y, Z
+
+
+# Vectorized filters.
+def skew(values:np.array, slope:float) -> np.array:
+    def _perform_skew(y:int, x:int, amount:int, dim_x:int, z:int=None) -> float:
+        amount = int(amount)
+        new_x = (x + amount) % dim_x
+        if z is None:
+            return values[y][new_x]
+        else:
+            return values[z][y][new_x]
+    
+    shift = values.shape[Y] // (slope * 2)
+    indices = np.indices(values.shape)
+    amount = indices[Y] / slope
+    perform_skew = np.vectorize(_perform_skew)
+    
+    if len(values.shape) == 2:
+        values = np.roll(values, (0, shift))
+        return perform_skew(indices[Y], indices[X], amount, values.shape[X])
+    else:
+        values = np.roll(values, (0, 0, shift))
+        new_values = perform_skew(indices[Y], 
+                                  indices[X], 
+                                  amount, 
+                                  values.shape[X], 
+                                  indices[Z])
+        return new_values
+
+
+# Not vectorized filters.
 def cut_shadow(values:Sequence[Sequence[float]]) -> Sequence[Sequence[float]]:
     """Remove the lower half of colors from the image."""
     values = values[:]
@@ -53,3 +85,5 @@ def pixelate(matrix:list, size:int = 32) -> list:
     return matrix
 
 
+if __name__ == '__main__':
+    raise NotImplemented

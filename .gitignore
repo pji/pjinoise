@@ -9,9 +9,14 @@
 *.afphoto
 *.tif
 *.jpg
+*.png
+*.webp
 
 # Ignore output configuration files.
 *.conf
 
 # Ignore macOS files.
 .DS_Store
+
+# Ignore experiments.
+audio.py

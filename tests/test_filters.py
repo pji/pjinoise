@@ -6,6 +6,8 @@ Unit tests for the pjinoise.filters module.
 """
 import unittest as ut
 
+import numpy as np
+
 from pjinoise import filters
 
 
@@ -51,5 +53,63 @@ class FilterTestCase(ut.TestCase):
         size = 2
         act = filters.pixelate(matrix, size)
         self.assertListEqual(exp, act)
+    
+    def test_skew(self):
+        """Given an array of pixel values and a slope, filter.skew 
+        should return an array of those pixel values skewed on the Y 
+        axis by the given slope.
+        """
+        exp = [
+            [2, 0, 1], 
+            [0, 1, 2],
+            [1, 2, 0],
+        ]
+        
+        values = np.array([
+            [0, 1, 2],
+            [0, 1, 2],
+            [0, 1, 2],
+        ])
+        slope = 1
+        act = filters.skew(values, slope).tolist()
+        
+        self.assertListEqual(exp, act)
+    
+    def test_skew_with_three_dimensions(self):
+        """Given an array of pixel values and a slope, filter.skew 
+        should return an array of those pixel values skewed on the Y 
+        axis by the given slope.
+        """
+        exp = [
+            [
+                [2, 0, 1], 
+                [0, 1, 2],
+                [1, 2, 0],
+            ],
+            [
+                [2, 0, 1], 
+                [0, 1, 2],
+                [1, 2, 0],
+            ],
+        ]
+        
+        values = np.array([
+            [
+                [0, 1, 2],
+                [0, 1, 2],
+                [0, 1, 2],
+            ],
+            [
+                [0, 1, 2],
+                [0, 1, 2],
+                [0, 1, 2],
+            ],
+        ])
+        slope = 1
+        act = filters.skew(values, slope).tolist()
+        
+        self.assertListEqual(exp, act)
 
 
+if __name__ == '__main__':
+    raise NotImplemented

@@ -51,6 +51,7 @@ TEXT = EN_TEXT
 
 # Valid data registration.
 SUPPORTED_FORMATS = {
+    'apng': 'PNG',
     'bmp': 'BMP',
     'gif': 'GIF',
     'jpeg': 'JPEG',
@@ -58,4 +59,28 @@ SUPPORTED_FORMATS = {
     'png': 'PNG',
     'tif': 'TIFF',
     'tiff': 'TIFF',
+    'webp': 'WebP',
+}
+
+
+# Color lookup.
+COLOR = {
+    # Don't colorize.
+    '': [],
+    
+    # Electric blue.
+    'b': ['hsv(200, 100%, 100%)', 'hsv(200, 100%, 0%)'],
+    'B': ['hsl(200, 100%, 75%)', 'hsl(200, 100%, 25%)'],
+    
+    # Electric pink.
+    'p': ['hsv(320, 100%, 100%)', 'hsv(320, 100%, 0%)'],
+    'P': ['hsl(320, 100%, 75%)', 'hsl(320, 100%, 25%)'],
+    
+    # Electric green.
+    'g': ['hsv(90, 100%, 100%)', 'hsv(90, 100%, 0%)'],
+    'G': ['hsl(90, 100%, 75%)', 'hsl(90, 100%, 25%)'],
+    
+    # Hue templates.
+    't': ['hsv({}, 100%, 100%)', 'hsv({}, 100%, 0%)'],
+    'T': ['hsl({}, 100%, 75%)', 'hsl({}, 100%, 25%)'],
 }

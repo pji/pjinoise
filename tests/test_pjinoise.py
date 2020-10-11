@@ -13,6 +13,7 @@ import sys
 import numpy as np
 from PIL import Image
 
+from pjinoise import filters
 from pjinoise import noise
 from pjinoise import pjinoise as pn
 
@@ -27,7 +28,7 @@ CONFIG = {
     'ntypes': [noise.ValueNoise,],
     'size': [3, 3],
     'unit': [2, 2, 2],
-    'difference_layers': 0,
+    'difference_layers': 6,
     
     # Octave noise configuration.
     'octaves': 6,
@@ -41,9 +42,38 @@ CONFIG = {
     # Postprocessing configuration.
     'autocontrast': False,
     'colorize': [],
+    'filters': 'rotate90_2:1_r+skew_3:1_10+skew_3:2_-10'
 }
-CONFIG['noises'] = [CONFIG['ntypes'][0](unit=CONFIG['unit'], 
-                                        table=[0 for _ in range(512)]),]
+CONFIG['noises'] = [
+    CONFIG['ntypes'][0](unit=CONFIG['unit'], table=[0 for _ in range(512)]),
+    CONFIG['ntypes'][0](unit=CONFIG['unit'], table=[0 for _ in range(512)]),
+    CONFIG['ntypes'][0](unit=CONFIG['unit'], table=[0 for _ in range(512)]),
+    CONFIG['ntypes'][0](unit=CONFIG['unit'], table=[0 for _ in range(512)]),
+    CONFIG['ntypes'][0](unit=CONFIG['unit'], table=[0 for _ in range(512)]),
+    CONFIG['ntypes'][0](unit=CONFIG['unit'], table=[0 for _ in range(512)]),
+    CONFIG['ntypes'][0](unit=CONFIG['unit'], table=[0 for _ in range(512)]),
+]
+FILTERS = [
+    [],
+    [
+        [filters.rotate90, ['r',]],
+        [filters.skew, [10,]],
+    ],
+    [
+        [filters.skew, [-10,]],
+    ],
+    [
+        [filters.rotate90, ['r',]],
+    ],
+    [
+        [filters.skew, [10,]],
+    ],
+    [
+        [filters.rotate90, ['r',]],
+        [filters.skew, [-10,]],
+    ],
+    [],
+]
 
 
 class CLITestCase(ut.TestCase):
@@ -53,6 +83,7 @@ class CLITestCase(ut.TestCase):
         based on those arguments.
         """
         exp = CONFIG
+        exp_filters = FILTERS
         
         sys.argv = [
             'python3.8 -m pjinoise.pjinoise', 
@@ -73,15 +104,37 @@ class CLITestCase(ut.TestCase):
             str(exp['amplitude']),
             '-f',
             str(exp['frequency']),
+            '-F',
+            exp['filters'],
+            '-d',
+            str(exp['difference_layers']),            
             '-o',
             exp['filename'],
         ]
         pn.configure()
-        pn.CONFIG['noises'][0].table = np.array([0 for _ in range(512)])
+        for i in range(len(CONFIG['noises'])):
+            pn.CONFIG['noises'][i].table = np.array([0 for _ in range(512)])
         act = pn.CONFIG
+        act_filters = pn.FILTERS
         
         for key in act:
             self.assertEqual(exp[key], act[key])
+        self.assertListEqual(exp_filters, act_filters)
+    
+    def test_parse_filter_command(self):
+        """Given a string containing a filter command and a number 
+        of difference layers, pjinoise.parse_filter_command should 
+        construct a list of tuples containing the filters and their 
+        arguments in the proper periods.
+        """
+        exp = FILTERS
+        
+        cmd = CONFIG['filters']
+        layers = 6
+        act = pn.parse_filter_command(cmd, layers)
+        
+        self.maxDiff = None
+        self.assertListEqual(exp, act)
 
 
 class FileTestCase(ut.TestCase):
@@ -181,11 +234,16 @@ class FileTestCase(ut.TestCase):
             ['', [array.tolist()[0],], {}],     # Artifact from two lines up.
             ['', [array.tolist()[0],], {'mode': 'L',}], 
             ['', [array.tolist()[1],], {'mode': 'L',}], 
-            ['().save', [filename], {
-                'save_all': True,
-                'append_images': [img,],
-                'loop': loop,
-            }],
+            [
+                '().save', 
+                [filename], 
+                {
+                    'save_all': True,
+                    'append_images': [img,],
+                    'loop': loop,
+                    'duration': (1 / pn.FRAMERATE) * 1000,
+                }
+            ],
         ]
         
         pn.CONFIG['filename'] = filename
@@ -303,6 +361,7 @@ class NoiseTestCase(ut.TestCase):
             noise.GradientNoise(table=table1, unit=unit),
             noise.GradientNoise(table=table2, unit=unit),
         ]
+        pn.FILTERS = [[] for _ in  range(pn.CONFIG['difference_layers'])]
         array = pn.make_difference_noise(objs, size)
         act = array.tolist()
         

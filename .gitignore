@@ -3,13 +3,15 @@
 *__pycache__
 
 # Ignore output images.
+*.afphoto
+*.avi
+*.jpg
+*.gif
+*.png
+*.mp4
 *.svg
 *.tiff
-*.gif
-*.afphoto
 *.tif
-*.jpg
-*.png
 *.webp
 
 # Ignore output configuration files.

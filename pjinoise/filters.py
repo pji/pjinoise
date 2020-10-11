@@ -13,6 +13,28 @@ from pjinoise.constants import X, Y, Z
 
 
 # Vectorized filters.
+def rotate90(values:np.array, direction:str='r') -> np.array:
+    if direction == 'r':
+        return np.rot90(values, -1, (-2, -1))
+    if direction == 'l':
+        return np.rot90(values, 1, (-2, -1))
+    raise ValueError('Direction must be either r or l')
+
+
+def rotate90_size_adjustment(size:Sequence[int]) -> Sequence[int]:
+    def get_diff(size:Sequence[int], larger:int, smaller:int) -> Sequence[int]:
+        diff = size[larger] - size[smaller]
+        size[smaller] = size[smaller] + diff
+        return size
+    
+    size = list(size[:])
+    if size[Y] > size[X]:
+        size = get_diff(size, Y, X)
+    elif size[X] > size[Y]:
+        size = get_diff(size, X, Y)
+    return size
+
+
 def skew(values:np.array, slope:float) -> np.array:
     def _perform_skew(y:int, x:int, amount:int, dim_x:int, z:int=None) -> float:
         amount = int(amount)
@@ -38,6 +60,12 @@ def skew(values:np.array, slope:float) -> np.array:
                                   values.shape[X], 
                                   indices[Z])
         return new_values
+
+def skew_size_adjustment(size:Sequence[int], slope:float) -> Sequence[int]:
+    size = list(size[:])
+    padding = size[Y] // slope + 1
+    size[X] = size[X] + padding * 2
+    return size
 
 
 # Not vectorized filters.

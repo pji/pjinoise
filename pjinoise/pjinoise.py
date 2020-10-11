@@ -13,17 +13,34 @@ import argparse
 from concurrent import futures
 from copy import deepcopy
 import json
+from operator import itemgetter
 import sys
 from typing import List, Sequence, Union
 
+import cv2
 import numpy as np
 from PIL import Image, ImageOps, ImageColor
-from scipy import misc, signal
 
 from pjinoise import noise
 from pjinoise import ui
 from pjinoise import filters
 from pjinoise.constants import COLOR, SUPPORTED_FORMATS, WORKERS, X, Y, Z
+
+
+# Registrations.
+REGISTERED_FILTERS = {
+    'rotate90': filters.rotate90,
+    'skew': filters.skew,
+}
+SUPPORTED_NOISES = {
+    'SolidNoise': noise.SolidNoise,
+    'GradientNoise': noise.GradientNoise,
+    'ValueNoise': noise.ValueNoise,
+    'CosineNoise': noise.CosineNoise,
+    'OctaveCosineNoise': noise.OctaveCosineNoise,
+    'Perlin': noise.Perlin,
+    'OctavePerlin': noise.OctavePerlin,
+}
 
 
 # Script configuration.
@@ -51,17 +68,11 @@ CONFIG = {
     # Postprocessing configuration.
     'autocontrast': False,
     'colorize': None,
+    'filters': '',
 }
+FILTERS = []
+FRAMERATE = 12
 STATUS = None
-SUPPORTED_NOISES = {
-    'SolidNoise': noise.SolidNoise,
-    'GradientNoise': noise.GradientNoise,
-    'ValueNoise': noise.ValueNoise,
-    'CosineNoise': noise.CosineNoise,
-    'OctaveCosineNoise': noise.OctaveCosineNoise,
-    'Perlin': noise.Perlin,
-    'OctavePerlin': noise.OctavePerlin,
-}
 
 
 # Script initialization.
@@ -127,6 +138,14 @@ def configure() -> None:
         required=False,
         default=4,
         help='The starting frequency for octave noise generation.'
+    )
+    p.add_argument(
+        '-F', '--filters',
+        type=str,
+        action='store',
+        required=False,
+        default='',
+        help='Filters for difference layers.'
     )
     p.add_argument(
         '-k', '--colorize',
@@ -210,6 +229,7 @@ def configure() -> None:
         CONFIG['frequency'] = args.frequency
         CONFIG['autocontrast'] = args.autocontrast
         CONFIG['colorize'] = COLOR[args.colorize]
+        CONFIG['filters'] = args.filters
         CONFIG['noises'] = make_noises_from_config()
     
     # Configure arguments not overridden by the config file.
@@ -224,6 +244,10 @@ def configure() -> None:
         n = cls(**kwargs)
         noises.append(n)
     CONFIG['noises'] = noises
+    if CONFIG['filters']:
+        global FILTERS
+        FILTERS = parse_filter_command(CONFIG['filters'], 
+                                       CONFIG['difference_layers'])
 
 
 def get_format(filename:str) -> str:
@@ -259,6 +283,30 @@ def make_noises_from_config() -> List[noise.BaseNoise]:
         result.append(new_noise)
     
     return result
+
+
+def parse_filter_command(cmd:str, layers:int) -> List[List]:
+    commands = [c.split('_') for c in cmd.split('+')]
+    for c in commands:
+        c[1] = c[1].split(':')
+        if len(c) < 3:
+            c.append('')
+        c[2] = c[2].split(',')
+        for i in range(len(c[2])):
+            try:
+                c[2][i] = int(c[2][i])
+            except ValueError:
+                pass
+    
+    parsed = []
+    for layer in range(layers + 1):
+        filters_ = []
+        for c in commands:
+            if layer % int(c[1][0]) == int(c[1][1]):
+                filter = [REGISTERED_FILTERS[c[0]], c[2]]
+                filters_.append(filter)
+        parsed.append(filters_)
+    return parsed
 
 
 # File handling.
@@ -307,20 +355,76 @@ def save_image(n:'numpy.ndarray') -> None:
             black = CONFIG['colorize'][0]
             white = CONFIG['colorize'][1]
             frames = [ImageOps.colorize(f, black, white) for f in frames]
+    
+    
+    if len(n.shape) == 3 and CONFIG['format'] not in ['AVI', 'MP4']:
+        duration = (1 / FRAMERATE) * 1000
         frames[0].save(CONFIG['filename'], 
                        save_all=True,
                        append_images=frames[1:],
-                       loop=CONFIG['loops'])
+                       loop=CONFIG['loops'],
+                       duration=duration)
+    
+    if len(n.shape) == 3 and CONFIG['format'] in ['AVI', 'MP4']:
+        n = np.zeros((*n.shape, 3))
+        for i in range(len(frames)):
+            n[i] = np.asarray(frames[i])
+        dim = (n.shape[1], n.shape[2])
+        dim = dim[::-1]
+        n = n.astype(np.uint8)
+        n = np.flip(n, -1)
+        if CONFIG['format'] == 'AVI':
+            codec = 'MJPG'
+        else:
+            codec = 'mp4v'
+        out = cv2.VideoWriter(CONFIG['filename'], 
+                              cv2.VideoWriter_fourcc(*codec), 
+                              FRAMERATE, dim, True)
+        for frame in n:
+            out.write(frame)
+        out.release()
+
+
+# Utility.
+def _has_rotate90() -> bool:
+    filter_fns = []
+    for layer in FILTERS:
+        for filter in layer:
+            filter_fns.append(filter[0])
+    if filters.rotate90 in filter_fns:
+        return True
+    return False
+
+
+def _has_skew() -> bool:
+    filter_fns = []
+    for layer in FILTERS:
+        for filter in layer:
+            filter_fns.append(filter[0])
+    if filters.skew in filter_fns:
+        return True
+    return False
 
 
 # Noise creation.
 def make_difference_noise(noises:Sequence[noise.BaseNoise],
-                          size:Sequence[int],
-                          rotate:bool = False,
-                          skew:bool = 0) -> 'numpy.ndarray':
+                          size:Sequence[int]) -> 'numpy.ndarray':
     """Create a space filled with the difference of several 
     difference noise spaces.
     """
+    if _has_skew():
+        skews = []
+        for layer in FILTERS:
+            skews.extend(f for f in layer if f[0] == filters.skew)
+        final_size = size[:]
+        slopes = [abs(f[1][0]) for f in skews]
+        slope = max(slopes)
+        size = filters.skew_size_adjustment(size, slope)
+    
+    if _has_rotate90():
+        rot_final_size = size[:]
+        size = filters.rotate90_size_adjustment(size)
+    
     spaces = [np.zeros(size) for _ in range(len(noises))]
     with futures.ProcessPoolExecutor(WORKERS) as executor:
         to_do = []
@@ -343,27 +447,43 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
     for future in futures.as_completed(to_do):
         noise_loc, slice_loc, slice = future.result()
         spaces[noise_loc][slice_loc] = slice
+        if STATUS:
+            STATUS.update('slice_end', (noise_loc, slice_loc))
     
     result = np.zeros(spaces[0].shape)
-    
     for i in range(len(spaces)):
+        if STATUS:
+            STATUS.update('diff', i)
         space = spaces[i]
-        if i % 2 != 0 and rotate:
-            space = space.transpose((0, 2, 1))
-        if i % 3 == 1 and skew:
-            space = filters.skew(space, skew)
-        if i % 3 == 2 and skew:
-            space = filters.skew(space, -skew)
+        filters_ = FILTERS[i]
+        for filter in filters_:
+            if STATUS:
+                STATUS.update('filter', filter[0].__name__)
+            args = []
+            if len(filter) > 1:
+                args = filter[1]
+            space = filter[0](space, *args)
+            if STATUS:
+                STATUS.update('filter_end', filter[0].__name__)
         result = abs(result - space)
     
-    if skew:
-        start_y = result.shape[Y] // (skew * 2) + 1
-        end_y = start_y + 600
-        start_x = result.shape[X] // (skew * 2) + 1
-        end_x = start_x + 600
-        result = result[..., start_y:end_y, start_x:end_x]
+    if _has_rotate90() and rot_final_size != size:
+        diff = rot_final_size[Y] - rot_final_size[X]
+        if diff > 0:
+            start_x = diff // 2
+            end_x = rot_final_size[X] + (diff - start_x)
+            result = result[..., :, start_x:end_x]
+        else:
+            start_y = abs(diff // 2)
+            end_y = rot_final_size[Y] + (abs(diff) - start_y)
+            result = result[..., start_y:end_y, :]
     
-    if rotate or skew:
+    if _has_skew():
+        start_x = (size[X] - final_size[X]) // 2
+        end_x = final_size[X] + start_x
+        result = result[..., :, start_x:end_x]
+    
+    if [filter for filter in FILTERS if filter]:
         return result[1:]
     else:
         return result
@@ -434,4 +554,4 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    main()    
+    main()

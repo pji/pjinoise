@@ -56,21 +56,21 @@ CONFIG['noises'] = [
 FILTERS = [
     [],
     [
-        [filters.rotate90, ['r',]],
-        [filters.skew, [10,]],
+        filters.Rotate90('r'),
+        filters.Skew(10),
     ],
     [
-        [filters.skew, [-10,]],
+        filters.Skew(-10),
     ],
     [
-        [filters.rotate90, ['r',]],
+        filters.Rotate90('r'),
     ],
     [
-        [filters.skew, [10,]],
+        filters.Skew(10),
     ],
     [
-        [filters.rotate90, ['r',]],
-        [filters.skew, [-10,]],
+        filters.Rotate90('r'),
+        filters.Skew(-10),
     ],
     [],
 ]

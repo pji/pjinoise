@@ -28,10 +28,6 @@ from pjinoise.constants import COLOR, SUPPORTED_FORMATS, WORKERS, X, Y, Z
 
 
 # Registrations.
-REGISTERED_FILTERS = {
-    'rotate90': filters.rotate90,
-    'skew': filters.skew,
-}
 SUPPORTED_NOISES = {
     'SolidNoise': noise.SolidNoise,
     'GradientNoise': noise.GradientNoise,
@@ -55,6 +51,7 @@ CONFIG = {
     'ntypes': [],
     'size': (256, 256),
     'unit': (256, 256),
+#     'start': (0,)
     
     # Octave noise configuration.
     'octaves': 0,
@@ -303,7 +300,8 @@ def parse_filter_command(cmd:str, layers:int) -> List[List]:
         filters_ = []
         for c in commands:
             if layer % int(c[1][0]) == int(c[1][1]):
-                filter = [REGISTERED_FILTERS[c[0]], c[2]]
+#                 filter = [REGISTERED_FILTERS[c[0]], c[2]]
+                filter = filters.make_filter(c[0], c[2])
                 filters_.append(filter)
         parsed.append(filters_)
     return parsed
@@ -385,51 +383,25 @@ def save_image(n:'numpy.ndarray') -> None:
         out.release()
 
 
-# Utility.
-def _has_rotate90() -> bool:
-    filter_fns = []
-    for layer in FILTERS:
-        for filter in layer:
-            filter_fns.append(filter[0])
-    if filters.rotate90 in filter_fns:
-        return True
-    return False
-
-
-def _has_skew() -> bool:
-    filter_fns = []
-    for layer in FILTERS:
-        for filter in layer:
-            filter_fns.append(filter[0])
-    if filters.skew in filter_fns:
-        return True
-    return False
-
-
 # Noise creation.
 def make_difference_noise(noises:Sequence[noise.BaseNoise],
-                          size:Sequence[int]) -> 'numpy.ndarray':
+                          size:Sequence[int],
+                          start_loc:Sequence[int] = None) -> np.array:
     """Create a space filled with the difference of several 
     difference noise spaces.
     """
-    if _has_skew():
-        skews = []
-        for layer in FILTERS:
-            skews.extend(f for f in layer if f[0] == filters.skew)
-        final_size = size[:]
-        slopes = [abs(f[1][0]) for f in skews]
-        slope = max(slopes)
-        size = filters.skew_size_adjustment(size, slope)
+    # Adjust the size of the image to avoid filter artifacts.
+    size = filters.preprocess(size, FILTERS)
     
-    if _has_rotate90():
-        rot_final_size = size[:]
-        size = filters.rotate90_size_adjustment(size)
-    
-    spaces = [np.zeros(size) for _ in range(len(noises))]
+    # Create the jobs to generate the noise.
+    spaces = np.zeros((len(noises), *size))
     with futures.ProcessPoolExecutor(WORKERS) as executor:
         to_do = []
         for i in range(len(noises)):
-            slice_loc = [0 for _ in range(len(size[:-2]))]
+            if start_loc:
+                slice_loc = start_loc[:]
+            else:
+                slice_loc = [0 for _ in range(len(size[:-2]))]
             while slice_loc[0] < size[0]:
                 job = executor.submit(make_noise_slice, 
                                       noises[i],
@@ -443,46 +415,33 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
                     if slice_loc[j] == size[j]:
                         slice_loc[j] = 0
                         slice_loc[j - 1] += 1
-        
+    
+    # Gather the generated noise and put it into the correct spot 
+    # in the generated volume of noise.
     for future in futures.as_completed(to_do):
         noise_loc, slice_loc, slice = future.result()
         spaces[noise_loc][slice_loc] = slice
         if STATUS:
             STATUS.update('slice_end', (noise_loc, slice_loc))
     
-    result = np.zeros(spaces[0].shape)
+    # Run the filters on the noise.
+    spaces = filters.process(spaces, FILTERS, STATUS)
+    
+    # Apply the difference layers.
+    result = np.zeros(spaces.shape[1:])
     for i in range(len(spaces)):
         if STATUS:
             STATUS.update('diff', i)
         space = spaces[i]
-        filters_ = FILTERS[i]
-        for filter in filters_:
-            if STATUS:
-                STATUS.update('filter', filter[0].__name__)
-            args = []
-            if len(filter) > 1:
-                args = filter[1]
-            space = filter[0](space, *args)
-            if STATUS:
-                STATUS.update('filter_end', filter[0].__name__)
         result = abs(result - space)
     
-    if _has_rotate90() and rot_final_size != size:
-        diff = rot_final_size[Y] - rot_final_size[X]
-        if diff > 0:
-            start_x = diff // 2
-            end_x = rot_final_size[X] + (diff - start_x)
-            result = result[..., :, start_x:end_x]
-        else:
-            start_y = abs(diff // 2)
-            end_y = rot_final_size[Y] + (abs(diff) - start_y)
-            result = result[..., start_y:end_y, :]
+    # Crop the noise to remove the padding added to avoid artifacting 
+    # from the filters.
+    result = filters.postprocess(result, FILTERS)
     
-    if _has_skew():
-        start_x = (size[X] - final_size[X]) // 2
-        end_x = final_size[X] + start_x
-        result = result[..., :, start_x:end_x]
-    
+    # Return the result. The first frame is dropped due to an unknown 
+    # bug seen when generating animations. Should try to resolve that 
+    # at some point.
     if [filter for filter in FILTERS if filter]:
         return result[1:]
     else:

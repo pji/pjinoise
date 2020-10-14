@@ -23,12 +23,13 @@ CONFIG = {
     'filename': 'spam.tiff',
     'format': 'TIFF',
     'save_config': True,
+    'difference_layers': 6,
     
     # General noise generation configuration.
     'ntypes': [noise.ValueNoise,],
     'size': [3, 3],
     'unit': [2, 2, 2],
-    'difference_layers': 6,
+    'start': [3,],
     
     # Octave noise configuration.
     'octaves': 6,
@@ -108,6 +109,8 @@ class CLITestCase(ut.TestCase):
             exp['filters'],
             '-d',
             str(exp['difference_layers']),            
+            '-t',
+            str(exp['start'][0]),
             '-o',
             exp['filename'],
         ]

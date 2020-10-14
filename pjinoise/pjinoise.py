@@ -51,7 +51,7 @@ CONFIG = {
     'ntypes': [],
     'size': (256, 256),
     'unit': (256, 256),
-#     'start': (0,)
+    'start': [],
     
     # Octave noise configuration.
     'octaves': 0,
@@ -191,6 +191,14 @@ def configure() -> None:
         help='The dimensions of the output file.'
     )
     p.add_argument(
+        '-t', '--start',
+        type=int,
+        nargs='*',
+        action='store',
+        default=[],
+        help='The frame to start the animation at.'
+    )
+    p.add_argument(
         '-u', '--unit',
         type=int,
         nargs='*',
@@ -207,6 +215,8 @@ def configure() -> None:
             CONFIG['colorize'] = COLOR[args.colorize]
         if args.size:
             CONFIG['size'] = args.size[::-1]
+        if args.start:
+            CONFIG['start'] = args.start[::-1]
         if args.unit:
             CONFIG['unit'] = args.unit[::-1]
             for noise in CONFIG['noises']:
@@ -219,6 +229,7 @@ def configure() -> None:
         CONFIG['ntypes'] = args.ntypes
         CONFIG['size'] = args.size[::-1]
         CONFIG['unit'] = args.unit[::-1]
+        CONFIG['start'] = args.start[::-1]
         CONFIG['difference_layers'] = args.difference_layers
         CONFIG['octaves'] = args.octaves
         CONFIG['persistence'] = args.persistence
@@ -390,6 +401,11 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
     """Create a space filled with the difference of several 
     difference noise spaces.
     """
+    # If no starting location was passed, start at the beginning.
+    if not start_loc:
+        start_loc = [0 for _ in range(len(size[:-2]))]
+    
+    
     # Adjust the size of the image to avoid filter artifacts.
     size = filters.preprocess(size, FILTERS)
     
@@ -398,11 +414,9 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
     with futures.ProcessPoolExecutor(WORKERS) as executor:
         to_do = []
         for i in range(len(noises)):
-            if start_loc:
-                slice_loc = start_loc[:]
-            else:
-                slice_loc = [0 for _ in range(len(size[:-2]))]
-            while slice_loc[0] < size[0]:
+            slice_loc = start_loc[:]
+#             slice_loc = [0 for _ in range(len(size[:-2]))]
+            while slice_loc[0] < size[0] + start_loc[0]:
                 job = executor.submit(make_noise_slice, 
                                       noises[i],
                                       size[-2:],
@@ -420,6 +434,7 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
     # in the generated volume of noise.
     for future in futures.as_completed(to_do):
         noise_loc, slice_loc, slice = future.result()
+        slice_loc = [loc - offset for loc, offset in zip(slice_loc, start_loc)]
         spaces[noise_loc][slice_loc] = slice
         if STATUS:
             STATUS.update('slice_end', (noise_loc, slice_loc))
@@ -439,13 +454,8 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
     # from the filters.
     result = filters.postprocess(result, FILTERS)
     
-    # Return the result. The first frame is dropped due to an unknown 
-    # bug seen when generating animations. Should try to resolve that 
-    # at some point.
-    if [filter for filter in FILTERS if filter]:
-        return result[1:]
-    else:
-        return result
+    # Return the result.
+    return result
 
 
 def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'numpy.ndarray':
@@ -501,7 +511,9 @@ def main() -> None:
     configure()
     
     if CONFIG['difference_layers']:
-        space = make_difference_noise(CONFIG['noises'], CONFIG['size'])
+        space = make_difference_noise(CONFIG['noises'], 
+                                      CONFIG['size'], 
+                                      CONFIG['start'])
     else:
         space = make_noise(CONFIG['noises'][0], CONFIG['size'])
     

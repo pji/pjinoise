@@ -190,21 +190,6 @@ def postprocess(values:np.array,
 
 
 # Not vectorized filters.
-def cut_shadow(values:Sequence[Sequence[float]]) -> Sequence[Sequence[float]]:
-    """Remove the lower half of colors from the image."""
-    values = values[:]
-    brightest = max(chain(col for col in values))
-    darkest = 127
-    for x in range(len(values)):
-        for y in range(len(values[x])):
-            if values[x][y] < 128:
-                values[x][y] = 0
-            else:
-                new_color = 255 * (values[x][y] - 127) / 128
-                values[x][y] = round(new_color)
-    return values
-
-
 def pixelate(matrix:list, size:int = 32) -> list:
     """Create squares of color from the image."""
     matrix = matrix[:]

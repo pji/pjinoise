@@ -22,3 +22,4 @@
 
 # Ignore experiments.
 audio.py
+chunk_video.sh

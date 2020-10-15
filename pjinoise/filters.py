@@ -51,6 +51,22 @@ class Filter(ABC):
         return tuple(n - pad for n, pad in zip (size, self.padding))
 
 
+class CutLight(Filter):
+    def __init__(self, threshold:float, scale:float = 256) -> None:
+        self.threshold = threshold
+        self.scale = scale
+    
+    # Public methods.
+    def process(self, values:np.array, *args) -> np.array:
+        values = values.copy()
+        values = self.scale - (values + 1)
+        values = values - self.threshold
+        values[values < 0] = 0
+        threshold_scale = self.scale - self.threshold
+        values = self.threshold - (values + 1)
+        return (values / threshold_scale) * self.scale
+
+
 class CutShadow(Filter):
     def __init__(self, threshold:float, scale:float = 256) -> None:
         self.threshold = threshold
@@ -222,6 +238,7 @@ def pixelate(matrix:list, size:int = 32) -> list:
 # Registrations.
 REGISTERED_FILTERS = {
     'cutshadow': CutShadow,
+    'cutlight': CutLight,
     'rotate90': Rotate90,
     'skew': Skew,
 }

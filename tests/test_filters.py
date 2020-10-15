@@ -31,6 +31,33 @@ class ClassTestCase(ut.TestCase):
         self.assertEqual(exp_param, act_param)
 
 
+class CutLightTestCase(ut.TestCase):
+    def test_process_cut_light(self):
+        """Given an image, remove every gray below 50% and then 
+        adjust the remaining grays to fill the whole gamut.
+        """
+        exp = [
+            [0x00, 0x80, 0xfe, 0xfe, 0xfe,],
+            [0x00, 0x80, 0xfe, 0xfe, 0xfe,],
+            [0x00, 0x80, 0xfe, 0xfe, 0xfe,],
+            [0x00, 0x80, 0xfe, 0xfe, 0xfe,],
+            [0x00, 0x80, 0xfe, 0xfe, 0xfe,],
+        ]
+        
+        img = np.array([
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+        ])
+        threshold = 0x80
+        f = filters.CutLight(threshold)
+        act = f.process(img).tolist()
+        
+        self.assertListEqual(exp, act)
+
+
 class CutShadowTestCase(ut.TestCase):
     def test_process_cut_shadow(self):
         """Given an image, remove every gray below 50% and then 

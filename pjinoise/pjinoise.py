@@ -19,7 +19,7 @@ from typing import List, Sequence, Union
 
 import cv2
 import numpy as np
-from PIL import Image, ImageOps, ImageColor, ImageFilter
+from PIL import Image, ImageOps, ImageChops, ImageColor, ImageFilter
 
 from pjinoise import noise
 from pjinoise import ui
@@ -68,6 +68,8 @@ CONFIG = {
     'blur': None,
     'colorize': None,
     'filters': '',
+    'grain': None,
+    'overlay': True,
 }
 FILTERS = []
 FRAMERATE = 12
@@ -155,6 +157,14 @@ def configure() -> None:
         help='Filters for difference layers.'
     )
     p.add_argument(
+        '-g', '--grain',
+        type=float,
+        action='store',
+        default=None,
+        required=False,
+        help='Apply gaussian noise over the image.'
+    )
+    p.add_argument(
         '-k', '--colorize',
         type=str,
         action='store',
@@ -215,6 +225,13 @@ def configure() -> None:
         action='store',
         help='The dimensions in pixels of a unit of noise.'
     )
+    p.add_argument(
+        '-V', '--overlay',
+        action='store_true',
+        required=False,
+        default=False,
+        help='Overlay the image with itself.'
+    )
     args = p.parse_args()
     
     # Read the configuration from a file.
@@ -223,6 +240,8 @@ def configure() -> None:
         
         if args.colorize:
             CONFIG['colorize'] = COLOR[args.colorize]
+        if args.grain:
+            CONFIG['grain'] = make_grain(args.grain)
         if args.size:
             CONFIG['size'] = args.size[::-1]
         if args.start:
@@ -249,6 +268,8 @@ def configure() -> None:
         CONFIG['blur'] = args.blur
         CONFIG['colorize'] = COLOR[args.colorize]
         CONFIG['filters'] = args.filters
+        CONFIG['grain'] = make_grain(args.grain)
+        CONFIG['overlay'] = args.overlay
         CONFIG['noises'] = make_noises_from_config()
     
     # Configure arguments not overridden by the config file.
@@ -280,6 +301,15 @@ def get_format(filename:str) -> str:
         supported = ', '.join(SUPPORTED_FORMATS)
         print(f'The supported formats are: {supported}.')
         raise SystemExit
+
+
+def make_grain(scale:float) -> np.array:
+    """Create grain for an image."""
+    if scale is None:
+        return None
+    n = noise.GaussNoise(0, scale)
+    grain = n.fill(CONFIG['size'][Y:])
+    return grain
 
 
 def make_noises_from_config() -> List[noise.BaseNoise]:
@@ -329,10 +359,20 @@ def parse_filter_command(cmd:str, layers:int) -> List[List]:
     return parsed
 
 
-def postprocess_image(img:Image.Image) -> Image.Image:
+def postprocess_image(a:np.array) -> Image.Image:
     """Run the configured post-creation filters and other post 
     processing steps.
     """
+    # Run postprocessing steps that require an array.
+    if CONFIG['grain'] is not None:
+        a = a + CONFIG['grain']
+    a = a.round()
+    a = a.astype(np.uint8)
+    
+    # Run postprocessing steps that require an image.
+    img = Image.fromarray(a, mode='L')
+    if CONFIG['overlay']:
+        img = ImageChops.overlay(img, img)
     if CONFIG['autocontrast']:
         img = ImageOps.autocontrast(img)
     if CONFIG['colorize']:
@@ -374,17 +414,12 @@ def save_image(n:'numpy.ndarray') -> None:
     """Save the given array as an image to disk."""
     # Ensure the values in the array are valid within the color 
     # space of the image.
-    n = n.round()
-    n = n.astype(np.uint8)
-    
     if len(n.shape) == 2:
-        img = Image.fromarray(n, mode='L')
-        img = postprocess_image(img)
+        img = postprocess_image(n)
         img.save(CONFIG['filename'], CONFIG['format'])
     
     if len(n.shape) == 3:
-        frames = [Image.fromarray(n[i], mode='L') for i in range(n.shape[0])]
-        frames = [postprocess_image(frame) for frame in frames]
+        frames = [postprocess_image(n[i]) for i in range(n.shape[0])]
     
     if len(n.shape) == 3 and CONFIG['format'] not in VIDEO_FORMATS:
         duration = (1 / FRAMERATE) * 1000

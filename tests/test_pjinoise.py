@@ -44,7 +44,9 @@ CONFIG = {
     'autocontrast': False,
     'colorize': [],
     'blur': None,
-    'filters': 'rotate90_2:1_r+skew_3:1_10+skew_3:2_-10'
+    'filters': 'rotate90_2:1_r+skew_3:1_10+skew_3:2_-10',
+    'grain': None,
+    'overlay': False,
 }
 CONFIG['noises'] = [
     CONFIG['ntypes'][0](unit=CONFIG['unit'], table=[0 for _ in range(512)]),
@@ -122,7 +124,11 @@ class CLITestCase(ut.TestCase):
         act_filters = pn.FILTERS
         
         for key in act:
-            self.assertEqual(exp[key], act[key])
+            try:
+                self.assertEqual(exp[key], act[key])
+            except ValueError as e:
+                print(key)
+                raise e
         self.assertListEqual(exp_filters, act_filters)
     
     def test_parse_filter_command(self):

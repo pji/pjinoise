@@ -12,6 +12,42 @@ from pjinoise import constants
 from pjinoise import noise
 
 
+class PointTestCase(ut.TestCase):
+    def test_gaussnoise_class(self):
+        """An instance of noise.GaussNoise should be initiated with 
+        the given attributes.
+        """
+        exp_cls = noise.GaussNoise
+        exp_attrs = {
+            'location': 0,
+            'scale': 5,
+        }
+        act_obj = noise.GaussNoise(**exp_attrs)
+        act_attrs = {
+            'location': act_obj.location,
+            'scale': act_obj.scale,
+        }
+        self.assertIsInstance(act_obj, exp_cls)
+        self.assertDictEqual(exp_attrs, act_attrs)
+    
+    def test_gaussnoise_fill_with_noise(self):
+        """Given the size of each dimension of the noise, 
+        GaussNoise.fill should return an array that contains 
+        the expected noise.
+        """
+        exp_shape = (3, 3)
+        
+        attrs = {
+            'location': 127,
+            'scale': 2,
+        }
+        n = noise.GaussNoise(**attrs)
+        act_noise = n.fill(exp_shape)
+        act_shape = act_noise.shape
+        
+        self.assertTupleEqual(exp_shape, act_shape)
+
+
 class SolidTestCase(ut.TestCase):
     def test_solidnoise_class(self):
         """An instance of noise.SolidNoise should be initiated with 

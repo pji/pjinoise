@@ -19,12 +19,13 @@ from typing import List, Sequence, Union
 
 import cv2
 import numpy as np
-from PIL import Image, ImageOps, ImageColor
+from PIL import Image, ImageOps, ImageColor, ImageFilter
 
 from pjinoise import noise
 from pjinoise import ui
 from pjinoise import filters
-from pjinoise.constants import COLOR, SUPPORTED_FORMATS, WORKERS, X, Y, Z
+from pjinoise.constants import (COLOR, SUPPORTED_FORMATS, VIDEO_FORMATS, 
+                                WORKERS, X, Y, Z)
 
 
 # Registrations.
@@ -64,6 +65,7 @@ CONFIG = {
     
     # Postprocessing configuration.
     'autocontrast': False,
+    'blur': None,
     'colorize': None,
     'filters': '',
 }
@@ -106,6 +108,14 @@ def configure() -> None:
         required=False,
         default=False,
         help='Automatically adjust the contrast of the image.'
+    )
+    p.add_argument(
+        '-b', '--blur',
+        type=float,
+        action='store',
+        required=False,
+        default=None,
+        help='Blur the image by the given amount.'
     )
     p.add_argument(
         '-c', '--save_config',
@@ -236,6 +246,7 @@ def configure() -> None:
         CONFIG['amplitude'] = args.amplitude
         CONFIG['frequency'] = args.frequency
         CONFIG['autocontrast'] = args.autocontrast
+        CONFIG['blur'] = args.blur
         CONFIG['colorize'] = COLOR[args.colorize]
         CONFIG['filters'] = args.filters
         CONFIG['noises'] = make_noises_from_config()
@@ -318,6 +329,22 @@ def parse_filter_command(cmd:str, layers:int) -> List[List]:
     return parsed
 
 
+def postprocess_image(img:Image.Image) -> Image.Image:
+    """Run the configured post-creation filters and other post 
+    processing steps.
+    """
+    if CONFIG['autocontrast']:
+        img = ImageOps.autocontrast(img)
+    if CONFIG['colorize']:
+        black = CONFIG['colorize'][0]
+        white = CONFIG['colorize'][1]
+        img = ImageOps.colorize(img, black, white)
+    if CONFIG['blur']:
+        blur = ImageFilter.GaussianBlur(CONFIG['blur'])
+        img = img.filter(blur)
+    return img
+
+
 # File handling.
 def read_config(filename:str) -> None:
     """Read the script configuration from a file."""
@@ -352,21 +379,14 @@ def save_image(n:'numpy.ndarray') -> None:
     
     if len(n.shape) == 2:
         img = Image.fromarray(n, mode='L')
-        if CONFIG['autocontrast']:
-            img = ImageOps.autocontrast(img)
+        img = postprocess_image(img)
         img.save(CONFIG['filename'], CONFIG['format'])
     
     if len(n.shape) == 3:
         frames = [Image.fromarray(n[i], mode='L') for i in range(n.shape[0])]
-        if CONFIG['autocontrast']:
-            frames = [ImageOps.autocontrast(frame) for frame in frames]
-        if CONFIG['colorize']:
-            black = CONFIG['colorize'][0]
-            white = CONFIG['colorize'][1]
-            frames = [ImageOps.colorize(f, black, white) for f in frames]
+        frames = [postprocess_image(frame) for frame in frames]
     
-    
-    if len(n.shape) == 3 and CONFIG['format'] not in ['AVI', 'MP4']:
+    if len(n.shape) == 3 and CONFIG['format'] not in VIDEO_FORMATS:
         duration = (1 / FRAMERATE) * 1000
         frames[0].save(CONFIG['filename'], 
                        save_all=True,
@@ -374,7 +394,7 @@ def save_image(n:'numpy.ndarray') -> None:
                        loop=CONFIG['loops'],
                        duration=duration)
     
-    if len(n.shape) == 3 and CONFIG['format'] in ['AVI', 'MP4']:
+    if len(n.shape) == 3 and CONFIG['format'] in VIDEO_FORMATS:
         n = np.zeros((*n.shape, 3))
         for i in range(len(frames)):
             n[i] = np.asarray(frames[i])

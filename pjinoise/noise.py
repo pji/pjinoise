@@ -7,9 +7,11 @@ These are the noise generation objects used by pjinoise.
 from abc import ABC, abstractmethod
 from concurrent import futures
 import math
-import numpy as np
 import random
 from typing import Any, List, Mapping, Sequence, Tuple, Union
+
+import numpy as np
+from numpy.random import default_rng
 
 from pjinoise.constants import P, TEXT, WORKERS, X, Y, Z
 
@@ -18,7 +20,7 @@ from pjinoise.constants import P, TEXT, WORKERS, X, Y, Z
 class BaseNoise(ABC):
     """Base class to define common features of noise classes."""
     def __init__(self, scale:int = 255) -> None:
-        self.scale = 255
+        self.scale = scale
     
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -62,7 +64,7 @@ class BaseNoise(ABC):
         return result
 
     @abstractmethod
-    def noise(self, coords:Sequence[float]) -> None:
+    def noise(self, coords:Sequence[float]) -> int:
         """Generate the noise value for the given coordinates."""
     
 
@@ -91,6 +93,22 @@ class Noise():
     def noise(self, x:int, y:int, z:int) -> float:
         """Generate random noise."""
         return random.random()
+
+
+# Random point values.
+class GaussNoise(BaseNoise):
+    """Create random noise with a gaussian (normal) distribution."""
+    def __init__(self, location:float = 127, *args, **kwargs) -> None:
+        self.location = location
+        self.rng = default_rng()
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], _:Any = None) -> np.array:
+        return self.rng.normal(self.location, self.scale, size)
+    
+    def noise(self, *args, **kwargs) -> int:
+        return self.rng.normal(self.location, self.scale)
 
 
 # Simple solid color and gradients.
@@ -205,7 +223,6 @@ class GradientNoise(BaseNoise):
 
 
 # Value noise.
-# class ValueNoise(Noise):
 class ValueNoise(GradientNoise):
     """A class to generate value noise. Reference algorithms taken 
     from:

@@ -43,6 +43,7 @@ CONFIG = {
     # Postprocessing configuration.
     'autocontrast': False,
     'colorize': [],
+    'blur': None,
     'filters': 'rotate90_2:1_r+skew_3:1_10+skew_3:2_-10'
 }
 CONFIG['noises'] = [

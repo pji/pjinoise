@@ -67,6 +67,7 @@ SUPPORTED_FORMATS = {
     'tiff': 'TIFF',
     'webp': 'WebP',
 }
+VIDEO_FORMATS = ['AVI', 'MP4']
 
 
 # Color lookup.

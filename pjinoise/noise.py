@@ -68,33 +68,6 @@ class BaseNoise(ABC):
         """Generate the noise value for the given coordinates."""
     
 
-class Noise():
-    def __init__(self, scale:float = 255, *args, **kwargs) -> None:
-        self.scale = scale
-    
-    def __eq__(self, other) -> bool:
-        cls = type(self)
-        if not isinstance(other, cls):
-            return NotImplemented
-        return self.asdict() == other.asdict()
-    
-    @classmethod
-    def fromdict(cls, kwargs) -> object:
-        """Create an instance of the class from a dictionary."""
-        return cls(**kwargs)
-    
-    def asdict(self) -> dict:
-        """Serialize the object as a dictionary."""
-        return {
-            'type': type(self).__name__,
-            'scale': self.scale,
-        }
-    
-    def noise(self, x:int, y:int, z:int) -> float:
-        """Generate random noise."""
-        return random.random()
-
-
 # Random point values.
 class GaussNoise(BaseNoise):
     """Create random noise with a gaussian (normal) distribution."""
@@ -480,9 +453,9 @@ class PerlinNoise(ValueNoise):
         units = indices / np.array(unit_size)
         units = units % 255
         del indices
+        del unit_size
         
-        # Generate the noise using the permutation table and linear 
-        # interpolation.
+        # Generate the noise.
         lerp = np.vectorize(self._lookup_and_lerp)
         values = lerp(units[X], units[Y], units[Z])
         return values
@@ -687,21 +660,7 @@ if __name__ == '__main__':
     size = (1, 4, 4)
     table = P
     
-    n = OctavePerlin(unit=unit, table=table)
-    
-    value = []
-    z = loc[0]
-    for y in range(4):
-        row = []
-        for x in range(4):
-            point = n.noise((z, y, x))
-            row.append(point)
-            print(hex(point), end=' ')
-        value.append(row)
-        print()
-    print()
-    
-    n = OctavePerlinNoise(unit=unit, table=table)
+    n = PerlinNoise(unit=unit, table=table)
     value = n.fill(size, loc)
 #     print(value)
     

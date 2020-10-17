@@ -111,6 +111,25 @@ class GaussNoise(BaseNoise):
         return self.rng.normal(self.location, self.scale)
 
 
+class RangeNoise(BaseNoise):
+    """Create random noise with a gaussian (normal) distribution."""
+    def __init__(self, location:float = 127, *args, **kwargs) -> None:
+        self.location = location
+        self.rng = default_rng()
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], _:Any = None) -> np.array:
+        min_value = self.location - self.scale
+        max_value = self.location + self.scale + 1
+        return self.rng.integers(min_value, max_value, size)
+    
+    def noise(self, *args, **kwargs) -> int:
+        min_value = self.location - self.scale
+        max_value = self.location + self.scale + 1
+        return self.rng.integers(min_value, max_value)
+
+
 # Simple solid color and gradients.
 class SolidNoise(BaseNoise):
     """Produce a single color."""

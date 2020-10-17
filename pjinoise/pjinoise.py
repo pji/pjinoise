@@ -288,6 +288,8 @@ def configure() -> None:
         global FILTERS
         FILTERS = parse_filter_command(CONFIG['filters'], 
                                        CONFIG['difference_layers'])
+    if isinstance(CONFIG['grain'], (float, int)):
+        CONFIG['grain'] = make_grain(CONFIG['grain'])
 
 
 def get_format(filename:str) -> str:
@@ -307,8 +309,10 @@ def make_grain(scale:float) -> np.array:
     """Create grain for an image."""
     if scale is None:
         return None
-    n = noise.GaussNoise(0, scale)
+    n = noise.RangeNoise(127, scale)
     grain = n.fill(CONFIG['size'][Y:])
+    grain = grain.round()
+    grain = grain.astype(np.uint8)
     return grain
 
 
@@ -364,24 +368,40 @@ def postprocess_image(a:np.array) -> Image.Image:
     processing steps.
     """
     # Run postprocessing steps that require an array.
-    if CONFIG['grain'] is not None:
-        a = a + CONFIG['grain']
+#     if CONFIG['grain'] is not None:
+#         STATUS.update('filter', 'grain')
+#         a = a - CONFIG['grain']
+#         STATUS.update('filter_end', 'grain')
     a = a.round()
     a = a.astype(np.uint8)
     
     # Run postprocessing steps that require an image.
     img = Image.fromarray(a, mode='L')
     if CONFIG['overlay']:
+        STATUS.update('filter', 'overlay')
         img = ImageChops.overlay(img, img)
+        STATUS.update('filter_end', 'overlay')
     if CONFIG['autocontrast']:
+        STATUS.update('filter', 'autocontrast')
         img = ImageOps.autocontrast(img)
+        STATUS.update('filter_end', 'autocontrast')
     if CONFIG['colorize']:
+        STATUS.update('filter', 'colorize')
         black = CONFIG['colorize'][0]
         white = CONFIG['colorize'][1]
         img = ImageOps.colorize(img, black, white)
+        STATUS.update('filter_end', 'colorize')
     if CONFIG['blur']:
+        STATUS.update('filter', 'blur')
         blur = ImageFilter.GaussianBlur(CONFIG['blur'])
         img = img.filter(blur)
+        STATUS.update('filter_end', 'blur')
+    if CONFIG['grain'] is not None:
+        STATUS.update('filter', 'grain')
+        grain = Image.fromarray(CONFIG['grain'], mode='L')
+        grain = grain.convert('RGB')
+        img = ImageChops.overlay(img, grain)
+        STATUS.update('filter_end', 'grain')
     return img
 
 

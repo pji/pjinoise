@@ -13,11 +13,7 @@ import numpy as np
 from pjinoise.constants import X, Y, Z
 
 
-# Global configuration.
-original_size = None
-
-
-# Filer classes.
+# Filter classes.
 class Filter(ABC):
     """The base class for filter objects."""
     padding = None

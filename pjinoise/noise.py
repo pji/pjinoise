@@ -265,11 +265,6 @@ class ValueNoise(GradientNoise):
     # Public methods.
     def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
         """Return a space filled with noise."""
-        # Problems to solve:
-        # * Create the initial grid based on the X and Z axis.
-        # * Stretch the X values over the Y axis.
-        # * Use masks to increment coordinates for interpolation.
-        
         # Start by creating the two-dimensional matrix with the X 
         # and Z axis in order to save time by not running repetitive 
         # actions along the Y axis. Each position within the matrix 
@@ -361,8 +356,6 @@ class ValueNoise(GradientNoise):
         base_location = np.array([z, x])
         vertices = vertex_mask + base_location
         vertices = vertices.astype(int)
-#         for vertex in vertices:
-#             print((zd, xd), vertex, sum(vertex))
         
         try:
             x1a = self.table[sum(vertices[0]) % len(self.table)]
@@ -375,10 +368,6 @@ class ValueNoise(GradientNoise):
             msg = f'{sum(vertices[0])} % {len(self.table)}'
             raise ValueError(msg)
         
-#         print(vertices[0], sum(vertices[0]))
-#         print(vertices[1], sum(vertices[1]))
-#         print(x1a, x1b)
-#         print(x1, x2, zd)
         return self._lerp(x1, x2, zd)
     
     def _make_table(self) -> List:
@@ -452,13 +441,52 @@ class OctaveCosineNoise(CosineNoise):
 
 
 # Perlin noise.
-class Perlin(ValueNoise):
+class PerlinNoise(ValueNoise):
     """A class to generate Perlin noise."""
-    def __init__(self, repeat:Sequence[float] = None, *args, **kwargs) -> None:
-        self.repeat = repeat
+    def __init__(self, *args, **kwargs):
+        self.dimensions = 3
+        self.hashes = [f'{n:>03b}'[::-1] for n in range(2 ** self.dimensions)]
         super().__init__(*args, **kwargs)
     
-    # Public methods.
+    # Public classes.
+    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
+        """Return a space filled with Perlin noise."""
+        # Perlin noise requires a three-dimensional space.
+        while len(size) < 3:
+            size = list(size[:])
+            size.insert(0, 1)
+        while loc and len(loc) < 3:
+            loc = list(loc[:])
+            loc.insert(0, 0)
+        
+        # Map out the locations of the pixels that need to be 
+        # generated within the space. If a starting location was 
+        # given, adjust the positions of the pixels to be relative 
+        # to that starting position.
+        indices = np.indices(size)
+        if loc:
+            indices[X] = indices[X] + loc[X]
+            indices[Y] = indices[Y] + loc[Y]
+            indices[Z] = indices[Z] + loc[Z]
+        
+        # Translate the pixel positions into units of the noise along 
+        # an axis. Then release the memory used by indices, since our 
+        # constraint is likely memory.
+        unit_size = np.array([
+            np.full(indices[Z].shape, self.unit[Z]),
+            np.full(indices[Y].shape, self.unit[Y]),
+            np.full(indices[X].shape, self.unit[X]),
+        ])
+        units = indices / np.array(unit_size)
+        units = units % 255
+        del indices
+        
+        # Generate the noise using the permutation table and linear 
+        # interpolation.
+        lerp = np.vectorize(self._lookup_and_lerp)
+        values = lerp(units[X], units[Y], units[Z])
+        return values
+    
     def noise(self, coords:Sequence[float]) -> float:
         units = [self._locate(coords[i], i) for i in range(len(coords))]
         if self.repeat:
@@ -474,7 +502,7 @@ class Perlin(ValueNoise):
         value = self._dimensional_lerp(0, units_float, units_fade, hash_table)
         return round(self.scale * value)
     
-    # Private methods.
+    # Private classes.
     def _dimensional_lerp(self, 
                           index:int, 
                           floats:Sequence[float],
@@ -573,10 +601,21 @@ class Perlin(ValueNoise):
         if repeat > 0:
             value %= repeat
         return value
+    
+    def _lookup_and_lerp(self, x:float, y:float, z:float) -> float:
+        """(Vectorizable.) Lookup the noise values and interpolate 
+        the values based on their position within the noise.
+        """
+        loc = (z, y, x)
+        units = [int(n // 1) for n in loc]
+        dists = [n - unit for n, unit in zip(loc, units)]
+        fades = tuple(self._fade(n) for n in dists)
+        hash_table = {hash: self._hash(hash, units) for hash in self.hashes}
+        value = self._dimensional_lerp(0, dists, fades, hash_table)
+        return round(self.scale * value)
 
 
-class OctavePerlin(Perlin):
-    """A class to generate octave Perlin noise."""
+class OctavePerlinNoise(PerlinNoise):
     def __init__(self, 
                  octaves:int = 6,
                  persistence:float = -4,
@@ -603,6 +642,20 @@ class OctavePerlin(Perlin):
         super().__init__(*args, **kwargs)
     
     # Public methods.
+    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
+        total = 0
+        max_value = 0
+        for i in range(self.octaves):
+            amp = self.amplitude + (self.persistence * i)
+            freq = self.frequency * 2 ** i
+            kwargs = self.asdict()
+            kwargs['unit'] = [n / freq for n in self.unit]
+            octave = PerlinNoise(**kwargs)
+            total += octave.fill(size, loc) * amp
+            max_value += amp
+        value = total / max_value
+        return np.around(value, 0).astype(int)
+    
     def noise(self, coords:Sequence[float]) -> int:
         """Create the perlin noise with the given octaves and persistence.
     
@@ -628,35 +681,33 @@ class OctavePerlin(Perlin):
 
 
 if __name__ == '__main__':
-    unit = (2, 4, 4)
-#     table = [
-#         [n * 255 / 4 for n in range(5)][::-1],
-#         [n * 255 / 4 for n in range(5)][::-1],
-#         [n * 255 / 4 for n in range(5)][::-1],
-#         [n * 255 / 4 for n in range(5)][::-1],
-#         [n * 255 / 4 for n in range(5)][::-1],
-#     ]
-#     table = [
-#         [255 for n in range(5)][::-1],
-#         [255 for n in range(5)][::-1],
-#         [255 for n in range(5)][::-1],
-#         [255 for n in range(5)][::-1],
-#         [255 for n in range(5)][::-1],
-#     ]
-#     table = P
-#     table = [255 for i in range(512)]
-    table = [255 for i in range(512)]
-    for i in range(len(table)):
-        if i % 2 == 0:
-            table[i] = 0
-    n = ValueNoise(unit=unit, table=table)
-    size = (1, 8, 8)
-#     size = (1, 2, 2)
+    unit = (8, 8, 8)
+    loc = (4, 0, 0)
+#     loc = (4, 4, 4)
+    size = (1, 4, 4)
+    table = P
     
-    for z in range(6):
-        img = n.fill(size, [z, 0, 0])
-        print(img)
+    n = OctavePerlin(unit=unit, table=table)
     
-#     loc = (3, 0, 0)
-#     print(n.fill(size, loc))
-#     print(n.table)
+    value = []
+    z = loc[0]
+    for y in range(4):
+        row = []
+        for x in range(4):
+            point = n.noise((z, y, x))
+            row.append(point)
+            print(hex(point), end=' ')
+        value.append(row)
+        print()
+    print()
+    
+    n = OctavePerlinNoise(unit=unit, table=table)
+    value = n.fill(size, loc)
+#     print(value)
+    
+    for frame in value:
+        for row in frame:
+            for col in row:
+                print(hex(col), end=' ')
+            print()
+        print()

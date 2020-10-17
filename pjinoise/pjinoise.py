@@ -35,8 +35,8 @@ SUPPORTED_NOISES = {
     'ValueNoise': noise.ValueNoise,
     'CosineNoise': noise.CosineNoise,
     'OctaveCosineNoise': noise.OctaveCosineNoise,
-    'Perlin': noise.Perlin,
-    'OctavePerlin': noise.OctavePerlin,
+    'PerlinNoise': noise.PerlinNoise,
+    'OctavePerlinNoise': noise.OctavePerlinNoise,
 }
 
 
@@ -367,11 +367,6 @@ def postprocess_image(a:np.array) -> Image.Image:
     """Run the configured post-creation filters and other post 
     processing steps.
     """
-    # Run postprocessing steps that require an array.
-#     if CONFIG['grain'] is not None:
-#         STATUS.update('filter', 'grain')
-#         a = a - CONFIG['grain']
-#         STATUS.update('filter_end', 'grain')
     a = a.round()
     a = a.astype(np.uint8)
     

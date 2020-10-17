@@ -250,41 +250,83 @@ class ValueTestCase(ut.TestCase):
 
 
 class PerlinTestCase(ut.TestCase):
-    def test_perlin_class(self):
-        """Given an x, y, and z coordinates; a permutations table, 
-        and a repeat period, pjinoise.perlin should return the color 
-        value for that x, y, z coordinate.
+    def test_perlinnoise_class(self):
+        """An instance of noise.PerlinNoise should be initiated with 
+        the given attributes.
         """
-        exp = 128
-        p = noise.Perlin(unit=(1024, 1024, 1024), table=constants.P)
-        x, y, z = 3, 3, 0
-        coords = (z, y, x)
-        act = p.noise(coords)
-        self.assertEqual(exp, act)
+        exp = {
+            'scale': 256,
+            'type': 'PerlinNoise',
+            'table': constants.P,
+            'unit': (1024, 1024, 1024),
+        }
+        n = noise.PerlinNoise(exp['unit'], exp['table'])
+        act = n.asdict()
+        for key in exp:
+            self.assertEqual(exp[key], act[key])
     
-#     @ut.skip
-    def test_octave_perlin_class(self):
-        """Given x, y, and z coordinates; a permutations table; 
-        pjinoise.OctavePerlin.octave_perlin should return the color 
-        value for that x, y, z coordinate.
+    def test_perlinnoise_fill(self):
+        """Given the size of a space to fill, PerlinNoise.fill should 
+        return a np.array of that shape filled with noise.
         """
-        exp = 130
+        exp = [[
+            [0x80, 0x80, 0x7e, 0x79],
+            [0x80, 0x80, 0x7f, 0x7c],
+            [0x80, 0x80, 0x80, 0x7e],
+            [0x80, 0x80, 0x81, 0x80],
+        ],]
         
-        unit = (1024, 1024, 1024)
-        octaves = 6
-        persist = -4
-        amplitude = 24
-        frequency = 4
-        p = noise.OctavePerlin(unit=unit,
-                               table=constants.P,
-                               octaves=octaves,
-                               persistence=persist,
-                               amplitude=amplitude,
-                               frequency=frequency)
-        act = p.noise((0, 3, 3))
+        size = (1, 4, 4)
+        start = (4, 0, 0)
+        unit = (8, 8, 8)
+        table = constants.P
+        n = noise.PerlinNoise(unit, table)
+        act = n.fill(size, start).tolist()
         
-        self.assertEqual(exp, act)
+        self.assertListEqual(exp, act)
     
-
+    def test_octacveperlinnoise_class(self):
+        """An instance of noise.OctavePerlinNoise should be initiated 
+        with the given attributes.
+        """
+        exp = {
+            'scale': 256,
+            'type': 'OctavePerlinNoise',
+            'table': constants.P,
+            'unit': (1024, 1024, 1024),
+            'octaves': 8,
+            'persistence': -5,
+            'amplitude': 20,
+            'frequency': 3,
+        }
+        
+        attrs = exp.copy()
+        attrs.pop('type')
+        n = noise.OctavePerlinNoise(**attrs)
+        act = n.asdict()
+        for key in exp:
+            self.assertEqual(exp[key], act[key])
+    
+    def test_octaveperlinnoise_fill(self):
+        """Given the size of a space to fill, PerlinNoise.fill should 
+        return a np.array of that shape filled with noise.
+        """
+        exp = [[
+            [0x80, 0x77, 0x80, 0x89,],
+            [0x6e, 0x69, 0x6e, 0x77,],
+            [0x80, 0x80, 0x80, 0x80,],
+            [0x92, 0x89, 0x80, 0x7b,],
+        ],]
+        
+        size = (1, 4, 4)
+        start = (4, 0, 0)
+        unit = (8, 8, 8)
+        table = constants.P
+        n = noise.OctavePerlinNoise(unit=unit, table=table)
+        act = n.fill(size, start).tolist()
+        
+        self.assertListEqual(exp, act)
+    
+    
 if __name__ == '__main__':
     raise NotImplementedError

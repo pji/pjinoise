@@ -430,7 +430,7 @@ class PerlinNoise(ValueNoise):
             size.insert(0, 1)
         while loc and len(loc) < 3:
             loc = list(loc[:])
-            loc.insert(0, 0)
+            loc.append(0)
         
         # Map out the locations of the pixels that need to be 
         # generated within the space. If a starting location was 
@@ -656,13 +656,12 @@ class OctavePerlinNoise(PerlinNoise):
 if __name__ == '__main__':
     unit = (8, 8, 8)
     loc = (4, 0, 0)
-#     loc = (4, 4, 4)
-    size = (1, 4, 4)
+    size = (4, 4, 4)
     table = P
     
     n = PerlinNoise(unit=unit, table=table)
     value = n.fill(size, loc)
-#     print(value)
+    new_table = n.table
     
     for frame in value:
         for row in frame:

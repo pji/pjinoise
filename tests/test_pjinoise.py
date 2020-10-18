@@ -152,19 +152,30 @@ class FileTestCase(ut.TestCase):
         """When given a filename, pjinoise.read_config should 
         configure the script using the details in the given file.
         """
+        CONFIG_backup = deepcopy(pn.CONFIG)
         namepart = CONFIG["filename"].split(".")[0]
         filename = f'{namepart}.conf'
+        grain = [
+            [0x80, 0x79, 0x81, 0x80,],
+            [0x80, 0x79, 0x81, 0x80,],
+            [0x80, 0x79, 0x81, 0x80,],
+            [0x80, 0x79, 0x81, 0x80,],
+        ]
         exp_conf = deepcopy(CONFIG)
         exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
         exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
+        exp_conf['grain'] = grain
         exp_open = (filename,)
         
-        contents = json.dumps(exp_conf, indent=4)
+        conf = deepcopy(exp_conf)
+        conf['grain'] = grain
+        contents = json.dumps(conf, indent=4)
         open_mock = mock_open()
         with patch("pjinoise.pjinoise.open", open_mock, create=True):
             open_mock.return_value.read.return_value = contents
             pn.read_config(filename)
             act_conf = pn.CONFIG
+        pn.CONFIG = CONFIG_backup
         
         open_mock.assert_called_with(*exp_open)
         for key in exp_conf:
@@ -176,8 +187,17 @@ class FileTestCase(ut.TestCase):
         """
         namepart = CONFIG["filename"].split(".")[0]
         filename = f'{namepart}.conf'
+        grain = [
+            [0x80, 0x79, 0x81, 0x80,],
+            [0x80, 0x79, 0x81, 0x80,],
+            [0x80, 0x79, 0x81, 0x80,],
+            [0x80, 0x79, 0x81, 0x80,],
+        ]
         exp_conf = deepcopy(CONFIG)
+        exp_conf['grain'] = grain
+        CONFIG_backup = deepcopy(pn.CONFIG)
         pn.CONFIG = deepcopy(CONFIG)
+        pn.CONFIG['grain'] = np.array(grain)
         exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
         exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
         exp_open = (filename, 'w')
@@ -185,6 +205,7 @@ class FileTestCase(ut.TestCase):
         open_mock = mock_open()
         with patch('pjinoise.pjinoise.open', open_mock, create=True):
             pn.save_config()
+        pn.CONFIG = deepcopy(CONFIG_backup)
         
         open_mock.assert_called_with(*exp_open)
         

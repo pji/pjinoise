@@ -290,6 +290,8 @@ def configure() -> None:
                                        CONFIG['difference_layers'])
     if isinstance(CONFIG['grain'], (float, int)):
         CONFIG['grain'] = make_grain(CONFIG['grain'])
+    elif isinstance(CONFIG['grain'], np.ndarray):
+        CONFIG['grain'] = np.array(CONFIG['grain'])
 
 
 def get_format(filename:str) -> str:
@@ -421,6 +423,8 @@ def save_config() -> None:
     config = deepcopy(CONFIG)
     config['ntypes'] = [cls.__name__ for cls in config['ntypes']]
     config['noises'] = [n.asdict() for n in config['noises']]
+    if isinstance(config['grain'], np.ndarray):
+        config['grain'] = config['grain'].tolist()
     with open(filename, 'w') as fh:
         fh.write(json.dumps(config, indent=4))
 

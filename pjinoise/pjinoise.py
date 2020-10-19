@@ -21,6 +21,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps, ImageChops, ImageColor, ImageFilter
 
+from pjinoise import cli
 from pjinoise import noise
 from pjinoise import ui
 from pjinoise import filters
@@ -80,160 +81,7 @@ STATUS = None
 # Script initialization.
 def configure() -> None:
     """Configure the script from command line arguments."""
-    epilog = ('COLORIZE: AVAILABLE COLORS\n'
-              'The colors available for the --colorize option are:\r\n'
-              '\n')
-    color_temp = '{:>4}\t{}, {}\n'
-    for color in COLOR:
-        if color in ['t', 'T', '']:
-            continue
-        epilog += color_temp.format(color, COLOR[color][0], COLOR[color][1])
-    epilog += ' \n'
-    
-    # Read the command line arguments.
-    p = argparse.ArgumentParser(
-        prog='PJINOISE',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description='Generate noise.',
-        epilog=epilog
-    )
-    p.add_argument(
-        '-a', '--amplitude',
-        type=float,
-        action='store',
-        required=False,
-        default=24,
-        help='The starting amplitude for octave noise generation.'
-    )
-    p.add_argument(
-        '-A', '--autocontrast',
-        action='store_true',
-        required=False,
-        default=False,
-        help='Automatically adjust the contrast of the image.'
-    )
-    p.add_argument(
-        '-b', '--blur',
-        type=float,
-        action='store',
-        required=False,
-        default=None,
-        help='Blur the image by the given amount.'
-    )
-    p.add_argument(
-        '-c', '--save_config',
-        action='store_true',
-        required=False,
-        help='Save the config to a file.'
-    )
-    p.add_argument(
-        '-C', '--load_config',
-        type=str,
-        action='store',
-        required=False,
-        help='Read config from a file. Overrides most other arguments.'
-    )
-    p.add_argument(
-        '-d', '--difference_layers',
-        type=int,
-        action='store',
-        required=False,
-        default=0,
-        help='The number of noise spaces to difference.'
-    )
-    p.add_argument(
-        '-f', '--frequency',
-        type=float,
-        action='store',
-        required=False,
-        default=4,
-        help='The starting frequency for octave noise generation.'
-    )
-    p.add_argument(
-        '-F', '--filters',
-        type=str,
-        action='store',
-        required=False,
-        default='',
-        help='Filters for difference layers.'
-    )
-    p.add_argument(
-        '-g', '--grain',
-        type=float,
-        action='store',
-        default=None,
-        required=False,
-        help='Apply gaussian noise over the image.'
-    )
-    p.add_argument(
-        '-k', '--colorize',
-        type=str,
-        action='store',
-        default='',
-        required=False,
-        help='Use the given color to colorize the noise.'
-    )
-    p.add_argument(
-        '-n', '--ntypes',
-        type=str,
-        nargs='*',
-        action='store',
-        default=['GradientNoise',],
-        required=False,
-        help='The noise generators to use.'
-    )
-    p.add_argument(
-        '-o', '--output_file',
-        type=str,
-        action='store',
-        help='The name for the output file.'
-    )
-    p.add_argument(
-        '-O', '--octaves',
-        type=int,
-        action='store',
-        required=False,
-        default=6,
-        help='The octaves of noise for octave noise generation.'
-    )
-    p.add_argument(
-        '-p', '--persistence',
-        type=float,
-        action='store',
-        required=False,
-        default=-4,
-        help='How the impact of each octave changes in octave noise generation.'
-    )
-    p.add_argument(
-        '-s', '--size',
-        type=int,
-        nargs='*',
-        action='store',
-        help='The dimensions of the output file.'
-    )
-    p.add_argument(
-        '-t', '--start',
-        type=int,
-        nargs='*',
-        action='store',
-        default=[],
-        help='The frame to start the animation at.'
-    )
-    p.add_argument(
-        '-u', '--unit',
-        type=int,
-        nargs='*',
-        action='store',
-        help='The dimensions in pixels of a unit of noise.'
-    )
-    p.add_argument(
-        '-V', '--overlay',
-        action='store_true',
-        required=False,
-        default=False,
-        help='Overlay the image with itself.'
-    )
-    args = p.parse_args()
+    args = cli.parse_arguments()
     
     # Read the configuration from a file.
     if args.load_config:
@@ -241,6 +89,12 @@ def configure() -> None:
         
         if args.colorize:
             CONFIG['colorize'] = COLOR[args.colorize]
+        if args.frequency:
+            CONFIG['frequency'] = args.frequency
+            if 'noises' in CONFIG:
+                for noise in CONFIG['noises']:
+                    if 'frequency' in noise:
+                        noise['frequency'] == args.frequency
         if args.grain:
             CONFIG['grain'] = args.grain
         if args.size:

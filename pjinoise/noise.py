@@ -455,10 +455,101 @@ class PerlinNoise(ValueNoise):
         del indices
         del unit_size
         
-        # Generate the noise.
-        lerp = np.vectorize(self._lookup_and_lerp)
-        values = lerp(units[X], units[Y], units[Z])
-        return values
+        # Calculate the parts needed for the interpolation.
+        whole = (units // 1).astype(int)
+        parts = units - whole
+        fades = 6 * parts ** 5 - 15 * parts ** 4 + 10 * parts ** 3
+        del units
+        
+        # Create the hash table.
+        hash_table = {}
+        for hash in self.hashes:
+            hash_whole = whole.copy()
+            if hash[2] == '1':
+                hash_whole[X] += 1
+            if hash[1] == '1':
+                hash_whole[Y] += 1
+            if hash[0] == '1':
+                hash_whole[Z] += 1
+            result = hash_whole[Z]
+            for axis in (Y, X):
+                result = np.take(self.table, result) + hash_whole[axis]
+            hash_table[hash] = result
+        del whole
+        del hash_whole
+        
+        # Perform the interpolation.
+        def vector_grad(mask, hash, x, y, z):
+            if mask[0] == '1':
+                z -= 1
+            if mask[1] == '1':
+                y -= 1
+            if mask[2] == '1':
+                x -= 1
+            
+            n = hash & 0xF
+            out = 0
+            if n == 0x0:
+                out = x + y
+            elif n == 0x1:
+                out = -x + y
+            elif n == 0x2:
+                out = x - y
+            elif n == 0x3:
+                out = -x - y
+            elif n == 0x4:
+                out = x + z
+            elif n == 0x5:
+                out = -x + z
+            elif n == 0x6:
+                out = x - z
+            elif n == 0x7:
+                out = -x - z
+            elif n == 0x8:
+                out = y + z
+            elif n == 0x9:
+                out = -y + z
+            elif n == 0xA:
+                out = y - z
+            elif n == 0xB:
+                out = -y - z
+            elif n == 0xC:
+                out = y + x
+            elif n == 0xD:
+                out = -y + z
+            elif n == 0xE:
+                out = y - x
+            elif n == 0xF:
+                out = -y - z
+            return out
+        
+        grad = np.vectorize(vector_grad)
+        x1a = grad('000', hash_table['000'], parts[X], parts[Y], parts[Z])
+        x1b = grad('001', hash_table['001'], parts[X], parts[Y], parts[Z])
+        x1 = self._lerp(x1a, x1b, fades[X])
+        del x1a, x1b
+
+        x2a = grad('010', hash_table['010'], parts[X], parts[Y], parts[Z])
+        x2b = grad('011', hash_table['011'], parts[X], parts[Y], parts[Z])
+        x2 = self._lerp(x2a, x2b, fades[X])
+        del x2a, x2b
+        
+        x3a = grad('100', hash_table['100'], parts[X], parts[Y], parts[Z])
+        x3b = grad('101', hash_table['101'], parts[X], parts[Y], parts[Z])
+        x3 = self._lerp(x3a, x3b, fades[X])
+        del x3a, x3b
+        
+        x4a = grad('110', hash_table['110'], parts[X], parts[Y], parts[Z])
+        x4b = grad('111', hash_table['111'], parts[X], parts[Y], parts[Z])
+        x4 = self._lerp(x4a, x4b, fades[X])
+        del x4a, x4b
+        
+        y1 = self._lerp(x1, x2, fades[Y])
+        y2 = self._lerp(x3, x4, fades[Y])
+        del x1, x2, x3, x4
+        values = (self._lerp(y1, y2, fades[Z]) + 1) / 2
+        values = values * self.scale
+        return np.around(values).astype(int)
     
     def noise(self, coords:Sequence[float]) -> float:
         units = [self._locate(coords[i], i) for i in range(len(coords))]
@@ -574,18 +665,6 @@ class PerlinNoise(ValueNoise):
         if repeat > 0:
             value %= repeat
         return value
-    
-    def _lookup_and_lerp(self, x:float, y:float, z:float) -> float:
-        """(Vectorizable.) Lookup the noise values and interpolate 
-        the values based on their position within the noise.
-        """
-        loc = (z, y, x)
-        units = [int(n // 1) for n in loc]
-        dists = [n - unit for n, unit in zip(loc, units)]
-        fades = tuple(self._fade(n) for n in dists)
-        hash_table = {hash: self._hash(hash, units) for hash in self.hashes}
-        value = self._dimensional_lerp(0, dists, fades, hash_table)
-        return round(self.scale * value)
 
 
 class OctavePerlinNoise(PerlinNoise):
@@ -623,6 +702,8 @@ class OctavePerlinNoise(PerlinNoise):
             freq = self.frequency * 2 ** i
             kwargs = self.asdict()
             kwargs['unit'] = [n / freq for n in self.unit]
+            del kwargs['type']
+            del kwargs['hashes']
             octave = PerlinNoise(**kwargs)
             total += octave.fill(size, loc) * amp
             max_value += amp
@@ -656,10 +737,10 @@ class OctavePerlinNoise(PerlinNoise):
 if __name__ == '__main__':
     unit = (8, 8, 8)
     loc = (4, 0, 0)
-    size = (4, 4, 4)
+    size = (1, 4, 4)
     table = P
     
-    n = PerlinNoise(unit=unit, table=table)
+    n = OctavePerlinNoise(unit=unit, table=table)
     value = n.fill(size, loc)
     new_table = n.table
     

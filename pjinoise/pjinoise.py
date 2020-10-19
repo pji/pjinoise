@@ -73,6 +73,7 @@ CONFIG = {
 }
 FILTERS = []
 FRAMERATE = 12
+GRAIN = None
 STATUS = None
 
 
@@ -241,7 +242,7 @@ def configure() -> None:
         if args.colorize:
             CONFIG['colorize'] = COLOR[args.colorize]
         if args.grain:
-            CONFIG['grain'] = make_grain(args.grain)
+            CONFIG['grain'] = args.grain
         if args.size:
             CONFIG['size'] = args.size[::-1]
         if args.start:
@@ -268,7 +269,7 @@ def configure() -> None:
         CONFIG['blur'] = args.blur
         CONFIG['colorize'] = COLOR[args.colorize]
         CONFIG['filters'] = args.filters
-        CONFIG['grain'] = make_grain(args.grain)
+        CONFIG['grain'] = args.grain
         CONFIG['overlay'] = args.overlay
         CONFIG['noises'] = make_noises_from_config()
     
@@ -288,10 +289,8 @@ def configure() -> None:
         global FILTERS
         FILTERS = parse_filter_command(CONFIG['filters'], 
                                        CONFIG['difference_layers'])
-    if isinstance(CONFIG['grain'], (float, int)):
-        CONFIG['grain'] = make_grain(CONFIG['grain'])
-    elif isinstance(CONFIG['grain'], np.ndarray):
-        CONFIG['grain'] = np.array(CONFIG['grain'])
+    global GRAIN
+    GRAIN = make_grain(CONFIG['grain'])
 
 
 def get_format(filename:str) -> str:
@@ -394,11 +393,13 @@ def postprocess_image(a:np.array) -> Image.Image:
         img = img.filter(blur)
         STATUS.update('filter_end', 'blur')
     if CONFIG['grain'] is not None:
-        STATUS.update('filter', 'grain')
-        grain = Image.fromarray(CONFIG['grain'], mode='L')
+        if STATUS:
+            STATUS.update('filter', 'grain')
+        grain = Image.fromarray(GRAIN, mode='L')
         grain = grain.convert('RGB')
         img = ImageChops.overlay(img, grain)
-        STATUS.update('filter_end', 'grain')
+        if STATUS:
+            STATUS.update('filter_end', 'grain')
     return img
 
 
@@ -423,8 +424,6 @@ def save_config() -> None:
     config = deepcopy(CONFIG)
     config['ntypes'] = [cls.__name__ for cls in config['ntypes']]
     config['noises'] = [n.asdict() for n in config['noises']]
-    if isinstance(config['grain'], np.ndarray):
-        config['grain'] = config['grain'].tolist()
     with open(filename, 'w') as fh:
         fh.write(json.dumps(config, indent=4))
 

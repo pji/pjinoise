@@ -45,7 +45,7 @@ CONFIG = {
     'colorize': [],
     'blur': None,
     'filters': 'rotate90_2:1_r+skew_3:1_10+skew_3:2_-10',
-    'grain': None,
+    'grain': 2.0,
     'overlay': False,
 }
 CONFIG['noises'] = [
@@ -91,6 +91,8 @@ class CLITestCase(ut.TestCase):
         
         sys.argv = [
             'python3.8 -m pjinoise.pjinoise', 
+            '-g',
+            str(exp['grain']),
             '-n',
             'ValueNoise',
             '-s',
@@ -155,20 +157,12 @@ class FileTestCase(ut.TestCase):
         CONFIG_backup = deepcopy(pn.CONFIG)
         namepart = CONFIG["filename"].split(".")[0]
         filename = f'{namepart}.conf'
-        grain = [
-            [0x80, 0x79, 0x81, 0x80,],
-            [0x80, 0x79, 0x81, 0x80,],
-            [0x80, 0x79, 0x81, 0x80,],
-            [0x80, 0x79, 0x81, 0x80,],
-        ]
         exp_conf = deepcopy(CONFIG)
         exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
         exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
-        exp_conf['grain'] = grain
         exp_open = (filename,)
         
         conf = deepcopy(exp_conf)
-        conf['grain'] = grain
         contents = json.dumps(conf, indent=4)
         open_mock = mock_open()
         with patch("pjinoise.pjinoise.open", open_mock, create=True):
@@ -187,17 +181,9 @@ class FileTestCase(ut.TestCase):
         """
         namepart = CONFIG["filename"].split(".")[0]
         filename = f'{namepart}.conf'
-        grain = [
-            [0x80, 0x79, 0x81, 0x80,],
-            [0x80, 0x79, 0x81, 0x80,],
-            [0x80, 0x79, 0x81, 0x80,],
-            [0x80, 0x79, 0x81, 0x80,],
-        ]
         exp_conf = deepcopy(CONFIG)
-        exp_conf['grain'] = grain
         CONFIG_backup = deepcopy(pn.CONFIG)
         pn.CONFIG = deepcopy(CONFIG)
-        pn.CONFIG['grain'] = np.array(grain)
         exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
         exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
         exp_open = (filename, 'w')
@@ -220,24 +206,42 @@ class FileTestCase(ut.TestCase):
         """Given a two dimensional numpy.array, pjinoise.save_image 
         should create PIL.Image for the array and save it to disk.
         """
-        array = np.array([[0, 127, 255], [0, 127, 255]])
-        filename = 'spam'
-        format = 'TIFF'
-        exp = [
-            ['', [array.tolist(),], {'mode': 'L',}], 
-            ['().save', [filename, format], {}],
-        ]
+        # Save the original state.
+        CONFIG_backup = deepcopy(pn.CONFIG)
         
-        pn.CONFIG['filename'] = filename
-        pn.CONFIG['format'] = format
-        pn.save_image(array)
-        calls = mock_fromarray.mock_calls
-        act = [list(item) for item in calls]
-        for item in act:
-            item[1] = [thing for thing in item[1]]
-        act[0][1][0] = act[0][1][0].tolist()
-                
-        self.assertListEqual(exp, act)
+        # Run the test.
+        try:
+            # Build the expected values.
+            array = np.array([[0, 127, 255], [0, 127, 255]])
+            filename = 'spam'
+            format = 'TIFF'
+            exp = [
+                ['', [array.tolist(),], {'mode': 'L',}], 
+                ['().save', [filename, format], {}],
+            ]
+            
+            # Build input and state for the test.
+            pn.CONFIG['filename'] = filename
+            pn.CONFIG['format'] = format
+            pn.CONFIG['grain'] = None
+            
+            # Run the test.
+            pn.save_image(array)
+            
+            # Extract the actual values from the output.
+            calls = mock_fromarray.mock_calls
+            act = [list(item) for item in calls]
+            for item in act:
+                item[1] = [thing for thing in item[1]]
+            act[0][1][0] = act[0][1][0].tolist()
+            
+            # Determine if the test succeeded.
+            self.assertListEqual(exp, act)
+            
+        # Restore the original state after the test, even in the case 
+        # of an exception.
+        finally:
+            pn.CONFIG = CONFIG_backup
     
     @patch('PIL.Image.Image.save')
     @patch('PIL.Image.fromarray')
@@ -246,50 +250,68 @@ class FileTestCase(ut.TestCase):
         should create PIL.Image that is an animation, with each two 
         dimensional slice being a frame, and save it to disk.
         """
-        array = np.array([
-            [
-                [0, 127, 255], 
-                [0, 127, 255]
-            ],
-            [
-                [0, 127, 255], 
-                [0, 127, 255]
-            ],
-        ]
-        )
-        filename = 'spam'
-        format = 'GIF'
-        loop = 0
-        img = Image.fromarray(array[1])
-        exp = [
-            ['', [array.tolist()[0],], {}],     # Artifact from two lines up.
-            ['', [array.tolist()[0],], {'mode': 'L',}], 
-            ['', [array.tolist()[1],], {'mode': 'L',}], 
-            [
-                '().save', 
-                [filename], 
-                {
-                    'save_all': True,
-                    'append_images': [img,],
-                    'loop': loop,
-                    'duration': (1 / pn.FRAMERATE) * 1000,
-                }
-            ],
-        ]
+        # Save the original state.
+        CONFIG_backup = deepcopy(pn.CONFIG)
         
-        pn.CONFIG['filename'] = filename
-        pn.CONFIG['format'] = format
-        pn.CONFIG['loop'] = 0
-        pn.save_image(array)
-        calls = mock_fromarray.mock_calls
-        act = [list(item) for item in calls]
-        for item in act:
-            item[1] = [thing for thing in item[1]]
-        act[0][1][0] = act[0][1][0].tolist()
-        act[1][1][0] = act[1][1][0].tolist()
-        act[2][1][0] = act[2][1][0].tolist()
+        # Run the test.
+        try:
+            # Build the expected values.
+            array = np.array([
+                [
+                    [0, 127, 255], 
+                    [0, 127, 255]
+                ],
+                [
+                    [0, 127, 255], 
+                    [0, 127, 255]
+                ],
+            ]
+            )
+            filename = 'spam'
+            format = 'GIF'
+            loop = 0
+            img = Image.fromarray(array[1])
+            exp = [
+                ['', [array.tolist()[0],], {}],     # Artifact from two lines up.
+                ['', [array.tolist()[0],], {'mode': 'L',}], 
+                ['', [array.tolist()[1],], {'mode': 'L',}], 
+                [
+                    '().save', 
+                    [filename], 
+                    {
+                        'save_all': True,
+                        'append_images': [img,],
+                        'loop': loop,
+                        'duration': (1 / pn.FRAMERATE) * 1000,
+                    }
+                ],
+            ]
         
-        self.assertListEqual(exp, act)
+            # Build input and state for the test.
+            pn.CONFIG['filename'] = filename
+            pn.CONFIG['format'] = format
+            pn.CONFIG['loop'] = 0
+            pn.CONFIG['grain'] = None
+            
+            # Run the test.
+            pn.save_image(array)
+            
+            # Extract the actual values from the output.
+            calls = mock_fromarray.mock_calls
+            act = [list(item) for item in calls]
+            for item in act:
+                item[1] = [thing for thing in item[1]]
+            act[0][1][0] = act[0][1][0].tolist()
+            act[1][1][0] = act[1][1][0].tolist()
+            act[2][1][0] = act[2][1][0].tolist()
+            
+            # Determine if the test succeeded.
+            self.assertListEqual(exp, act)
+        
+        # Restore the original state after the test, even in the case 
+        # of an exception.
+        finally:
+            pn.CONFIG = CONFIG_backup
 
 
 class NoiseTestCase(ut.TestCase):

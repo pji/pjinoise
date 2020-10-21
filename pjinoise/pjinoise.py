@@ -19,7 +19,7 @@ from typing import List, Sequence, Union
 
 import cv2
 import numpy as np
-from PIL import Image, ImageOps, ImageChops, ImageColor, ImageFilter
+from PIL import Image, ImageColor
 
 from pjinoise import cli
 from pjinoise import noise
@@ -50,31 +50,31 @@ CONFIG = {
     'difference_layers': 0,
     
     # Noise generation configuration.
-    'ntypes': [],
+    'ntypes': ['GradientNoise',],
     'size': (256, 256),
     'unit': (256, 256),
     'start': [],
     
     # Octave noise configuration.
-    'octaves': 0,
-    'persistence': 0,
-    'amplitude': 0,
-    'frequency': 0,
+    'octaves': 6,
+    'persistence': -4,
+    'amplitude': 24,
+    'frequency': 4,
     
     # Animation configuration.
+    'framerate': 12,
     'loops': 0,
     
     # Postprocessing configuration.
     'autocontrast': False,
     'blur': None,
-    'colorize': None,
+    'colorize': '',
     'filters': '',
     'grain': None,
-    'overlay': True,
+    'overlay': False,
 }
 FILTERS = []
-FRAMERATE = 12
-GRAIN = None
+IFILTERS = []
 STATUS = None
 
 
@@ -82,69 +82,55 @@ STATUS = None
 def configure() -> None:
     """Configure the script from command line arguments."""
     args = cli.parse_arguments()
+    config = deepcopy(CONFIG)
     
     # Read the configuration from a file.
     if args.load_config:
-        read_config(args.load_config)
+        config.update(read_config(args.load_config))
         
-        if args.colorize:
-            CONFIG['colorize'] = COLOR[args.colorize]
-        if args.frequency:
-            CONFIG['frequency'] = args.frequency
-            if 'noises' in CONFIG:
-                for noise in CONFIG['noises']:
-                    if 'frequency' in noise:
-                        noise['frequency'] == args.frequency
-        if args.grain:
-            CONFIG['grain'] = args.grain
-        if args.size:
-            CONFIG['size'] = args.size[::-1]
-        if args.start:
-            CONFIG['start'] = args.start[::-1]
-        if args.unit:
-            CONFIG['unit'] = args.unit[::-1]
-            for noise in CONFIG['noises']:
-                noise['unit'] = args.unit[::-1]
-        if not args.save_config:
-            CONFIG['save_config'] = False
-    
-    # Turn the command line arguments into configuration.
-    else:
-        CONFIG['ntypes'] = args.ntypes
-        CONFIG['size'] = args.size[::-1]
-        CONFIG['unit'] = args.unit[::-1]
-        CONFIG['start'] = args.start[::-1]
-        CONFIG['difference_layers'] = args.difference_layers
-        CONFIG['octaves'] = args.octaves
-        CONFIG['persistence'] = args.persistence
-        CONFIG['amplitude'] = args.amplitude
-        CONFIG['frequency'] = args.frequency
-        CONFIG['autocontrast'] = args.autocontrast
-        CONFIG['blur'] = args.blur
-        CONFIG['colorize'] = COLOR[args.colorize]
-        CONFIG['filters'] = args.filters
-        CONFIG['grain'] = args.grain
-        CONFIG['overlay'] = args.overlay
-        CONFIG['noises'] = make_noises_from_config()
-    
-    # Configure arguments not overridden by the config file.
-    CONFIG['filename'] = args.output_file
-    CONFIG['format'] = get_format(args.output_file)
+    # Turn the command line arguments into configuration, overriding 
+    # anything from a config file.
+    config.update(cli.make_config_from_arguments(args))
+    config.setdefault('noises', [])
+    for n in config['noises']:
+        n_config = {k: config[k] for k in n if k in config}
+        n.update(n_config)
     
     # Deserialize serialized objects in the configuration.
-    CONFIG['ntypes'] = [SUPPORTED_NOISES[item] for item in args.ntypes]
+    config['format'] = get_format(args.output_file)
+    config['ntypes'] = [SUPPORTED_NOISES[item] for item in config['ntypes']]
     noises = []
-    for kwargs in CONFIG['noises']:
+    for kwargs in config['noises']:
         cls = SUPPORTED_NOISES[kwargs['type']]
         n = cls(**kwargs)
         noises.append(n)
-    CONFIG['noises'] = noises
-    if CONFIG['filters']:
-        global FILTERS
-        FILTERS = parse_filter_command(CONFIG['filters'], 
-                                       CONFIG['difference_layers'])
-    global GRAIN
-    GRAIN = make_grain(CONFIG['grain'])
+    config['noises'] = noises
+    layer_filters = []
+    if config['filters']:
+        layer_filters = parse_filter_command(config['filters'], 
+                                             config['difference_layers'])
+    image_filters = []
+    if config['overlay']:
+        image_filters.append(filters.Overlay(.2))
+    if config['autocontrast']:
+        image_filters.append(filters.Autocontrast())
+    if config['colorize']:
+        white = config['colorize'][0]
+        black = config['colorize'][1]
+        image_filters.append(filters.Colorize(white, black))
+    if config['blur']:
+        image_filters.append(filters.Blur(config['blur']))
+    if config['grain']:
+        image_filters.append(filters.Grain(config['grain']))
+    
+    # Set the global config.
+    for key in config:
+        CONFIG[key] = config[key]
+    for f in layer_filters:
+        FILTERS.append(f)
+    for f in image_filters:
+        IFILTERS.append(f)
+    return config
 
 
 def get_format(filename:str) -> str:
@@ -158,39 +144,6 @@ def get_format(filename:str) -> str:
         supported = ', '.join(SUPPORTED_FORMATS)
         print(f'The supported formats are: {supported}.')
         raise SystemExit
-
-
-def make_grain(scale:float) -> np.array:
-    """Create grain for an image."""
-    if scale is None:
-        return None
-    n = noise.RangeNoise(127, scale)
-    grain = n.fill(CONFIG['size'][Y:])
-    grain = grain.round()
-    grain = grain.astype(np.uint8)
-    return grain
-
-
-def make_noises_from_config() -> List[noise.BaseNoise]:
-    """Make serialized noises from the command line configuration."""
-    result = []
-    for ntype in CONFIG['ntypes']:
-        kwargs = {
-            'type': ntype,
-            'size': CONFIG['size'],
-            'unit': CONFIG['unit'],
-            'octaves': CONFIG['octaves'],
-            'persistence': CONFIG['persistence'],
-            'amplitude': CONFIG['amplitude'],
-            'frequency': CONFIG['frequency'],
-        }
-        result.append(kwargs)
-    
-    while len(result) < CONFIG['difference_layers'] + 1:
-        new_noise = deepcopy(result[0])
-        result.append(new_noise)
-    
-    return result
 
 
 def parse_filter_command(cmd:str, layers:int) -> List[List]:
@@ -227,33 +180,13 @@ def postprocess_image(a:np.array) -> Image.Image:
     
     # Run postprocessing steps that require an image.
     img = Image.fromarray(a, mode='L')
-    if CONFIG['overlay']:
-        STATUS.update('filter', 'overlay')
-        img = ImageChops.overlay(img, img)
-        STATUS.update('filter_end', 'overlay')
-    if CONFIG['autocontrast']:
-        STATUS.update('filter', 'autocontrast')
-        img = ImageOps.autocontrast(img)
-        STATUS.update('filter_end', 'autocontrast')
-    if CONFIG['colorize']:
-        STATUS.update('filter', 'colorize')
-        black = CONFIG['colorize'][0]
-        white = CONFIG['colorize'][1]
-        img = ImageOps.colorize(img, black, white)
-        STATUS.update('filter_end', 'colorize')
-    if CONFIG['blur']:
-        STATUS.update('filter', 'blur')
-        blur = ImageFilter.GaussianBlur(CONFIG['blur'])
-        img = img.filter(blur)
-        STATUS.update('filter_end', 'blur')
-    if CONFIG['grain'] is not None:
+    for f in IFILTERS:
         if STATUS:
-            STATUS.update('filter', 'grain')
-        grain = Image.fromarray(GRAIN, mode='L')
-        grain = grain.convert('RGB')
-        img = ImageChops.overlay(img, grain)
+            STATUS.update('filter', f.__class__.__name__)
+        img = f.process(img)
         if STATUS:
-            STATUS.update('filter_end', 'grain')
+            STATUS.update('filter_end', f.__class__.__name__)
+
     return img
 
 
@@ -263,12 +196,11 @@ def read_config(filename:str) -> None:
     # The global keyword has to be used here because I'll be changing 
     # the dictionary CONFIG points to. It doesn't need to be used in 
     # configure() because there I'm only changing the keys in the 
-    # dictionary.
-    global CONFIG
-    
+    # dictionary.    
     with open(filename) as fh:
         contents = fh.read()
-    CONFIG = json.loads(contents)
+    config = json.loads(contents)
+    return config
 
 
 def save_config() -> None:
@@ -294,7 +226,7 @@ def save_image(n:'numpy.ndarray') -> None:
         frames = [postprocess_image(n[i]) for i in range(n.shape[0])]
     
     if len(n.shape) == 3 and CONFIG['format'] not in VIDEO_FORMATS:
-        duration = (1 / FRAMERATE) * 1000
+        duration = (1 / CONFIG['framerate']) * 1000
         frames[0].save(CONFIG['filename'], 
                        save_all=True,
                        append_images=frames[1:],
@@ -315,7 +247,7 @@ def save_image(n:'numpy.ndarray') -> None:
             codec = 'mp4v'
         out = cv2.VideoWriter(CONFIG['filename'], 
                               cv2.VideoWriter_fourcc(*codec), 
-                              FRAMERATE, dim, True)
+                              CONFIG['framerate'], dim, True)
         for frame in n:
             out.write(frame)
         out.release()
@@ -435,18 +367,18 @@ def main() -> None:
     """Mainline."""
     global STATUS
     STATUS = ui.Status()
-    configure()
+    config = configure()
     
-    if CONFIG['difference_layers']:
-        space = make_difference_noise(CONFIG['noises'], 
-                                      CONFIG['size'], 
-                                      CONFIG['start'])
+    if config['difference_layers']:
+        space = make_difference_noise(config['noises'], 
+                                      config['size'], 
+                                      config['start'])
     else:
-        space = make_noise(CONFIG['noises'][0], CONFIG['size'])
+        space = make_noise(config['noises'][0], config['size'])
     
     save_image(space)
-    STATUS.update('save_end', CONFIG['filename'])
-    if CONFIG['save_config']:
+    STATUS.update('save_end', config['filename'])
+    if config['save_config']:
         save_config()
     STATUS.end()
 

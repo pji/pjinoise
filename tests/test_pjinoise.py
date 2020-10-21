@@ -38,11 +38,12 @@ CONFIG = {
     'frequency': 4,
     
     # Animation configuration.
+    'framerate': 12,
     'loops': 0,
     
     # Postprocessing configuration.
     'autocontrast': False,
-    'colorize': [],
+    'colorize': '',
     'blur': None,
     'filters': 'rotate90_2:1_r+skew_3:1_10+skew_3:2_-10',
     'grain': 2.0,
@@ -86,52 +87,62 @@ class CLITestCase(ut.TestCase):
         pjinoise.configure should update the script configuration 
         based on those arguments.
         """
-        exp = CONFIG
-        exp_filters = FILTERS
+        CONFIG_backup = deepcopy(pn.CONFIG)
         
-        sys.argv = [
-            'python3.8 -m pjinoise.pjinoise', 
-            '-g',
-            str(exp['grain']),
-            '-n',
-            'ValueNoise',
-            '-s',
-            str(exp['size'][0]),
-            str(exp['size'][1]),
-            '-u',
-            str(exp['unit'][0]),
-            str(exp['unit'][1]),
-            str(exp['unit'][2]),
-            '-O',
-            str(exp['octaves']),
-            '-p',
-            str(exp['persistence']),
-            '-a',
-            str(exp['amplitude']),
-            '-f',
-            str(exp['frequency']),
-            '-F',
-            exp['filters'],
-            '-d',
-            str(exp['difference_layers']),            
-            '-t',
-            str(exp['start'][0]),
-            '-o',
-            exp['filename'],
-        ]
-        pn.configure()
-        for i in range(len(CONFIG['noises'])):
-            pn.CONFIG['noises'][i].table = np.array([0 for _ in range(512)])
-        act = pn.CONFIG
-        act_filters = pn.FILTERS
+        try:
+            exp = CONFIG
+            exp_filters = FILTERS
         
-        for key in act:
-            try:
-                self.assertEqual(exp[key], act[key])
-            except ValueError as e:
-                print(key)
-                raise e
-        self.assertListEqual(exp_filters, act_filters)
+            sys.argv = [
+                'python3.8 -m pjinoise.pjinoise', 
+                '-g',
+                str(exp['grain']),
+                '-n',
+                'ValueNoise',
+                '-s',
+                str(exp['size'][0]),
+                str(exp['size'][1]),
+                '-u',
+                str(exp['unit'][0]),
+                str(exp['unit'][1]),
+                str(exp['unit'][2]),
+                '-O',
+                str(exp['octaves']),
+                '-p',
+                str(exp['persistence']),
+                '-a',
+                str(exp['amplitude']),
+                '-f',
+                str(exp['frequency']),
+                '-F',
+                exp['filters'],
+                '-d',
+                str(exp['difference_layers']),            
+                '-t',
+                str(exp['start'][0]),
+                '-o',
+                exp['filename'],
+            ]
+            pn.configure()
+            for i in range(len(CONFIG['noises'])):
+                pn.CONFIG['noises'][i].table = np.array([0 for _ in range(512)])
+            act = pn.CONFIG
+            act_filters = pn.FILTERS
+        
+            for key in act:
+                try:
+                    self.assertEqual(exp[key], act[key])
+                except ValueError as e:
+                    print(key)
+                    raise e
+                except AssertionError as e:
+                    print(key)
+                    raise e
+            self.assertListEqual(exp_filters, act_filters)
+        
+        finally:
+            pn.CONFIG = CONFIG_backup
+            pn.IFILTERS = []
     
     def test_parse_filter_command(self):
         """Given a string containing a filter command and a number 
@@ -139,14 +150,21 @@ class CLITestCase(ut.TestCase):
         construct a list of tuples containing the filters and their 
         arguments in the proper periods.
         """
-        exp = FILTERS
+        CONFIG_backup = deepcopy(pn.CONFIG)
         
-        cmd = CONFIG['filters']
-        layers = 6
-        act = pn.parse_filter_command(cmd, layers)
+        try:
+            exp = FILTERS
         
-        self.maxDiff = None
-        self.assertListEqual(exp, act)
+            cmd = CONFIG['filters']
+            layers = 6
+            act = pn.parse_filter_command(cmd, layers)
+        
+            self.maxDiff = None
+            self.assertListEqual(exp, act)
+        
+        finally:
+            pn.CONFIG = deepcopy(CONFIG_backup)
+            pn.IFILTERS = []
 
 
 class FileTestCase(ut.TestCase):
@@ -155,25 +173,133 @@ class FileTestCase(ut.TestCase):
         configure the script using the details in the given file.
         """
         CONFIG_backup = deepcopy(pn.CONFIG)
-        namepart = CONFIG["filename"].split(".")[0]
-        filename = f'{namepart}.conf'
-        exp_conf = deepcopy(CONFIG)
-        exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
-        exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
-        exp_open = (filename,)
         
-        conf = deepcopy(exp_conf)
-        contents = json.dumps(conf, indent=4)
-        open_mock = mock_open()
-        with patch("pjinoise.pjinoise.open", open_mock, create=True):
-            open_mock.return_value.read.return_value = contents
-            pn.read_config(filename)
+        try:
+            namepart = CONFIG["filename"].split(".")[0]
+            filename = f'{namepart}.conf'
+            exp_conf = deepcopy(CONFIG)
+            exp_conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
+            exp_conf['noises'] = [n.asdict() for n in exp_conf['noises']]
+            exp_open = (filename,)
+        
+            conf = deepcopy(exp_conf)
+            contents = json.dumps(conf, indent=4)
+            open_mock = mock_open()
+            with patch("pjinoise.pjinoise.open", open_mock, create=True):
+                open_mock.return_value.read.return_value = contents
+                act_conf = pn.read_config(filename)
+            
+            open_mock.assert_called_with(*exp_open)
+            for key in exp_conf:
+                self.assertEqual(exp_conf[key], act_conf[key])
+        
+        finally:
+            pn.CONFIG = deepcopy(CONFIG_backup)
+            pn.IFILTERS = []
+    
+    def test_override_configuration_file(self):
+        """If an argument is passed by the command line, it should 
+        override the value that is in the configuration file.
+        """
+        # Save the original state.
+        CONFIG_backup = deepcopy(pn.CONFIG)
+        
+        # Prepare and run the test.
+        try:
+            # Build the expected values.
+            namepart = CONFIG["filename"].split(".")[0]
+            filename = f'{namepart}.conf'
+            exp_conf = deepcopy(CONFIG)
+            exp_open = (filename,)
+            
+            # Build the input and state for the test.
+            conf = deepcopy(exp_conf)
+            conf['grain'] = exp_conf['grain'] + 2
+            conf['ntypes'] = [cls.__name__ for cls in exp_conf['ntypes']]
+            conf['noises'] = [n.asdict() for n in exp_conf['noises']]
+            contents = json.dumps(conf, indent=4)
+            sys.argv = [
+                'python3.8 -m pjinoise.pjinoise', 
+                '-g',
+                str(exp_conf['grain']),
+                '-C',
+                filename,
+                '-o',
+                exp_conf['filename'],
+            ]
+            open_mock = mock_open()
+            with patch("pjinoise.pjinoise.open", open_mock, create=True):
+                open_mock.return_value.read.return_value = contents
+                
+                # Run the test.
+                pn.configure()
+                
+            # Extract the actual values from the output or state.
             act_conf = pn.CONFIG
-        pn.CONFIG = CONFIG_backup
+            
+            # Determine the success of the test.
+            open_mock.assert_called_with(*exp_open)
+            for key in exp_conf:
+                self.assertEqual(exp_conf[key], act_conf[key])
         
-        open_mock.assert_called_with(*exp_open)
-        for key in exp_conf:
-            self.assertEqual(exp_conf[key], act_conf[key])
+        # Restore the original state after the test, even in the case 
+        # of an exception.
+        finally:
+            pn.CONFIG = deepcopy(CONFIG_backup)
+            pn.IFILTERS = []
+    
+    def test_override_noise_configuration(self):
+        """If an argument is passed by the command line, it should 
+        override the value that is each of the noises serialized in 
+        the configuration file.
+        """
+        # Save the original state.
+        CONFIG_backup = deepcopy(pn.CONFIG)
+        
+        # Prepare and run the test.
+        try:
+            # Build the expected values.
+            namepart = CONFIG["filename"].split(".")[0]
+            filename = f'{namepart}.conf'
+            exp_unit = [32, 256, 256]
+            exp_open = (filename,)
+            
+            # Build the input and state for the test.
+            conf = deepcopy(CONFIG)
+            conf['ntypes'] = [cls.__name__ for cls in conf['ntypes']]
+            conf['noises'] = [n.asdict() for n in conf['noises']]
+            contents = json.dumps(conf, indent=4)
+            sys.argv = [
+                'python3.8 -m pjinoise.pjinoise', 
+                '-u',
+                str(exp_unit[2]),
+                str(exp_unit[1]),
+                str(exp_unit[0]),
+                '-C',
+                filename,
+                '-o',
+                conf['filename'],
+            ]
+            open_mock = mock_open()
+            with patch("pjinoise.pjinoise.open", open_mock, create=True):
+                open_mock.return_value.read.return_value = contents
+                
+                # Run the test.
+                pn.configure()
+                
+            # Extract the actual values from the output or state.
+            act_units = [n.unit for n in pn.CONFIG['noises']]
+            
+            # Determine the success of the test.
+            open_mock.assert_called_with(*exp_open)
+            for act_unit in act_units:
+                self.assertListEqual(exp_unit, act_unit)
+        
+        # Restore the original state after the test, even in the case 
+        # of an exception.
+        finally:
+            pn.CONFIG = deepcopy(CONFIG_backup)
+            pn.IFILTERS = []
     
     def test_save_configuration_file(self):
         """When called, pjinoise.save_config should write the 
@@ -241,7 +367,7 @@ class FileTestCase(ut.TestCase):
         # Restore the original state after the test, even in the case 
         # of an exception.
         finally:
-            pn.CONFIG = CONFIG_backup
+            pn.CONFIG = deepcopy(CONFIG_backup)
     
     @patch('PIL.Image.Image.save')
     @patch('PIL.Image.fromarray')
@@ -282,7 +408,7 @@ class FileTestCase(ut.TestCase):
                         'save_all': True,
                         'append_images': [img,],
                         'loop': loop,
-                        'duration': (1 / pn.FRAMERATE) * 1000,
+                        'duration': (1 / pn.CONFIG['framerate']) * 1000,
                     }
                 ],
             ]
@@ -311,7 +437,8 @@ class FileTestCase(ut.TestCase):
         # Restore the original state after the test, even in the case 
         # of an exception.
         finally:
-            pn.CONFIG = CONFIG_backup
+            pn.CONFIG = deepcopy(CONFIG_backup)
+            pn.IFILTERS = []
 
 
 class NoiseTestCase(ut.TestCase):
@@ -321,39 +448,46 @@ class NoiseTestCase(ut.TestCase):
         pjinoise.make_noise should return a numpy.ndarray object 
         containing the noise.
         """
-        exp = [
-            [0.0, 63.5, 127.0, 191.0, 255.0],
-            [0.0, 63.5, 127.0, 191.0, 255.0],
-            [0.0, 63.5, 127.0, 191.0, 255.0],
-        ]
+        CONFIG_backup = deepcopy(pn.CONFIG)
         
-        size = (3, 5)
-        table = [
-                [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                ],
-                [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                ],
-                [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                ],
+        try:
+            exp = [
+                [0.0, 63.5, 127.0, 191.0, 255.0],
+                [0.0, 63.5, 127.0, 191.0, 255.0],
+                [0.0, 63.5, 127.0, 191.0, 255.0],
             ]
-        unit = (2, 2, 2)
-        obj = noise.GradientNoise(table=table, unit=unit)
-        array = pn.make_noise(obj, size)
-        act = array.tolist()
         
-        self.assertListEqual(exp, act)
+            size = (3, 5)
+            table = [
+                    [
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                    ],
+                    [
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                    ],
+                    [
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                    ],
+                ]
+            unit = (2, 2, 2)
+            obj = noise.GradientNoise(table=table, unit=unit)
+            array = pn.make_noise(obj, size)
+            act = array.tolist()
+        
+            self.assertListEqual(exp, act)
+        
+        finally:
+            pn.CONFIG = deepcopy(CONFIG_backup)
+            pn.IFILTERS = []
 
 
     def test_create_difference_noise_volume(self):
@@ -362,63 +496,70 @@ class NoiseTestCase(ut.TestCase):
         return a numpy.ndarray object containing noise that is 
         the difference of the noise generated from each object.
         """
-        exp = [[
-            [127.0, 63.5, 0.0, 64.0, 128.0],
-            [127.0, 63.5, 0.0, 64.0, 128.0],
-            [127.0, 63.5, 0.0, 64.0, 128.0],
-        ],]
+        CONFIG_backup = deepcopy(pn.CONFIG)
         
-        size = (1, 3, 5)
-        table1 = [
-                [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                ],
-                [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                ],
-                [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                ],
-            ]
-        table2 = [
-                [
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                ],
-                [
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                ],
-                [
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                    [127, 127, 127, 255],
-                ],
-            ]
-        unit = (2, 2, 2)
-        objs = [
-            noise.GradientNoise(table=table1, unit=unit),
-            noise.GradientNoise(table=table2, unit=unit),
-        ]
-        pn.FILTERS = [[] for _ in  range(pn.CONFIG['difference_layers'])]
-        array = pn.make_difference_noise(objs, size)
-        act = array.tolist()
+        try:
+            exp = [[
+                [127.0, 63.5, 0.0, 64.0, 128.0],
+                [127.0, 63.5, 0.0, 64.0, 128.0],
+                [127.0, 63.5, 0.0, 64.0, 128.0],
+            ],]
         
-        self.assertListEqual(exp, act)
+            size = (1, 3, 5)
+            table1 = [
+                    [
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                    ],
+                    [
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                    ],
+                    [
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                        [0, 127, 255, 255],
+                    ],
+                ]
+            table2 = [
+                    [
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                    ],
+                    [
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                    ],
+                    [
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                        [127, 127, 127, 255],
+                    ],
+                ]
+            unit = (2, 2, 2)
+            objs = [
+                noise.GradientNoise(table=table1, unit=unit),
+                noise.GradientNoise(table=table2, unit=unit),
+            ]
+            pn.FILTERS = [[] for _ in  range(pn.CONFIG['difference_layers'])]
+            array = pn.make_difference_noise(objs, size)
+            act = array.tolist()
+        
+            self.assertListEqual(exp, act)
+        
+        finally:
+            pn.CONFIG = deepcopy(CONFIG_backup)
+            pn.IFILTERS = []
 
 
 if __name__ == '__main__':

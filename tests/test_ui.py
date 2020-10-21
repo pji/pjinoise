@@ -47,3 +47,7 @@ class StatusTestCase(ut.TestCase):
         act = mock_print.mock_calls
         
         self.assertListEqual(exp, act)
+
+
+if __name__ == '__main__':
+    raise NotImplementedError

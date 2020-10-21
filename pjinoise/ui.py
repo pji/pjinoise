@@ -13,6 +13,8 @@ from pjinoise.constants import TEXT
 class Status():
     def __init__(self) -> None:
         self.t0 = time.time()
+        self.last_key = None
+        self.last_line = None
         msg = TEXT['start'].format(min=0, sec=0)
         print(msg)
     

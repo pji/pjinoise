@@ -8,13 +8,15 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from typing import Sequence, Tuple, Union
 
+from PIL import Image, ImageChops, ImageFilter, ImageOps
 import numpy as np
 
 from pjinoise.constants import X, Y, Z
+from pjinoise import noise
 
 
-# Filter classes.
-class Filter(ABC):
+# Layer filter classes.
+class LayerFilter(ABC):
     """The base class for filter objects."""
     padding = None
     
@@ -47,7 +49,7 @@ class Filter(ABC):
         return tuple(n - pad for n, pad in zip (size, self.padding))
 
 
-class CutLight(Filter):
+class CutLight(LayerFilter):
     def __init__(self, threshold:float, scale:float = 256) -> None:
         self.threshold = threshold
         self.scale = scale
@@ -63,7 +65,7 @@ class CutLight(Filter):
         return (values / threshold_scale) * self.scale
 
 
-class CutShadow(Filter):
+class CutShadow(LayerFilter):
     def __init__(self, threshold:float, scale:float = 256) -> None:
         self.threshold = threshold
         self.scale = scale
@@ -77,7 +79,7 @@ class CutShadow(Filter):
         return (values / threshold_scale) * self.scale
 
 
-class Rotate90(Filter):
+class Rotate90(LayerFilter):
     """Rotate the image ninety degrees in the given direction."""
     def __init__(self, direction:str) -> None:
         self.direction = direction
@@ -103,7 +105,7 @@ class Rotate90(Filter):
         return np.rot90(values, direction, (Y, X))
 
 
-class Skew(Filter):
+class Skew(LayerFilter):
     """Skew the image."""
     def __init__(self, slope:Union[float, str]) -> None:
         self.slope = float(slope)
@@ -149,20 +151,17 @@ class Skew(Filter):
         del skew_by_row
         
         # Return the skewed image.
-        lookup = np.vectorize(_lookup)
-        return lookup(*indices)
+        raveled_values = np.ravel(values)
+        raveled_index = np.ravel_multi_index(indices, values.shape)
+        if len(raveled_index.shape) != 1:
+            raveled_index = np.ravel(raveled_index)
+        skewed = np.take(values, raveled_index)
+        return np.reshape(skewed, values.shape)
 
 
-# Factories.
-def make_filter(name:str, args:Sequence = ()) -> Filter:
-    name = name.casefold()
-    cls = REGISTERED_FILTERS[name]
-    return cls(*args)
-
-
-# Processing functions.
+# Layer filter processing functions.
 def preprocess(size:Sequence[int], 
-               f_layers:Sequence[Sequence[Filter]]) -> Tuple[int]:
+               f_layers:Sequence[Sequence[LayerFilter]]) -> Tuple[int]:
     new_size = size[:]
     for filters in f_layers:
         for filter in filters:
@@ -171,7 +170,7 @@ def preprocess(size:Sequence[int],
 
 
 def process(values:np.array, 
-            f_layers:Sequence[Sequence[Filter]],
+            f_layers:Sequence[Sequence[LayerFilter]],
             status:'ui.Status' = None) -> np.array:
     for index, filters in enumerate(f_layers):
         for filter in filters:
@@ -184,7 +183,7 @@ def process(values:np.array,
 
 
 def postprocess(values:np.array, 
-                f_layers:Sequence[Sequence[Filter]]) -> np.array:
+                f_layers:Sequence[Sequence[LayerFilter]]) -> np.array:
     # Find original size of the image.
     old_size = values.shape
     new_size = old_size[:]
@@ -199,6 +198,89 @@ def postprocess(values:np.array,
             in zip(old_size, pads, starts)]
     slices = [slice(start, end) for start, end in zip(starts, ends)]
     return values[tuple(slices)]
+
+
+# Image filter classes.
+class ImageFilter(ABC):
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return self.asdict() == other.asdict()
+    
+    # Public methods.
+    def asdict(self) -> dict:
+        """Serialize the object to a dictionary."""
+        attrs = self.__dict__.copy()
+        attrs = {k: attrs[k] for k in attrs if not k.startswith('_')}
+        attrs['type'] = self.__class__.__name__
+        return attrs
+    
+    @abstractmethod
+    def process(self, values:np.ndarray) -> np.ndarray:
+        """Run the filter over the image."""
+
+
+class Autocontrast(ImageFilter):
+    # Public methods.
+    def process(self, img:np.ndarray) -> np.ndarray:
+        return ImageOps.autocontrast(img)
+
+
+class Blur(ImageFilter):
+    def __init__(self, amount:float, *args, **kwargs):
+        self.amount = amount
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def process(self, img:np.ndarray) -> np.ndarray:
+        blur = ImageFilter.GaussianBlur(self.amount)
+        return img.filter(blur)
+
+
+class Colorize(ImageFilter):
+    def __init__(self, white:str, black:str, *args, **kwargs):
+        self.white = white
+        self.black = black
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def process(self, img:np.ndarray) -> np.ndarray:
+        return ImageOps.colorize(img, self.white, self.black)
+
+
+class Grain(ImageFilter):
+    def __init__(self, scale:float, *args, **kwargs):
+        self.scale = scale
+        self._grain = None
+        self._noise = noise.RangeNoise(127, self.scale)
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def process(self, img:np.ndarray) -> np.ndarray:
+        if not self._grain:
+            size = (img.height, img.width)
+            grain = self._noise.fill(size)
+            grain = np.around(grain).astype(np.uint8)
+            grain_image = Image.fromarray(grain, mode='L')
+            if img.mode != 'L':
+                grain_img = grain_image.convert(img.mode)
+            self._grain = grain_img
+        return ImageChops.overlay(img, self._grain)
+
+
+class Overlay(ImageFilter):
+    def __init__(self, amount:float = .2, *args, **kwargs):
+        self.amount = amount
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def process(self, img:np.ndarray) -> np.ndarray:
+        mode = img.mode
+        full = ImageChops.overlay(img, img)
+        original = np.array(img)
+        part = (original - np.array(full)) * self.amount
+        result = np.around(part).astype(np.uint8)
+        return Image.fromarray(result, mode=mode)
 
 
 # Not vectorized filters.
@@ -231,6 +313,13 @@ def pixelate(matrix:list, size:int = 32) -> list:
     return matrix
 
 
+# Factories.
+def make_filter(name:str, args:Sequence = ()) -> LayerFilter:
+    name = name.casefold()
+    cls = REGISTERED_FILTERS[name]
+    return cls(*args)
+
+
 # Registrations.
 REGISTERED_FILTERS = {
     'cutshadow': CutShadow,
@@ -238,6 +327,14 @@ REGISTERED_FILTERS = {
     'rotate90': Rotate90,
     'skew': Skew,
 }
+REGISTERED_IMAGE_FILTERS = {
+    'autocontrast': Autocontrast,
+    'blur': Blur,
+    'colorize': Colorize,
+    'grain': Grain,
+    'overlay': Overlay,
+}
+
 
 if __name__ == '__main__':
     raise NotImplemented

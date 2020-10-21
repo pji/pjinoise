@@ -5,8 +5,12 @@ cli
 The command line interface for the pjinoise module.
 """
 import argparse
+from copy import deepcopy
+from typing import List, Mapping
 
 from pjinoise.constants import COLOR
+from pjinoise import noise
+
 
 # Command line option configuration.
 OPTIONS = {
@@ -16,7 +20,6 @@ OPTIONS = {
             'type': float,
             'action': 'store',
             'required': False,
-            'default': 24,
             'help': 'The starting amplitude for octave noise generation.'
         },
     },
@@ -25,7 +28,6 @@ OPTIONS = {
         'kwargs': {
             'action': 'store_true',
             'required': False,
-            'default': False,
             'help': 'Automatically adjust the contrast of the image.'
         },
     },
@@ -35,7 +37,6 @@ OPTIONS = {
             'type': float,
             'action': 'store',
             'required': False,
-            'default': None,
             'help': 'Blur the image by the given amount.'
         },
     },
@@ -62,7 +63,6 @@ OPTIONS = {
             'type': int,
             'action': 'store',
             'required': False,
-            'default': 0,
             'help': 'The number of noise spaces to difference.'
         },
     },
@@ -72,7 +72,6 @@ OPTIONS = {
             'type': float,
             'action': 'store',
             'required': False,
-            'default': 4,
             'help': 'The starting frequency for octave noise generation.'
         },
     },
@@ -82,7 +81,6 @@ OPTIONS = {
             'type': str,
             'action': 'store',
             'required': False,
-            'default': '',
             'help': 'Filters for difference layers.'
         },
     },
@@ -91,7 +89,6 @@ OPTIONS = {
         'kwargs': {
             'type': float,
             'action': 'store',
-            'default': None,
             'required': False,
             'help': 'Apply gaussian noise over the image.'
         },
@@ -112,7 +109,6 @@ OPTIONS = {
             'type': str,
             'nargs': '*',
             'action': 'store',
-            'default': ['GradientNoise',],
             'required': False,
             'help': 'The noise generators to use.'
         },
@@ -131,7 +127,6 @@ OPTIONS = {
             'type': int,
             'action': 'store',
             'required': False,
-            'default': 6,
             'help': 'The octaves of noise for octave noise generation.'
         },
     },
@@ -141,7 +136,6 @@ OPTIONS = {
             'type': float,
             'action': 'store',
             'required': False,
-            'default': -4,
             'help': 'How the impact of each octave changes in octave noise generation.'
         },
     },
@@ -178,11 +172,75 @@ OPTIONS = {
         'kwargs': {
             'action': 'store_true',
             'required': False,
-            'default': False,
-            'help': 'Overlay the image with itself.'
+            'help': 'Overlay the image with itself to increase contrast.'
         },
     },
 }
+
+
+def make_config_from_arguments(args:argparse.Namespace) -> dict:
+    """Convert the command line arguments into a dictionary used 
+    to control the execution of the application.
+    """
+    config = {}
+    if args.output_file:
+        config['filename'] = args.output_file
+        config['format'] = None
+    if args.ntypes:
+        config['ntypes'] = args.ntypes
+    if args.size:
+        config['size'] = args.size[::-1]
+    if args.unit:
+        config['unit'] = args.unit[::-1]
+    if args.start:
+        config['start'] = args.start[::-1]
+    if args.difference_layers:
+        config['difference_layers'] = args.difference_layers
+    if args.octaves:
+        config['octaves'] = args.octaves
+    if args.persistence:
+        config['persistence'] = args.persistence
+    if args.amplitude:
+        config['amplitude'] = args.amplitude
+    if args.frequency:
+        config['frequency'] = args.frequency
+    if args.autocontrast:
+        config['autocontrast'] = args.autocontrast
+    if args.blur:
+        config['blur'] = args.blur
+    if args.colorize:
+        config['colorize'] = COLOR[args.colorize]
+    if args.filters:
+        config['filters'] = args.filters
+    if args.grain:
+        config['grain'] = args.grain
+    if args.overlay:
+        config['overlay'] = args.overlay
+    if args.ntypes:
+        config['noises'] = make_noises_from_arguments(config)
+    return config
+
+
+def make_noises_from_arguments(config:Mapping) -> List[noise.BaseNoise]:
+    """Make serialized noises from the command line arguments."""
+    result = []
+    for ntype in config['ntypes']:
+        kwargs = {
+            'type': ntype,
+            'size': config['size'],
+            'unit': config['unit'],
+            'octaves': config['octaves'],
+            'persistence': config['persistence'],
+            'amplitude': config['amplitude'],
+            'frequency': config['frequency'],
+        }
+        result.append(kwargs)
+    
+    while len(result) < config['difference_layers'] + 1:
+        new_noise = deepcopy(result[0])
+        result.append(new_noise)
+    
+    return result
 
 
 def parse_arguments() -> argparse.Namespace:

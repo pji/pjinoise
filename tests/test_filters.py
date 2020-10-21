@@ -7,6 +7,7 @@ Unit tests for the pjinoise.filters module.
 import unittest as ut
 
 import numpy as np
+from PIL import Image
 
 from pjinoise import filters
 from pjinoise.constants import X, Y, Z
@@ -18,7 +19,7 @@ class ClassTestCase(ut.TestCase):
         comma delimited string, filters.make_filter should return 
         an initialized Filter object of the correct type.
         """
-        exp_super = filters.Filter
+        exp_super = filters.LayerFilter
         exp_cls = filters.Rotate90
         exp_param = 'r'
         
@@ -302,6 +303,33 @@ class ProcessTestCase(ut.TestCase):
         act = filters.process(values, fs).tolist()
         
         self.assertListEqual(exp, act)
+
+
+class OverlayTestCase(ut.TestCase):
+    def test_overlay_process(self):
+        """Given an image, perform a 20% overlay operation on the 
+        image and return the result.
+        """
+        exp = np.array([
+            [0x00, 0x3a, 0x80, 0x93, 0xff],
+            [0x00, 0x3a, 0x80, 0x93, 0xff],
+            [0x00, 0x3a, 0x80, 0x93, 0xff],
+            [0x00, 0x3a, 0x80, 0x93, 0xff],
+            [0x00, 0x3a, 0x80, 0x93, 0xff],
+        ], dtype=np.uint8)
+        
+        img = Image.fromarray(np.array([
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+        ], dtype=np.uint8))
+        f = filters.Overlay()
+        result = f.process(img)
+        act = np.array(result)
+        
+        self.assertEqual(exp.all(), act.all())
 
 
 if __name__ == '__main__':

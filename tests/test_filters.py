@@ -19,7 +19,7 @@ class ClassTestCase(ut.TestCase):
         comma delimited string, filters.make_filter should return 
         an initialized Filter object of the correct type.
         """
-        exp_super = filters.LayerFilter
+        exp_super = filters.ForLayer
         exp_cls = filters.Rotate90
         exp_param = 'r'
         
@@ -326,6 +326,34 @@ class OverlayTestCase(ut.TestCase):
             [0x00, 0x40, 0x80, 0xc0, 0xff,],
         ], dtype=np.uint8))
         f = filters.Overlay()
+        result = f.process(img)
+        act = np.array(result)
+        
+        self.assertEqual(exp.all(), act.all())
+
+
+class BlurTestCase(ut.TestCase):
+    def test_overlay_process(self):
+        """Given an image, perform a gaussian blur on the 
+        image and return the result.
+        """
+        exp = np.array([
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+        ], dtype=np.uint8)
+        
+        img = Image.fromarray(np.array([
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+        ], dtype=np.uint8))
+        amount = 2.0
+        f = filters.Blur(amount)
         result = f.process(img)
         act = np.array(result)
         

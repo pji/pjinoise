@@ -16,7 +16,7 @@ from pjinoise import noise
 
 
 # Layer filter classes.
-class LayerFilter(ABC):
+class ForLayer(ABC):
     """The base class for filter objects."""
     padding = None
     
@@ -49,7 +49,7 @@ class LayerFilter(ABC):
         return tuple(n - pad for n, pad in zip (size, self.padding))
 
 
-class CutLight(LayerFilter):
+class CutLight(ForLayer):
     def __init__(self, threshold:float, scale:float = 256) -> None:
         self.threshold = threshold
         self.scale = scale
@@ -65,7 +65,7 @@ class CutLight(LayerFilter):
         return (values / threshold_scale) * self.scale
 
 
-class CutShadow(LayerFilter):
+class CutShadow(ForLayer):
     def __init__(self, threshold:float, scale:float = 256) -> None:
         self.threshold = threshold
         self.scale = scale
@@ -79,7 +79,7 @@ class CutShadow(LayerFilter):
         return (values / threshold_scale) * self.scale
 
 
-class Rotate90(LayerFilter):
+class Rotate90(ForLayer):
     """Rotate the image ninety degrees in the given direction."""
     def __init__(self, direction:str) -> None:
         self.direction = direction
@@ -105,7 +105,7 @@ class Rotate90(LayerFilter):
         return np.rot90(values, direction, (Y, X))
 
 
-class Skew(LayerFilter):
+class Skew(ForLayer):
     """Skew the image."""
     def __init__(self, slope:Union[float, str]) -> None:
         self.slope = float(slope)
@@ -161,7 +161,7 @@ class Skew(LayerFilter):
 
 # Layer filter processing functions.
 def preprocess(size:Sequence[int], 
-               f_layers:Sequence[Sequence[LayerFilter]]) -> Tuple[int]:
+               f_layers:Sequence[Sequence[ForLayer]]) -> Tuple[int]:
     new_size = size[:]
     for filters in f_layers:
         for filter in filters:
@@ -170,7 +170,7 @@ def preprocess(size:Sequence[int],
 
 
 def process(values:np.array, 
-            f_layers:Sequence[Sequence[LayerFilter]],
+            f_layers:Sequence[Sequence[ForLayer]],
             status:'ui.Status' = None) -> np.array:
     for index, filters in enumerate(f_layers):
         for filter in filters:
@@ -183,7 +183,7 @@ def process(values:np.array,
 
 
 def postprocess(values:np.array, 
-                f_layers:Sequence[Sequence[LayerFilter]]) -> np.array:
+                f_layers:Sequence[Sequence[ForLayer]]) -> np.array:
     # Find original size of the image.
     old_size = values.shape
     new_size = old_size[:]
@@ -201,7 +201,7 @@ def postprocess(values:np.array,
 
 
 # Image filter classes.
-class ImageFilter(ABC):
+class ForImage(ABC):
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return NotImplemented
@@ -220,24 +220,24 @@ class ImageFilter(ABC):
         """Run the filter over the image."""
 
 
-class Autocontrast(ImageFilter):
+class Autocontrast(ForImage):
     # Public methods.
     def process(self, img:np.ndarray) -> np.ndarray:
         return ImageOps.autocontrast(img)
 
 
-class Blur(ImageFilter):
+class Blur(ForImage):
     def __init__(self, amount:float, *args, **kwargs):
         self.amount = amount
         super().__init__(*args, **kwargs)
     
     # Public methods.
-    def process(self, img:np.ndarray) -> np.ndarray:
+    def process(self, img:Image.Image) -> Image.Image:
         blur = ImageFilter.GaussianBlur(self.amount)
         return img.filter(blur)
 
 
-class Colorize(ImageFilter):
+class Colorize(ForImage):
     def __init__(self, white:str, black:str, *args, **kwargs):
         self.white = white
         self.black = black
@@ -248,7 +248,7 @@ class Colorize(ImageFilter):
         return ImageOps.colorize(img, self.white, self.black)
 
 
-class Grain(ImageFilter):
+class Grain(ForImage):
     def __init__(self, scale:float, *args, **kwargs):
         self.scale = scale
         self._grain = None
@@ -268,7 +268,7 @@ class Grain(ImageFilter):
         return ImageChops.overlay(img, self._grain)
 
 
-class Overlay(ImageFilter):
+class Overlay(ForImage):
     def __init__(self, amount:float = .2, *args, **kwargs):
         self.amount = amount
         super().__init__(*args, **kwargs)
@@ -314,7 +314,7 @@ def pixelate(matrix:list, size:int = 32) -> list:
 
 
 # Factories.
-def make_filter(name:str, args:Sequence = ()) -> LayerFilter:
+def make_filter(name:str, args:Sequence = ()) -> ForLayer:
     name = name.casefold()
     cls = REGISTERED_FILTERS[name]
     return cls(*args)

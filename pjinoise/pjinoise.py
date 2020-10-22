@@ -15,7 +15,7 @@ from copy import deepcopy
 import json
 from operator import itemgetter
 import sys
-from typing import List, Sequence, Union
+from typing import Any, List, Mapping, Sequence, Union
 
 import cv2
 import numpy as np
@@ -40,9 +40,8 @@ SUPPORTED_NOISES = {
     'OctavePerlinNoise': noise.OctavePerlinNoise,
 }
 
-
 # Script configuration.
-CONFIG = {
+DEFAULT_CONFIG = {
     # General script configuration,
     'filename': '',
     'format': '',
@@ -73,16 +72,13 @@ CONFIG = {
     'grain': None,
     'overlay': False,
 }
-FILTERS = []
-IFILTERS = []
-STATUS = None
 
 
 # Script initialization.
 def configure() -> None:
     """Configure the script from command line arguments."""
     args = cli.parse_arguments()
-    config = deepcopy(CONFIG)
+    config = deepcopy(DEFAULT_CONFIG)
     
     # Read the configuration from a file.
     if args.load_config:
@@ -124,12 +120,8 @@ def configure() -> None:
         image_filters.append(filters.Grain(config['grain']))
     
     # Set the global config.
-    for key in config:
-        CONFIG[key] = config[key]
-    for f in layer_filters:
-        FILTERS.append(f)
-    for f in image_filters:
-        IFILTERS.append(f)
+    config['_layer_filters'] = layer_filters
+    config['_image_filters'] = image_filters
     return config
 
 
@@ -171,23 +163,16 @@ def parse_filter_command(cmd:str, layers:int) -> List[List]:
     return parsed
 
 
-def postprocess_image(a:np.array) -> Image.Image:
+def postprocess_image(a:np.ndarray, 
+                      ifilter:Sequence[filters.ForImage],
+                      status:ui.Status = None) -> Image.Image:
     """Run the configured post-creation filters and other post 
     processing steps.
     """
     a = a.round()
     a = a.astype(np.uint8)
-    
-    # Run postprocessing steps that require an image.
     img = Image.fromarray(a, mode='L')
-    for f in IFILTERS:
-        if STATUS:
-            STATUS.update('filter', f.__class__.__name__)
-        img = f.process(img)
-        if STATUS:
-            STATUS.update('filter_end', f.__class__.__name__)
-
-    return img
+    return filters.process_image(img, ifilter, status)
 
 
 # File handling.
@@ -203,37 +188,58 @@ def read_config(filename:str) -> None:
     return config
 
 
-def save_config() -> None:
-    """Save the current configuration to a file."""
-    namepart = CONFIG["filename"].split(".")[0]
+def save_config(config:Mapping[str, Any]) -> None:
+    """Save the current configuration to a file.
+    
+    :param config: The configuration to save.
+    :return: None.
+    :rtype: NoneType
+    """
+    # Since mappings can be mutable, create a defensive copy.
+    config = deepcopy(config)
+    
+    # Construct the filename for the saved config.
+    namepart = config["filename"].split(".")[0]
     filename = f'{namepart}.conf'
-    config = deepcopy(CONFIG)
+    
+    # Serialize any objects in the configuration.
     config['ntypes'] = [cls.__name__ for cls in config['ntypes']]
     config['noises'] = [n.asdict() for n in config['noises']]
+    
+    # Remove any private keys in the config. These are generally 
+    # used for objects that aren't serialized.
+    config = {k: config[k] for k in config if not k.startswith('_')}
+    
+    # Save the configuration.
     with open(filename, 'w') as fh:
         fh.write(json.dumps(config, indent=4))
 
 
-def save_image(n:'numpy.ndarray') -> None:
+def save_image(n:'numpy.ndarray', 
+               ifilter:Sequence[filters.ForImage],
+               filename:str,
+               format:int, 
+               framerate:float,
+               loops:int) -> None:
     """Save the given array as an image to disk."""
     # Ensure the values in the array are valid within the color 
     # space of the image.
     if len(n.shape) == 2:
-        img = postprocess_image(n)
-        img.save(CONFIG['filename'], CONFIG['format'])
+        img = postprocess_image(n, ifilter)
+        img.save(filename, format)
     
     if len(n.shape) == 3:
-        frames = [postprocess_image(n[i]) for i in range(n.shape[0])]
+        frames = [postprocess_image(n[i], ifilter) for i in range(n.shape[0])]
     
-    if len(n.shape) == 3 and CONFIG['format'] not in VIDEO_FORMATS:
-        duration = (1 / CONFIG['framerate']) * 1000
-        frames[0].save(CONFIG['filename'], 
+    if len(n.shape) == 3 and format not in VIDEO_FORMATS:
+        duration = (1 / framerate) * 1000
+        frames[0].save(filename, 
                        save_all=True,
                        append_images=frames[1:],
-                       loop=CONFIG['loops'],
+                       loop=loops,
                        duration=duration)
     
-    if len(n.shape) == 3 and CONFIG['format'] in VIDEO_FORMATS:
+    if len(n.shape) == 3 and format in VIDEO_FORMATS:
         n = np.zeros((*n.shape, 3))
         for i in range(len(frames)):
             n[i] = np.asarray(frames[i])
@@ -241,13 +247,13 @@ def save_image(n:'numpy.ndarray') -> None:
         dim = dim[::-1]
         n = n.astype(np.uint8)
         n = np.flip(n, -1)
-        if CONFIG['format'] == 'AVI':
+        if format == 'AVI':
             codec = 'MJPG'
         else:
             codec = 'mp4v'
-        out = cv2.VideoWriter(CONFIG['filename'], 
+        out = cv2.VideoWriter(filename, 
                               cv2.VideoWriter_fourcc(*codec), 
-                              CONFIG['framerate'], dim, True)
+                              framerate, dim, True)
         for frame in n:
             out.write(frame)
         out.release()
@@ -256,7 +262,9 @@ def save_image(n:'numpy.ndarray') -> None:
 # Noise creation.
 def make_difference_noise(noises:Sequence[noise.BaseNoise],
                           size:Sequence[int],
-                          start_loc:Sequence[int] = None) -> np.array:
+                          start_loc:Sequence[int] = None,
+                          lfilters:Sequence[filters.ForLayer] = None,
+                          status:ui.Status = None) -> np.ndarray:
     """Create a space filled with the difference of several 
     difference noise spaces.
     """
@@ -264,9 +272,8 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
     if not start_loc:
         start_loc = [0 for _ in range(len(size[:-2]))]
     
-    
     # Adjust the size of the image to avoid filter artifacts.
-    size = filters.preprocess(size, FILTERS)
+    size = filters.preprocess(size, lfilters)
     
     # Create the jobs to generate the noise.
     spaces = np.zeros((len(noises), *size))
@@ -274,13 +281,12 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
         to_do = []
         for i in range(len(noises)):
             slice_loc = start_loc[:]
-#             slice_loc = [0 for _ in range(len(size[:-2]))]
             while slice_loc[0] < size[0] + start_loc[0]:
                 job = executor.submit(make_noise_slice, 
                                       noises[i],
                                       size[-2:],
                                       slice_loc[:],
-                                      STATUS,
+                                      status,
                                       i)
                 to_do.append(job)
                 slice_loc[-1] += 1
@@ -295,29 +301,32 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
         noise_loc, slice_loc, slice = future.result()
         slice_loc = [loc - offset for loc, offset in zip(slice_loc, start_loc)]
         spaces[noise_loc][slice_loc] = slice
-        if STATUS:
-            STATUS.update('slice_end', (noise_loc, slice_loc))
+        if status:
+            status.update('slice_end', (noise_loc, slice_loc))
     
     # Run the filters on the noise.
-    spaces = filters.process(spaces, FILTERS, STATUS)
+    spaces = filters.process(spaces, lfilters, status)
     
     # Apply the difference layers.
     result = np.zeros(spaces.shape[1:])
     for i in range(len(spaces)):
-        if STATUS:
-            STATUS.update('diff', i)
+        if status:
+            status.update('diff', i)
         space = spaces[i]
         result = abs(result - space)
     
     # Crop the noise to remove the padding added to avoid artifacting 
     # from the filters.
-    result = filters.postprocess(result, FILTERS)
+    result = filters.postprocess(result, lfilters)
     
     # Return the result.
     return result
 
 
-def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'numpy.ndarray':
+def make_noise(n:noise.BaseNoise, 
+               size:Sequence[int],
+               lfilters:Sequence[filters.ForLayer] = None,
+               status:ui.Status = None) -> np.ndarray:
     """Create a space filled with noise."""
     if len(size) == 2:
         return n.fill(size)
@@ -331,7 +340,7 @@ def make_noise(n:noise.BaseNoise, size:Sequence[int]) -> 'numpy.ndarray':
                                   n, 
                                   size[-2:], 
                                   slice_loc[:],
-                                  STATUS)
+                                  status)
             to_do.append(job)
             slice_loc[-1] += 1
             for i in range(1, len(slice_loc))[::-1]:
@@ -350,7 +359,7 @@ def make_noise_slice(n:noise.BaseNoise,
                      size:Sequence[int],
                      slice_loc:Sequence[int],
                      status:ui.Status = None,
-                     noise_loc:Union[int, None] = None) -> 'numpy.ndarray':
+                     noise_loc:Union[int, None] = None) -> np.ndarray:
     """Create a two dimensional slice of noise."""
     if noise_loc is None:
         if status:
@@ -366,21 +375,28 @@ def make_noise_slice(n:noise.BaseNoise,
 def main() -> None:
     """Mainline."""
     global STATUS
-    STATUS = ui.Status()
+    status = ui.Status()
     config = configure()
     
     if config['difference_layers']:
         space = make_difference_noise(config['noises'], 
                                       config['size'], 
-                                      config['start'])
+                                      config['start'],
+                                      config['_layer_filters'],
+                                      status)
     else:
-        space = make_noise(config['noises'][0], config['size'])
+        space = make_noise(config['noises'][0], config['size'], status)
     
-    save_image(space)
-    STATUS.update('save_end', config['filename'])
+    save_image(space, 
+               config['_image_filters'], 
+               config['filename'],
+               config['format'],
+               config['framerate'],
+               config['loops'])
+    status.update('save_end', config['filename'])
     if config['save_config']:
-        save_config()
-    STATUS.end()
+        save_config(config)
+    status.end()
 
 
 if __name__ == '__main__':

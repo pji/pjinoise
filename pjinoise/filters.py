@@ -159,47 +159,6 @@ class Skew(ForLayer):
         return np.reshape(skewed, values.shape)
 
 
-# Layer filter processing functions.
-def preprocess(size:Sequence[int], 
-               f_layers:Sequence[Sequence[ForLayer]]) -> Tuple[int]:
-    new_size = size[:]
-    for filters in f_layers:
-        for filter in filters:
-            new_size = filter.preprocess(new_size, size)
-    return new_size
-
-
-def process(values:np.array, 
-            f_layers:Sequence[Sequence[ForLayer]],
-            status:'ui.Status' = None) -> np.array:
-    for index, filters in enumerate(f_layers):
-        for filter in filters:
-            if status:
-                status.update('filter', filter.__class__.__name__)
-            values[index] = filter.process(values[index])
-            if status:
-                status.update('filter_end', filter.__class__.__name__)
-    return values
-
-
-def postprocess(values:np.array, 
-                f_layers:Sequence[Sequence[ForLayer]]) -> np.array:
-    # Find original size of the image.
-    old_size = values.shape
-    new_size = old_size[:]
-    for filters in f_layers:
-        for filter in filters:
-            new_size = filter.postprocess(new_size)
-    
-    # Crop the image back to the original size.
-    pads = [old - new for old, new in zip(old_size, new_size)]
-    starts = [pad // 2 for pad in pads]
-    ends = [old - (pad - start) for old, pad, start 
-            in zip(old_size, pads, starts)]
-    slices = [slice(start, end) for start, end in zip(starts, ends)]
-    return values[tuple(slices)]
-
-
 # Image filter classes.
 class ForImage(ABC):
     def __eq__(self, other):
@@ -279,7 +238,7 @@ class Overlay(ForImage):
         full = ImageChops.overlay(img, img)
         original = np.array(img)
         part = (original - np.array(full)) * self.amount
-        result = np.around(part).astype(np.uint8)
+        result = np.around(part + original).astype(np.uint8)
         return Image.fromarray(result, mode=mode)
 
 
@@ -318,6 +277,69 @@ def make_filter(name:str, args:Sequence = ()) -> ForLayer:
     name = name.casefold()
     cls = REGISTERED_FILTERS[name]
     return cls(*args)
+
+
+# Layer filter processing functions.
+def preprocess(size:Sequence[int], 
+               f_layers:Sequence[Sequence[ForLayer]]) -> Tuple[int]:
+    if not f_layers:
+        return size
+    new_size = size[:]
+    for filters in f_layers:
+        for filter in filters:
+            new_size = filter.preprocess(new_size, size)
+    return new_size
+
+
+def process(values:np.ndarray, 
+            f_layers:Sequence[Sequence[ForLayer]],
+            status:'ui.Status' = None) -> np.array:
+    if not f_layers:
+        return values
+    for index, filters in enumerate(f_layers):
+        for filter in filters:
+            if status:
+                status.update('filter', filter.__class__.__name__)
+            values[index] = filter.process(values[index])
+            if status:
+                status.update('filter_end', filter.__class__.__name__)
+    return values
+
+
+def postprocess(values:np.ndarray, 
+                f_layers:Sequence[Sequence[ForLayer]]) -> np.array:
+    # If there are no layer filters, bounce out.
+    if not f_layers:
+        return values
+    
+    # Find original size of the image.
+    old_size = values.shape
+    new_size = old_size[:]
+    for filters in f_layers:
+        for filter in filters:
+            new_size = filter.postprocess(new_size)
+    
+    # Crop the image back to the original size.
+    pads = [old - new for old, new in zip(old_size, new_size)]
+    starts = [pad // 2 for pad in pads]
+    ends = [old - (pad - start) for old, pad, start 
+            in zip(old_size, pads, starts)]
+    slices = [slice(start, end) for start, end in zip(starts, ends)]
+    return values[tuple(slices)]
+
+
+# Image filter processing functions.
+def process_image(img:Image.Image, 
+                  filters:Sequence[ForImage],
+                  status:'ui.Status' = None) -> Image.Image:
+    """Run the given filters on the image."""
+    for filter in filters:
+        if status:
+            status.update('filter', f.__class__.__name__)
+        img = filter.process(img)
+        if status:
+            status.update('filter_end', f.__class__.__name__)
+    return img
 
 
 # Registrations.

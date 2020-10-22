@@ -203,7 +203,7 @@ class SkewTestCase(ut.TestCase):
 
 
 class ProcessTestCase(ut.TestCase):
-    def test_preprocess_filters(self):
+    def test_preprocess_layer_filters(self):
         """Given the list of filters and an image size, filters.process 
         should run the preprocessing for each image and return the new 
         image size.
@@ -226,7 +226,7 @@ class ProcessTestCase(ut.TestCase):
         
         self.assertTupleEqual(exp, act)
     
-    def test_postprocess_filters(self):
+    def test_postprocess_layer_filters(self):
         """Given a list of filters and an image, remove any padding 
         the filters added to the image and return the new image.
         """
@@ -268,7 +268,7 @@ class ProcessTestCase(ut.TestCase):
         
         self.assertListEqual(exp, act)
     
-    def test_process_filters(self):
+    def test_process_layer_filters(self):
         """Given a list of filters and an image, filters.process 
         should perform the filters on the image and return the 
         image.
@@ -303,6 +303,44 @@ class ProcessTestCase(ut.TestCase):
         act = filters.process(values, fs).tolist()
         
         self.assertListEqual(exp, act)
+    
+    def test_process_image_filters(self):
+        """Given an image and a list of image filters, 
+        filters.process_image should return a PIL.Image 
+        object that has had the given image filters 
+        applied.
+        """
+        # Expected result.
+        exp = [
+            [0x48, 0x63, 0x89, 0xaf, 0xc9],
+            [0x48, 0x63, 0x89, 0xaf, 0xc9],
+            [0x48, 0x63, 0x89, 0xaf, 0xc9],
+            [0x48, 0x63, 0x89, 0xaf, 0xc9],
+            [0x48, 0x63, 0x89, 0xaf, 0xc9],
+        ]
+        
+        # Set up data and state for running the test.
+        blur_amount = 2.0
+        ifilters = [
+            filters.Overlay(),
+            filters.Blur(blur_amount)
+        ]
+        img = Image.fromarray(np.array([
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+        ], dtype=np.uint8))
+        
+        # Run the test.
+        result_img = filters.process_image(img, ifilters)
+        
+        # Extract the actual result for comparison.
+        act = np.array(result_img).tolist()
+                
+        # Determine whether the test passed.
+        self.assertListEqual(exp, act)
 
 
 class OverlayTestCase(ut.TestCase):
@@ -310,13 +348,13 @@ class OverlayTestCase(ut.TestCase):
         """Given an image, perform a 20% overlay operation on the 
         image and return the result.
         """
-        exp = np.array([
-            [0x00, 0x3a, 0x80, 0x93, 0xff],
-            [0x00, 0x3a, 0x80, 0x93, 0xff],
-            [0x00, 0x3a, 0x80, 0x93, 0xff],
-            [0x00, 0x3a, 0x80, 0x93, 0xff],
-            [0x00, 0x3a, 0x80, 0x93, 0xff],
-        ], dtype=np.uint8)
+        exp = [
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+        ]
         
         img = Image.fromarray(np.array([
             [0x00, 0x40, 0x80, 0xc0, 0xff,],
@@ -327,23 +365,23 @@ class OverlayTestCase(ut.TestCase):
         ], dtype=np.uint8))
         f = filters.Overlay()
         result = f.process(img)
-        act = np.array(result)
+        act = np.array(result).tolist()
         
-        self.assertEqual(exp.all(), act.all())
+        self.assertListEqual(exp, act)
 
 
 class BlurTestCase(ut.TestCase):
-    def test_overlay_process(self):
+    def test_blur_process(self):
         """Given an image, perform a gaussian blur on the 
         image and return the result.
         """
-        exp = np.array([
+        exp = [
             [0x42, 0x5c, 0x80, 0xa4, 0xbd],
             [0x42, 0x5c, 0x80, 0xa4, 0xbd],
             [0x42, 0x5c, 0x80, 0xa4, 0xbd],
             [0x42, 0x5c, 0x80, 0xa4, 0xbd],
             [0x42, 0x5c, 0x80, 0xa4, 0xbd],
-        ], dtype=np.uint8)
+        ]
         
         img = Image.fromarray(np.array([
             [0x00, 0x40, 0x80, 0xc0, 0xff,],
@@ -355,9 +393,9 @@ class BlurTestCase(ut.TestCase):
         amount = 2.0
         f = filters.Blur(amount)
         result = f.process(img)
-        act = np.array(result)
+        act = np.array(result).tolist()
         
-        self.assertEqual(exp.all(), act.all())
+        self.assertEqual(exp, act)
 
 
 if __name__ == '__main__':

@@ -734,6 +734,18 @@ class OctavePerlinNoise(PerlinNoise):
         return round(value)
 
 
+# Registered classes.
+SUPPORTED_NOISES = {
+    'SolidNoise': SolidNoise,
+    'GradientNoise': GradientNoise,
+    'ValueNoise': ValueNoise,
+    'CosineNoise': CosineNoise,
+    'OctaveCosineNoise': OctaveCosineNoise,
+    'PerlinNoise': PerlinNoise,
+    'OctavePerlinNoise': OctavePerlinNoise,
+}
+
+
 if __name__ == '__main__':
     unit = (8, 8, 8)
     loc = (4, 0, 0)

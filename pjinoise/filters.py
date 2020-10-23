@@ -66,17 +66,45 @@ class CutLight(ForLayer):
 
 
 class CutShadow(ForLayer):
-    def __init__(self, threshold:float, scale:float = 256) -> None:
-        self.threshold = threshold
+    def __init__(self, threshold:float, 
+                 ease:str = 'l', 
+                 scale:float = 256) -> None:
+        supported_eases = {
+            'l': self._ease_linear,
+            'c': self._ease_in_out_cubic,
+        }
         self.scale = scale
+        self.threshold = threshold
+        self._ease = supported_eases[ease]
     
     # Public methods.
     def process(self, values:np.array, *args) -> np.array:
         values = values.copy()
-        values = values - self.threshold
-        values[values < 0] = 0
+        values[values < self.threshold] = 0
+        values[values >= self.threshold] -= self.threshold
         threshold_scale = self.scale - self.threshold
-        return (values / threshold_scale) * self.scale
+        new_values = self._ease(values, threshold_scale) * self.scale
+        new_values = new_values.astype(int)
+        return new_values
+    
+    # Private methods.
+    def _ease_in_out_cubic(self, values:np.ndarray, scale:float) -> np.ndarray:
+        """Function adapted from:
+        https://easings.net/#easeInOutCubic
+        """
+        newvals = values / scale
+        
+        def _ease(x):
+            if x < .5:
+                return 4 * x ** 3
+            return 1 - ((-2 * x + 2) ** 3) / 2
+            
+        ease = np.vectorize(_ease)
+        newvals = ease(newvals)
+        return newvals
+    
+    def _ease_linear(self, values:np.ndarray, scale:float) -> np.ndarray:
+        return values / scale
 
 
 class Rotate90(ForLayer):
@@ -204,7 +232,7 @@ class Colorize(ForImage):
     
     # Public methods.
     def process(self, img:np.ndarray) -> np.ndarray:
-        return ImageOps.colorize(img, self.white, self.black)
+        return ImageOps.colorize(img, self.black, self.white)
 
 
 class Grain(ForImage):
@@ -359,4 +387,21 @@ REGISTERED_IMAGE_FILTERS = {
 
 
 if __name__ == '__main__':
-    raise NotImplemented
+#     raise NotImplemented
+    
+    a = [
+        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+    ]
+    a = np.array(a, dtype=np.uint8)
+    
+    f = CutShadow(0x80, 'c')
+    res = f.process(a)
+    
+    for y in res:
+        print(' ' * 8, end='')
+        r = [f'0x{x:02x}' for x in y]
+        print('[' + ', '.join(r) + '],')

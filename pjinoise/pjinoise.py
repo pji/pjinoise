@@ -9,12 +9,9 @@ from:
     https://adrianb.io/2014/08/09/perlinnoise.html
     http://samclane.github.io/Perlin-Noise-Python/
 """
-import argparse
 from concurrent import futures
 from copy import deepcopy
 import json
-from operator import itemgetter
-import sys
 from typing import Any, List, Mapping, Sequence, Union
 
 import cv2
@@ -22,25 +19,13 @@ import numpy as np
 from PIL import Image, ImageColor
 
 from pjinoise import cli
+from pjinoise import filters
 from pjinoise import noise
 from pjinoise import ui
-from pjinoise import filters
-from pjinoise.constants import (COLOR, SUPPORTED_FORMATS, VIDEO_FORMATS, 
-                                WORKERS, X, Y, Z)
+from pjinoise.constants import SUPPORTED_FORMATS, VIDEO_FORMATS, WORKERS
 
 
-# Registrations.
-SUPPORTED_NOISES = {
-    'SolidNoise': noise.SolidNoise,
-    'GradientNoise': noise.GradientNoise,
-    'ValueNoise': noise.ValueNoise,
-    'CosineNoise': noise.CosineNoise,
-    'OctaveCosineNoise': noise.OctaveCosineNoise,
-    'PerlinNoise': noise.PerlinNoise,
-    'OctavePerlinNoise': noise.OctavePerlinNoise,
-}
-
-# Script configuration.
+# Registrations and defaults.
 DEFAULT_CONFIG = {
     # General script configuration,
     'filename': '',
@@ -94,10 +79,11 @@ def configure() -> None:
     
     # Deserialize serialized objects in the configuration.
     config['format'] = get_format(args.output_file)
-    config['ntypes'] = [SUPPORTED_NOISES[item] for item in config['ntypes']]
+    config['ntypes'] = [noise.SUPPORTED_NOISES[item] 
+                        for item in config['ntypes']]
     noises = []
     for kwargs in config['noises']:
-        cls = SUPPORTED_NOISES[kwargs['type']]
+        cls = noise.SUPPORTED_NOISES[kwargs['type']]
         n = cls(**kwargs)
         noises.append(n)
     config['noises'] = noises
@@ -156,7 +142,6 @@ def parse_filter_command(cmd:str, layers:int) -> List[List]:
         filters_ = []
         for c in commands:
             if layer % int(c[1][0]) == int(c[1][1]):
-#                 filter = [REGISTERED_FILTERS[c[0]], c[2]]
                 filter = filters.make_filter(c[0], c[2])
                 filters_.append(filter)
         parsed.append(filters_)
@@ -374,7 +359,6 @@ def make_noise_slice(n:noise.BaseNoise,
 # Mainline.
 def main() -> None:
     """Mainline."""
-    global STATUS
     status = ui.Status()
     config = configure()
     

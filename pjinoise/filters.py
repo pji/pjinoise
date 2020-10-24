@@ -12,6 +12,7 @@ from PIL import Image, ImageChops, ImageFilter, ImageOps
 import numpy as np
 
 from pjinoise.constants import X, Y, Z
+from pjinoise import ease as e
 from pjinoise import noise
 
 
@@ -50,61 +51,32 @@ class ForLayer(ABC):
 
 
 class CutLight(ForLayer):
-    def __init__(self, threshold:float, scale:float = 256) -> None:
-        self.threshold = threshold
-        self.scale = scale
-    
-    # Public methods.
-    def process(self, values:np.array, *args) -> np.array:
-        values = values.copy()
-        values = self.scale - (values + 1)
-        values = values - self.threshold
-        values[values < 0] = 0
-        threshold_scale = self.scale - self.threshold
-        values = self.threshold - (values + 1)
-        return (values / threshold_scale) * self.scale
-
-
-class CutShadow(ForLayer):
     def __init__(self, threshold:float, 
-                 ease:str = 'l', 
-                 scale:float = 256) -> None:
-        supported_eases = {
-            'l': self._ease_linear,
-            'c': self._ease_in_out_cubic,
-        }
+                 ease:str = '', 
+                 scale:float = 0xff) -> None:
         self.scale = scale
         self.threshold = threshold
-        self._ease = supported_eases[ease]
+        self._ease = e.registered_functions[ease]
     
     # Public methods.
     def process(self, values:np.array, *args) -> np.array:
-        values = values.copy()
+        values[values > self.threshold] = self.threshold
+        values = values / self.threshold
+        values = self._ease(values) * self.scale
+        values = values.astype(int)
+        return values
+
+
+class CutShadow(CutLight):
+    # Public methods.
+    def process(self, values:np.array, *args) -> np.array:
         values[values < self.threshold] = 0
         values[values >= self.threshold] -= self.threshold
         threshold_scale = self.scale - self.threshold
-        new_values = self._ease(values, threshold_scale) * self.scale
-        new_values = new_values.astype(int)
-        return new_values
-    
-    # Private methods.
-    def _ease_in_out_cubic(self, values:np.ndarray, scale:float) -> np.ndarray:
-        """Function adapted from:
-        https://easings.net/#easeInOutCubic
-        """
-        newvals = values / scale
-        
-        def _ease(x):
-            if x < .5:
-                return 4 * x ** 3
-            return 1 - ((-2 * x + 2) ** 3) / 2
-            
-        ease = np.vectorize(_ease)
-        newvals = ease(newvals)
-        return newvals
-    
-    def _ease_linear(self, values:np.ndarray, scale:float) -> np.ndarray:
-        return values / scale
+        values = values / threshold_scale
+        values = self._ease(values) * self.scale
+        values = values.astype(int)
+        return values
 
 
 class Rotate90(ForLayer):
@@ -209,7 +181,7 @@ class ForImage(ABC):
 
 class Autocontrast(ForImage):
     # Public methods.
-    def process(self, img:np.ndarray) -> np.ndarray:
+    def process(self, img:Image.Image) -> Image.Image:
         return ImageOps.autocontrast(img)
 
 
@@ -231,8 +203,26 @@ class Colorize(ForImage):
         super().__init__(*args, **kwargs)
     
     # Public methods.
-    def process(self, img:np.ndarray) -> np.ndarray:
+    def process(self, img:Image.Image) -> Image.Image:
         return ImageOps.colorize(img, self.black, self.white)
+
+
+class Curve(ForImage):
+    """Apply an easing curve to the given image."""
+    def __init__(self, ease:str, scale:float = 0xff) -> None:
+        self.ease = e.registered_functions[ease]
+        self.scale = scale
+    
+    def process(self, img:Image.Image) -> Image.Image:
+        if img.mode != 'L':
+            raise NotImplementedError('Curve does not support images '
+                                      f'with mode {img.mode}.')
+        a = np.array(img)
+        a = a / self.scale
+        a = self.ease(a)
+        a = a * self.scale
+        a = np.around(a).astype(np.uint8)
+        return Image.fromarray(a, mode='L')
 
 
 class Grain(ForImage):
@@ -243,7 +233,7 @@ class Grain(ForImage):
         super().__init__(*args, **kwargs)
     
     # Public methods.
-    def process(self, img:np.ndarray) -> np.ndarray:
+    def process(self, img:Image.Image) -> Image.Image:
         if not self._grain:
             size = (img.height, img.width)
             grain = self._noise.fill(size)
@@ -261,7 +251,7 @@ class Overlay(ForImage):
         super().__init__(*args, **kwargs)
     
     # Public methods.
-    def process(self, img:np.ndarray) -> np.ndarray:
+    def process(self, img:Image.Image) -> Image.Image:
         mode = img.mode
         full = ImageChops.overlay(img, img)
         original = np.array(img)
@@ -398,7 +388,7 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=np.uint8)
     
-    f = CutShadow(0x80, 'c')
+    f = CutLight(0x80, 'q')
     res = f.process(a)
     
     for y in res:

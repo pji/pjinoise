@@ -442,9 +442,10 @@ class PerlinNoise(ValueNoise):
             indices[Y] = indices[Y] + loc[Y]
             indices[Z] = indices[Z] + loc[Z]
         
-        # Translate the pixel positions into units of the noise along 
-        # an axis. Then release the memory used by indices, since our 
-        # constraint is likely memory.
+        # The Perlin noise algorithm sets the value of noise at the 
+        # unit vertices. The size in pixels of these units was set 
+        # when this noise object was initialized. Here we translate 
+        # the pixel positions into unit measurements.
         unit_size = np.array([
             np.full(indices[Z].shape, self.unit[Z]),
             np.full(indices[Y].shape, self.unit[Y]),
@@ -455,13 +456,24 @@ class PerlinNoise(ValueNoise):
         del indices
         del unit_size
         
-        # Calculate the parts needed for the interpolation.
+        # The noise value at a pixel, then, is determined through 
+        # interpolating the noise value at the nearest unit vertices 
+        # for each pixel. In order to do that, we're going to need 
+        # the unit each pixel is in (whole) and how far into the unit 
+        # each pixel is (part). In order to smooth out the noise, we 
+        # also need a value from an easing function (fades).
         whole = (units // 1).astype(int)
         parts = units - whole
         fades = 6 * parts ** 5 - 15 * parts ** 4 + 10 * parts ** 3
         del units
         
-        # Create the hash table.
+        # A unit is a rectangle. That means there are eight unit 
+        # vertices that surround each pixel. Those vertices are 
+        # named with a binary mask representing whether the vertex 
+        # is before or after the pixel on a particular axis. So 
+        # the vertex "011" is ahead of the pixel on the Y and X 
+        # axis, but behind the pixel on the Z axis. The hash_table 
+        # then contains the noise value for the named vertex.
         hash_table = {}
         for hash in self.hashes:
             hash_whole = whole.copy()
@@ -478,7 +490,11 @@ class PerlinNoise(ValueNoise):
         del whole
         del hash_whole
         
-        # Perform the interpolation.
+        # To be honest, I don't fully understand what this part of 
+        # the Perlin noise algorithm is doing. It's called the 
+        # gradient, so it must have something to do with how the 
+        # level of noise changes between unit vertices. Beyond that 
+        # I'm not sure.
         def vector_grad(mask, hash, x, y, z):
             if mask[0] == '1':
                 z -= 1
@@ -523,6 +539,11 @@ class PerlinNoise(ValueNoise):
                 out = -y - z
             return out
         
+        # Perform the linear interpolation of the results of the 
+        # gradient function for each of the surrounding vertices to 
+        # determine the level of noise at each pixel. This is done 
+        # by axis, interpolating the X values to get the Y values, 
+        # and interpolating those to get the Z value.
         grad = np.vectorize(vector_grad)
         x1a = grad('000', hash_table['000'], parts[X], parts[Y], parts[Z])
         x1b = grad('001', hash_table['001'], parts[X], parts[Y], parts[Z])
@@ -548,6 +569,11 @@ class PerlinNoise(ValueNoise):
         y2 = self._lerp(x3, x4, fades[Y])
         del x1, x2, x3, x4
         values = (self._lerp(y1, y2, fades[Z]) + 1) / 2
+        
+        # The result from the Perlin noise function is a percentage 
+        # of how much of the maximum noise each pixel contains. 
+        # Translate the percentage into a value of noise and return 
+        # the noise.
         values = values * self.scale
         return np.around(values).astype(int)
     

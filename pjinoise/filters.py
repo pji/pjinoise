@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from typing import Sequence, Tuple, Union
 
+import cv2
 from PIL import Image, ImageChops, ImageFilter, ImageOps
 import numpy as np
 
@@ -136,27 +137,42 @@ class Skew(ForLayer):
     
     def process(self, values:np.array) -> np.array:
         """Run the filter over the image."""
-        def _lookup(*index) -> float:
-            return values[index]
-
-        # Determine how much skew for each row.
-        skew_by_row = np.indices((values.shape[Y],)) - (values.shape[Y] // 2)
-        skew_by_row = np.round(skew_by_row * self.slope)
-        skew_by_row = np.reshape(skew_by_row, (values.shape[Y], 1))
+        # The affine transform is only two dimensional, so if we're 
+        # given three dimensions, call this recursively for every Z.
+        if len(values.shape) > 2:
+            for z in range(values.shape[Z]):
+                values[z] = self.process(values[z])
+            return values
         
-        # Determine the amount of skew for each position.
-        skew_by_row = np.tile(skew_by_row, (1, values.shape[X]))
-        indices = np.indices(values.shape)
-        indices[X] = (indices[X] + skew_by_row) % values.shape[X]
-        del skew_by_row
+        original_type = values.dtype
+        values = values.astype(np.float32)
         
-        # Return the skewed image.
-        raveled_values = np.ravel(values)
-        raveled_index = np.ravel_multi_index(indices, values.shape)
-        if len(raveled_index.shape) != 1:
-            raveled_index = np.ravel(raveled_index)
-        skewed = np.take(values, raveled_index)
-        return np.reshape(skewed, values.shape)
+        # Create the transform matrix by defining three points in the 
+        # original image, and then showing where they move to in the 
+        # new, transformed image. The order of the axes is reversed 
+        # for this in comparison to how it's generally used in pjinoise. 
+        # This is due to the implementation of OpenCV.
+        original = np.array([
+            [0, 0],
+            [values.shape[X] - 1, 0],
+            [0, values.shape[Y] - 1],
+        ]).astype(np.float32)
+        new = np.array([
+            [0, 0],
+            [values.shape[X] - 1, 0],
+            [(values.shape[Y] - 1) * self.slope, values.shape[Y] - 1],
+        ]).astype(np.float32)
+        
+        # Perform the transform on the image by first creating a warp 
+        # matrix from the example points. Then apply that matrix to 
+        # the image, telling OpenCV to wrap pixels that are pushed off 
+        # the edge of the image.
+        matrix = cv2.getAffineTransform(original, new)
+        values = cv2.warpAffine(values, 
+                                matrix, 
+                                (values.shape[X], values.shape[Y]), 
+                                borderMode=cv2.BORDER_WRAP)
+        return values.astype(original_type)
 
 
 # Image filter classes.
@@ -371,6 +387,7 @@ REGISTERED_IMAGE_FILTERS = {
     'autocontrast': Autocontrast,
     'blur': Blur,
     'colorize': Colorize,
+    'curve': Curve,
     'grain': Grain,
     'overlay': Overlay,
 }
@@ -388,9 +405,31 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=np.uint8)
     
-    f = CutLight(0x80, 'q')
-    res = f.process(a)
+#     srctri = np.array([[0, 0], [a.shape[X] - 1, 0], [0, a.shape[Y] - 1]])
+#     srctri = srctri.astype(np.float32)
+#     dsttri = np.array([
+#         [0, a.shape[X] * .33],
+#         [a.shape[X] * .85, a.shape[Y] * .25],
+#         [a.shape[X] * .15, a.shape[Y] * 0.7]
+#     ]).astype(np.float32)
+
+#     srcpts = np.array([
+#         [0, 0],
+#         [4, 0],
+#         [0, 4],
+#     ]).astype(np.float32)
+#     dstpts = np.array([
+#         [0, 0],
+#         [4, 0],
+#         [4, 4],
+#     ]).astype(np.float32)
+#     warp_mat = cv2.getAffineTransform(srcpts, dstpts)
+#     res = cv2.warpAffine(a, warp_mat, (a.shape[X], a.shape[Y]), borderMode=cv2.BORDER_WRAP)
     
+    skew = Skew(1)
+    res = skew.process(a)
+    
+    res = np.around(res).astype(np.uint)
     for y in res:
         print(' ' * 8, end='')
         r = [f'0x{x:02x}' for x in y]

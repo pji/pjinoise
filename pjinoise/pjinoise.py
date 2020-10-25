@@ -53,6 +53,7 @@ DEFAULT_CONFIG = {
     'autocontrast': False,
     'blur': None,
     'colorize': '',
+    'curve': '',
     'filters': '',
     'grain': None,
     'overlay': False,
@@ -92,10 +93,12 @@ def configure() -> None:
         layer_filters = parse_filter_command(config['filters'], 
                                              config['difference_layers'])
     image_filters = []
-    if config['overlay']:
-        image_filters.append(filters.Overlay(.2))
     if config['autocontrast']:
         image_filters.append(filters.Autocontrast())
+    if config['overlay']:
+        image_filters.append(filters.Overlay(.2))
+    if config['curve']:
+        image_filters.append(filters.Curve(config['curve']))
     if config['colorize']:
         white = config['colorize'][0]
         black = config['colorize'][1]
@@ -200,7 +203,7 @@ def save_config(config:Mapping[str, Any]) -> None:
         fh.write(json.dumps(config, indent=4))
 
 
-def save_image(n:'numpy.ndarray', 
+def save_image(n:np.ndarray, 
                ifilter:Sequence[filters.ForImage],
                filename:str,
                format:int, 

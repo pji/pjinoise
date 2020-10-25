@@ -44,6 +44,7 @@ CONFIG = {
     # Postprocessing configuration.
     'autocontrast': False,
     'colorize': '',
+    'curve': '',
     'blur': None,
     'filters': 'rotate90_2:1_r+skew_3:1_10+skew_3:2_-10',
     'grain': 2.0,

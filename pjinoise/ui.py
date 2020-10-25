@@ -4,6 +4,7 @@ ui
 
 User interface elements for noise generation.
 """
+import sys
 import time
 from typing import Tuple
 
@@ -36,4 +37,3 @@ class Status():
         min = int(now // 60)
         sec = int(now % 60)
         return min, sec
-        

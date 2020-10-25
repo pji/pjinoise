@@ -103,6 +103,16 @@ OPTIONS = {
             'help': 'Use the given color to colorize the noise.'
         },
     },
+    'curve': {
+        'args': ('-K', '--curve',),
+        'kwargs': {
+            'type': str,
+            'action': 'store',
+            'default': '',
+            'required': False,
+            'help': 'Perform an easing function on the colors.'
+        },
+    },
     'ntypes': {
         'args': ('-n', '--ntypes',),
         'kwargs': {
@@ -210,6 +220,8 @@ def make_config_from_arguments(args:argparse.Namespace) -> dict:
         config['blur'] = args.blur
     if args.colorize:
         config['colorize'] = COLOR[args.colorize]
+    if args.curve:
+        config['curve'] = args.curve
     if args.filters:
         config['filters'] = args.filters
     if args.grain:

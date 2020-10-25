@@ -31,6 +31,7 @@ WORKERS = 6
 # Text for user interaction.
 EN_TEXT = {
     # UI Status.
+    'title': 'PJINOISE',
     'start': '{min:>4d}:{sec:>02d} Creating noise.',
     'end': '{min:>4d}:{sec:>02d} Noise created.',
     'noise': '{:>4d}:{:>02d} Creating noise generators.',

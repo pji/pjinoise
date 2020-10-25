@@ -29,9 +29,23 @@ def in_cubic(a:np.array) -> np.array:
     """Perform the in quint easing function on the array."""
     return a ** 3
 
+
 def in_quint(a:np.array) -> np.array:
     """Perform the in quint easing function on the array."""
     return a ** 5
+
+
+# Ease out functions.
+def out_bounce(a:np.array) -> np.array:
+    n1 = 7.5625
+    d1 = 2.75
+    
+    a[a < 1 / d1] = n1 * a[a < 1 / d1] ** 2
+    a[a < 2 / d1] = n1 * (a[a < 2 / d1] - 1.5 / d1) ** 2 + .75
+    a[a < 2.5 / d1] = n1 * (a[a < 2.5 / d1] - 2.25 / d1) ** 2 + .9375
+    a[a >= 2.5 / d1] = n1 * (a[a >= 2.5 / d1] - 2.625 / d1) ** 2 + .984375
+    
+    return a
 
 
 # Abbreviated function names both for registration and ease of use in 
@@ -42,6 +56,7 @@ registered_functions = {
     'ioc': in_out_cubic,
     'iq': in_quint,
     'l': linear,
+    'ob': out_bounce,
 }
 
 if __name__ == '__main__':

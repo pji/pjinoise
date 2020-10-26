@@ -23,6 +23,12 @@ def in_out_cubic(a:np.ndarray) -> np.ndarray:
     a[a >= .5] = 1 - (-2 * a[a >= .5] + 2) ** 3 / 2
     return a
 
+def in_out_quint(a:np.ndarray) -> np.ndarray:
+    """Perform the in out quint function on the array."""
+    a[a < .5] = 16 * a[a < .5] ** 5
+    a[a >= .5] = 1 - (-2 * a[a >= .5] + 2) ** 5 / 2
+    return a
+
 
 # Ease in functions.
 def in_cubic(a:np.array) -> np.array:
@@ -54,6 +60,7 @@ registered_functions = {
     '': linear,
     'ic': in_cubic,
     'ioc': in_out_cubic,
+    'ioq': in_out_quint,
     'iq': in_quint,
     'l': linear,
     'ob': out_bounce,

@@ -13,6 +13,7 @@ from pjinoise import filters
 from pjinoise.constants import X, Y, Z
 
 
+# Layer filter tests..
 class ClassTestCase(ut.TestCase):
     def test_create_from_command_string(self):
         """Given the name of a filter and its parameters as a 
@@ -256,6 +257,7 @@ class SkewTestCase(ut.TestCase):
         self.assertListEqual(exp, act)
 
 
+# Processing tests.
 class ProcessTestCase(ut.TestCase):
     def test_preprocess_layer_filters(self):
         """Given the list of filters and an image size, filters.process 
@@ -397,17 +399,18 @@ class ProcessTestCase(ut.TestCase):
         self.assertListEqual(exp, act)
 
 
-class OverlayTestCase(ut.TestCase):
-    def test_overlay_process(self):
-        """Given an image, perform a 20% overlay operation on the 
+# Image filter tests.
+class BlurTestCase(ut.TestCase):
+    def test_blur_process(self):
+        """Given an image, perform a gaussian blur on the 
         image and return the result.
         """
         exp = [
-            [0x00, 0x46, 0x80, 0xed, 0xff],
-            [0x00, 0x46, 0x80, 0xed, 0xff],
-            [0x00, 0x46, 0x80, 0xed, 0xff],
-            [0x00, 0x46, 0x80, 0xed, 0xff],
-            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
         ]
         
         img = Image.fromarray(np.array([
@@ -417,11 +420,12 @@ class OverlayTestCase(ut.TestCase):
             [0x00, 0x40, 0x80, 0xc0, 0xff,],
             [0x00, 0x40, 0x80, 0xc0, 0xff,],
         ], dtype=np.uint8))
-        f = filters.Overlay()
+        amount = 2.0
+        f = filters.Blur(amount)
         result = f.process(img)
         act = np.array(result).tolist()
         
-        self.assertListEqual(exp, act)
+        self.assertEqual(exp, act)
 
 
 class CurveTestCase(ut.TestCase):
@@ -453,17 +457,17 @@ class CurveTestCase(ut.TestCase):
         self.assertListEqual(exp, act)
 
 
-class BlurTestCase(ut.TestCase):
-    def test_blur_process(self):
-        """Given an image, perform a gaussian blur on the 
+class OverlayTestCase(ut.TestCase):
+    def test_overlay_process(self):
+        """Given an image, perform a 20% overlay operation on the 
         image and return the result.
         """
         exp = [
-            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
-            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
-            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
-            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
-            [0x42, 0x5c, 0x80, 0xa4, 0xbd],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
+            [0x00, 0x46, 0x80, 0xed, 0xff],
         ]
         
         img = Image.fromarray(np.array([
@@ -473,12 +477,11 @@ class BlurTestCase(ut.TestCase):
             [0x00, 0x40, 0x80, 0xc0, 0xff,],
             [0x00, 0x40, 0x80, 0xc0, 0xff,],
         ], dtype=np.uint8))
-        amount = 2.0
-        f = filters.Blur(amount)
+        f = filters.Overlay()
         result = f.process(img)
         act = np.array(result).tolist()
         
-        self.assertEqual(exp, act)
+        self.assertListEqual(exp, act)
 
 
 if __name__ == '__main__':

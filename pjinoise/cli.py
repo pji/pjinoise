@@ -237,15 +237,20 @@ def make_noises_from_arguments(config:Mapping) -> List[noise.BaseNoise]:
     """Make serialized noises from the command line arguments."""
     result = []
     for ntype in config['ntypes']:
-        kwargs = {
-            'type': ntype,
-            'size': config['size'],
-            'unit': config['unit'],
-            'octaves': config['octaves'],
-            'persistence': config['persistence'],
-            'amplitude': config['amplitude'],
-            'frequency': config['frequency'],
-        }
+        if ntype == 'LineNoise':
+            kwargs = {
+                'type': ntype,
+            }
+        else:
+            kwargs = {
+                'type': ntype,
+                'size': config['size'],
+                'unit': config['unit'],
+                'octaves': config['octaves'],
+                'persistence': config['persistence'],
+                'amplitude': config['amplitude'],
+                'frequency': config['frequency'],
+            }
         result.append(kwargs)
     
     while len(result) < config['difference_layers'] + 1:

@@ -8,18 +8,19 @@ from abc import ABC, abstractmethod
 from concurrent import futures
 import math
 import random
-from typing import Any, List, Mapping, Sequence, Tuple, Union
+from typing import Any, Callable, List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.random import default_rng
 
 from pjinoise.constants import P, TEXT, WORKERS, X, Y, Z
+from pjinoise import ease as e
 
 
 # Base classes.
 class BaseNoise(ABC):
     """Base class to define common features of noise classes."""
-    def __init__(self, scale:int = 255) -> None:
+    def __init__(self, scale:int = 255, *args, **kwargs) -> None:
         self.scale = scale
     
     def __eq__(self, other):
@@ -214,6 +215,52 @@ class GradientNoise(BaseNoise):
         return table
 
 
+class LineNoise(BaseNoise):
+    """Generate simple lines."""
+    def __init__(self, 
+                 max:float = 0xff, 
+                 min:float = 0x00, 
+                 direction:str = 'h', 
+                 length:int = 64, 
+                 ease:str = 'ioq',
+                 *args, **kwargs) -> None:
+        self.max = max
+        self.min = min
+        self.direction = direction
+        self.length = length
+        self.ease = e.registered_functions[ease]
+        kwargs['scale'] = max - min
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def asdict(self) -> dict:
+        attrs = super().asdict()
+        attrs['ease'] = 'ioq'
+        return attrs
+    
+    def fill(self, size:Sequence[int], _:Sequence[int] = None) -> np.ndarray:
+        """Return a space filled with noise."""
+        values = np.indices(size[Y:])
+        if self.direction == 'v':
+            values = values[X]
+        else:
+            values = values[Y]
+        period = (self.length - 1)
+        values = values % period
+        values[values > period / 2] = period - values[values > period / 2] 
+        values = (values / (period / 2)) 
+        values = self.ease(values) * self.scale + self.min
+        values = np.around(values).astype(int)
+        if len(size) == 3:
+            value = np.tile(values, (size[Z], 1, 1))
+        return values
+
+    
+    def noise(self, coords:Sequence[float]) -> int:
+        """Generate the noise value for the given coordinates."""
+        raise NotImplementedError
+
+
 # Value noise.
 class ValueNoise(GradientNoise):
     """A class to generate value noise. Reference algorithms taken 
@@ -236,7 +283,7 @@ class ValueNoise(GradientNoise):
         self.scale = scale
     
     # Public methods.
-    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
+    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
         """Return a space filled with noise."""
         # Start by creating the two-dimensional matrix with the X 
         # and Z axis in order to save time by not running repetitive 
@@ -764,6 +811,7 @@ class OctavePerlinNoise(PerlinNoise):
 SUPPORTED_NOISES = {
     'SolidNoise': SolidNoise,
     'GradientNoise': GradientNoise,
+    'LineNoise': LineNoise,
     'ValueNoise': ValueNoise,
     'CosineNoise': CosineNoise,
     'OctaveCosineNoise': OctaveCosineNoise,

@@ -4,11 +4,14 @@ test_noise
 
 Unit tests for the pjinoise.noise module.
 """
-import numpy as np
+from copy import deepcopy
 import unittest as ut
 from unittest.mock import call, patch
 
+import numpy as np
+
 from pjinoise import constants
+from pjinoise import ease
 from pjinoise import noise
 
 
@@ -205,6 +208,67 @@ class SolidTestCase(ut.TestCase):
         }
         obj = noise.GradientNoise(**kwargs)
         act = obj.table.tolist()
+        self.assertListEqual(exp, act)
+    
+    def test_linenoise_class(self):
+        """An instance of noise.LineNoise should be initiated with 
+        the given attributes.
+        """
+        # Expected values.
+        exp_cls = noise.LineNoise
+        exp_attrs = {
+            'type': 'LineNoise',
+            'max': 0xff,
+            'min': 0x00,
+            'direction': 'h',
+            'length': 10,
+            'ease': ease.in_out_cubic,
+            'scale': 0xff,
+        }
+        
+        # Set up test data and state.
+        attrs = deepcopy(exp_attrs)
+        attrs['ease'] = 'ioc'
+        del attrs['type']
+        
+        # Perform test.
+        act_obj = exp_cls(**attrs)
+        act_attrs = act_obj.asdict()
+        
+        # Determine if test passed.
+        self.assertIsInstance(act_obj, exp_cls)
+        self.assertDictEqual(exp_attrs, act_attrs)
+    
+    def test_linenoise_fill_with_noise(self):
+        """Given the size of a space to fill with noise, return an 
+        array of that size filled with noise.
+        """
+        # Expected values.
+        exp = [
+            [0x00, 0x00, 0x00, 0x00],
+            [0x80, 0x80, 0x80, 0x80],
+            [0xff, 0xff, 0xff, 0xff],
+            [0x80, 0x80, 0x80, 0x80],
+        ]
+        
+        # Set up test data and state.
+        attrs = {
+            'max': 0xff,
+            'min': 0x00,
+            'direction': 'h',
+            'length': 5,
+            'ease': 'ioc',
+        }
+        n = noise.LineNoise(**attrs)
+        size = (4, 4)
+        
+        # Run test.
+        values = n.fill(size)
+        
+        # Extract actual values.
+        act = values.tolist()
+        
+        # Determine if test passed.
         self.assertListEqual(exp, act)
 
 

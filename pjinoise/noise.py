@@ -235,7 +235,10 @@ class LineNoise(BaseNoise):
     # Public methods.
     def asdict(self) -> dict:
         attrs = super().asdict()
-        attrs['ease'] = 'ioq'
+        for key in e.registered_functions:
+            if attrs['ease'].__name__ == e.registered_functions[key].__name__:
+                attrs['ease'] = key
+                break
         return attrs
     
     def fill(self, size:Sequence[int], _:Sequence[int] = None) -> np.ndarray:

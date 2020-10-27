@@ -222,13 +222,12 @@ class SolidTestCase(ut.TestCase):
             'min': 0x00,
             'direction': 'h',
             'length': 10,
-            'ease': ease.in_out_cubic,
+            'ease': 'iq',
             'scale': 0xff,
         }
         
         # Set up test data and state.
         attrs = deepcopy(exp_attrs)
-        attrs['ease'] = 'ioc'
         del attrs['type']
         
         # Perform test.

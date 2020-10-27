@@ -29,6 +29,13 @@ def in_out_quint(a:np.ndarray) -> np.ndarray:
     a[a >= .5] = 1 - (-2 * a[a >= .5] + 2) ** 5 / 2
     return a
 
+def in_out_sin(a:np.ndarray) -> np.ndarray:
+    return -1 * (np.cos(np.pi * a) - 1) /2
+
+
+def in_out_cos(a:np.ndarray) -> np.ndarray:
+    return -1 * (np.sin(np.pi * a) - 1) /2
+
 
 # Ease in functions.
 def in_cubic(a:np.array) -> np.array:
@@ -61,6 +68,8 @@ registered_functions = {
     'ic': in_cubic,
     'ioc': in_out_cubic,
     'ioq': in_out_quint,
+    'ios': in_out_sin,
+    'ioco': in_out_cos,
     'iq': in_quint,
     'l': linear,
     'ob': out_bounce,
@@ -77,7 +86,7 @@ if __name__ == '__main__':
     a = np.array(a)
     a = a / 0xff
     
-    res = in_cubic(a)
+    res = in_out_sin(a)
     
     res = res * 0xff
     res = np.around(res).astype(int)

@@ -21,6 +21,7 @@ from PIL import Image, ImageColor
 from pjinoise import cli
 from pjinoise import filters
 from pjinoise import noise
+from pjinoise import operations as op
 from pjinoise import ui
 from pjinoise.constants import SUPPORTED_FORMATS, VIDEO_FORMATS, WORKERS
 
@@ -301,7 +302,7 @@ def make_difference_noise(noises:Sequence[noise.BaseNoise],
         if status:
             status.update('diff', i)
         space = spaces[i]
-        result = abs(result - space)
+        result = op.difference(result, space)
     
     # Crop the noise to remove the padding added to avoid artifacting 
     # from the filters.

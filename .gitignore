@@ -16,6 +16,7 @@
 
 # Ignore output configuration files.
 *.conf
+*.json
 
 # Ignore macOS files.
 .DS_Store

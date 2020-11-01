@@ -15,6 +15,7 @@ import numpy as np
 from pjinoise.constants import X, Y, Z
 from pjinoise import ease as e
 from pjinoise import noise
+from pjinoise import operations as op
 
 
 # Layer filter classes.
@@ -55,7 +56,7 @@ class CutLight(ForLayer):
     def __init__(self, threshold:float, 
                  ease:str = '', 
                  scale:float = 0xff) -> None:
-        self.scale = scale
+        self.scale = float(scale)
         self.threshold = threshold
         self._ease = e.registered_functions[ease]
     
@@ -223,44 +224,6 @@ class Colorize(ForImage):
         return ImageOps.colorize(img, self.black, self.white)
 
 
-class Curve(ForImage):
-    """Apply an easing curve to the given image."""
-    def __init__(self, ease:str, scale:float = 0xff) -> None:
-        self.ease = e.registered_functions[ease]
-        self.scale = scale
-    
-    def process(self, img:Image.Image) -> Image.Image:
-        if img.mode != 'L':
-            raise NotImplementedError('Curve does not support images '
-                                      f'with mode {img.mode}.')
-        a = np.array(img)
-        a = a / self.scale
-        a = self.ease(a)
-        a = a * self.scale
-        a = np.around(a).astype(np.uint8)
-        return Image.fromarray(a, mode='L')
-
-
-class Grain(ForImage):
-    def __init__(self, scale:float, *args, **kwargs):
-        self.scale = scale
-        self._grain = None
-        self._noise = noise.RangeNoise(127, self.scale)
-        super().__init__(*args, **kwargs)
-    
-    # Public methods.
-    def process(self, img:Image.Image) -> Image.Image:
-        if not self._grain:
-            size = (img.height, img.width)
-            grain = self._noise.fill(size)
-            grain = np.around(grain).astype(np.uint8)
-            grain_image = Image.fromarray(grain, mode='L')
-            if img.mode != 'L':
-                grain_img = grain_image.convert(img.mode)
-            self._grain = grain_img
-        return ImageChops.overlay(img, self._grain)
-
-
 class Overlay(ForImage):
     def __init__(self, amount:float = .2, *args, **kwargs):
         self.amount = amount
@@ -274,6 +237,59 @@ class Overlay(ForImage):
         part = (original - np.array(full)) * self.amount
         result = np.around(part + original).astype(np.uint8)
         return Image.fromarray(result, mode=mode)
+
+
+# Mixed filter classes:
+class Curve(ForImage, ForLayer):
+    """Apply an easing curve to the given image."""
+    def __init__(self, ease:str, scale:float = 0xff) -> None:
+        self.ease = e.registered_functions[ease]
+        self.scale = scale
+    
+    def process(self, img:Image.Image) -> Image.Image:
+        if isinstance(img, Image.Image):
+            if img.mode != 'L':
+                raise NotImplementedError('Curve does not support images '
+                                          f'with mode {img.mode}.')
+            a = np.array(img)
+            a = a / self.scale
+            a = self.ease(a)
+            a = a * self.scale
+            a = np.around(a).astype(np.uint8)
+            return Image.fromarray(a, mode='L')
+        else:
+            return self.ease(a)
+
+
+class Grain(ForImage, ForLayer):
+    def __init__(self, scale:float, *args, **kwargs):
+        self.scale = float(scale)
+        self._grain = None
+        self._noise = noise.RangeNoise(127, self.scale)
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def process(self, img:Union[np.ndarray, 
+                                Image.Image]) -> Union[np.ndarray, Image.Image]:
+        # Handle as a pillow Image for old ForImage interface.
+        if isinstance(img, Image.Image):
+            if not self._grain:
+                size = (img.height, img.width)
+                grain = self._noise.fill(size)
+                grain = np.around(grain).astype(np.uint8)
+                grain_image = Image.fromarray(grain, mode='L')
+                if img.mode != 'L':
+                    grain_img = grain_image.convert(img.mode)
+                self._grain = grain_img
+            return ImageChops.overlay(img, self._grain)
+        
+        # Handle as an ndarray for the ForLayer interface.
+        if not self._grain:
+            size = (img.height, img.width)
+            grain = self._noise.fill(size)
+            grain = np.around(grain).astype(np.uint8)
+            self._grain = grain
+        return op.overlay(img, self._grain)
 
 
 # Not vectorized filters.
@@ -315,11 +331,14 @@ def make_filter(name:str, args:Sequence = ()) -> ForLayer:
 
 # Layer filter processing functions.
 def preprocess(size:Sequence[int], 
-               f_layers:Sequence[Sequence[ForLayer]]) -> Tuple[int]:
-    if not f_layers:
+               filters:Sequence[Sequence[ForLayer]]) -> Tuple[int]:
+    if not filters:
         return size
     new_size = size[:]
-    for filters in f_layers:
+    try:
+        for layer in filters:
+            new_size = preprocess(new_size, layer)
+    except TypeError:
         for filter in filters:
             new_size = filter.preprocess(new_size, size)
     return new_size
@@ -330,13 +349,20 @@ def process(values:np.ndarray,
             status:'ui.Status' = None) -> np.array:
     if not f_layers:
         return values
-    for index, filters in enumerate(f_layers):
-        for filter in filters:
-            if status:
-                status.update('filter', filter.__class__.__name__)
-            values[index] = filter.process(values[index])
-            if status:
-                status.update('filter_end', filter.__class__.__name__)
+    
+    try:
+        for index, filters in enumerate(f_layers):
+            for filter in filters:
+                if status:
+                    status.update('filter', filter.__class__.__name__)
+                values[index] = filter.process(values[index])
+                if status:
+                    status.update('filter_end', filter.__class__.__name__)
+    
+    except TypeError:
+        for filter in f_layers:
+            values = filter.process(values)
+    
     return values
 
 
@@ -349,8 +375,13 @@ def postprocess(values:np.ndarray,
     # Find original size of the image.
     old_size = values.shape
     new_size = old_size[:]
-    for filters in f_layers:
-        for filter in filters:
+    
+    try:
+        for filters in f_layers:
+            for filter in filters:
+                new_size = filter.postprocess(new_size)
+    except TypeError:
+        for filter in f_layers:
             new_size = filter.postprocess(new_size)
     
     # Crop the image back to the original size.
@@ -382,6 +413,8 @@ REGISTERED_FILTERS = {
     'cutlight': CutLight,
     'rotate90': Rotate90,
     'skew': Skew,
+    'curve': Curve,
+    'grain': Grain,
 }
 REGISTERED_IMAGE_FILTERS = {
     'autocontrast': Autocontrast,

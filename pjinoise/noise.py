@@ -64,9 +64,9 @@ class BaseNoise(ABC):
         # Return the noise-filled space.
         return result
 
-    @abstractmethod
     def noise(self, coords:Sequence[float]) -> int:
         """Generate the noise value for the given coordinates."""
+        return 0
     
 
 # Random point values.
@@ -218,18 +218,18 @@ class GradientNoise(BaseNoise):
 class LineNoise(BaseNoise):
     """Generate simple lines."""
     def __init__(self, 
-                 max:float = 0xff, 
-                 min:float = 0x00, 
+                 max:Union[float, str] = 0xff, 
+                 min:Union[float, str] = 0x00, 
                  direction:str = 'h', 
-                 length:int = 64, 
+                 length:Union[int, str] = 64, 
                  ease:str = 'ioq',
                  *args, **kwargs) -> None:
-        self.max = max
-        self.min = min
+        self.max = float(max)
+        self.min = float(min)
         self.direction = direction
-        self.length = length
+        self.length = int(length)
         self.ease = e.registered_functions[ease]
-        kwargs['scale'] = max - min
+        kwargs['scale'] = self.max - self.min
         super().__init__(*args, **kwargs)
     
     # Public methods.
@@ -253,9 +253,10 @@ class LineNoise(BaseNoise):
         values[values > period / 2] = period - values[values > period / 2] 
         values = (values / (period / 2)) 
         values = self.ease(values) * self.scale + self.min
-        values = np.around(values).astype(int)
-        if len(size) == 3:
-            value = np.tile(values, (size[Z], 1, 1))
+        if self.scale > 1:
+            values = np.around(values).astype(int)
+            if len(size) == 3:
+                value = np.tile(values, (size[Z], 1, 1))
         return values
 
     

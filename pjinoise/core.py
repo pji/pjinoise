@@ -211,7 +211,10 @@ def load_config(filename:str,
             for layer in config['ImageConfig']['layers']:
                 layer['location'] = [n + m for n, m in zip(layer['location'], 
                                                            args.location[::-1])]
+        if args.size:
+            config['ImageConfig']['size'] = args.size[::-1]
         
+        # Deserialize the modified configuration.
         def make_fconf(filter:Mapping) -> FilterConfig:
             return FilterConfig(filter['filter'], filter['args'])
         

@@ -207,94 +207,109 @@ class InterfaceTestCase(ut.TestCase):
         configuration, load the file and deserialize the 
         configuration.
         """
-        # Construct data for expected values.
-        size = [1, 5, 5]
-        lfconf = [
-            core.FilterConfig('curve', ['',]),
-        ]
-        lconf = [
-            core.LayerConfig(
-                'lines', 
-                ['v', 128, 'ioq'], 
-                'replace', 
-                [0, 0, 0],
-                []
-            ),
-            core.LayerConfig(
-                'lines', 
-                ['h', 128, 'ioc'], 
-                'difference', 
-                [0, 0, 0],
-                lfconf
-            ),
-        ]
-        ifconf = [
-            core.FilterConfig('rotate90', ['r',]),
-        ]
-        filename = 'spam.json'
+        # Back up initial state.
+        argv_bkp = sys.argv
+        try:
         
-        # Expected values.
-        exp_iconf = core.ImageConfig(size, lconf, ifconf, COLOR['c'])
-        exp_sconf = core.SaveConfig('spam.tiff', 'TIFF', 'RGB', None)
-        exp_open = (filename, 'r')
+            # Construct data for expected values.
+            size = [1, 5, 5]
+            lfconf = [
+                core.FilterConfig('curve', ['',]),
+            ]
+            lconf = [
+                core.LayerConfig(
+                    'lines', 
+                    ['v', 128, 'ioq'], 
+                    'replace', 
+                    [5, 0, 0],
+                    []
+                ),
+                core.LayerConfig(
+                    'lines', 
+                    ['h', 128, 'ioc'], 
+                    'difference', 
+                    [5, 0, 0],
+                    lfconf
+                ),
+            ]
+            ifconf = [
+                core.FilterConfig('rotate90', ['r',]),
+            ]
+            filename = 'spam.json'
         
-        # Build test data and state.
-        config = {
-            'Version' : '0.0.1',
-            'ImageConfig': {
-                'size': [1, 5, 5],
-                'layers': [
-                    {
-                        'generator': 'lines',
-                        'args': ['v', 128, 'ioq'],
-                        'mode': 'replace',
-                        'location': [0, 0, 0],
-                        'filters': [],
-                    },
-                    {
-                        'generator': 'lines',
-                        'args': ['h', 128, 'ioc'],
-                        'mode': 'difference',
-                        'location': [0, 0, 0],
-                        'filters': [
-                            {
-                                'filter': 'curve',
-                                'args': ['',],
-                            },
-                        ],
-                    },
-                ],
-                'filters': [
-                    {
-                        'filter': 'rotate90',
-                        'args': ['r',],
-                    },
-                ],
-                'color': COLOR['c'],
-            },
-            'SaveConfig': {
-                'filename': 'spam.tiff',
-                'format': 'TIFF',
-                'mode': 'RGB',
-                'framerate': None
-            },
-        }
-        text = json.dumps(config, indent=4)
-        open_mock = mock_open()
-        with patch('pjinoise.core.open', open_mock, create=True):
-            open_mock.return_value.read.return_value = text
+            # Expected values.
+            exp_iconf = core.ImageConfig(size, lconf, ifconf, COLOR['c'])
+            exp_sconf = core.SaveConfig('spam.tiff', 'TIFF', 'RGB', None)
+            exp_open = (filename, 'r')
+        
+            # Build test data and state.
+            sys.argv = [
+                'python3.8 -m pjinoise.core',
+                '-c', filename,
+                '-l', '0', '0', '5',
+                '-o', 'spam.mp4',
+            ]
+            config = {
+                'Version' : '0.0.1',
+                'ImageConfig': {
+                    'size': [1, 5, 5],
+                    'layers': [
+                        {
+                            'generator': 'lines',
+                            'args': ['v', 128, 'ioq'],
+                            'mode': 'replace',
+                            'location': [0, 0, 0],
+                            'filters': [],
+                        },
+                        {
+                            'generator': 'lines',
+                            'args': ['h', 128, 'ioc'],
+                            'mode': 'difference',
+                            'location': [0, 0, 0],
+                            'filters': [
+                                {
+                                    'filter': 'curve',
+                                    'args': ['',],
+                                },
+                            ],
+                        },
+                    ],
+                    'filters': [
+                        {
+                            'filter': 'rotate90',
+                            'args': ['r',],
+                        },
+                    ],
+                    'color': COLOR['c'],
+                },
+                'SaveConfig': {
+                    'filename': 'spam.tiff',
+                    'format': 'TIFF',
+                    'mode': 'RGB',
+                    'framerate': None
+                },
+            }
+            text = json.dumps(config, indent=4)
+            open_mock = mock_open()
+            with patch('pjinoise.core.open', open_mock, create=True):
+                open_mock.return_value.read.return_value = text
             
-            # Run test.
-            act_iconf, act_sconf = core.load_config(filename)
+                # Run test.
+                args = core.parse_cli_arguments()
+                act_iconf, act_sconf = core.load_config(filename, args)
         
-        # Determine if test passed.
-        self.assertEqual(exp_iconf.size, act_iconf.size)
-        self.assertEqual(exp_iconf.layers, act_iconf.layers)
-        self.assertEqual(exp_iconf.filters, act_iconf.filters)
-        self.assertEqual(exp_iconf.color, act_iconf.color)
-        self.assertEqual(exp_iconf, act_iconf)
-        self.assertEqual(exp_sconf, act_sconf)
-        open_mock.assert_called_with(*exp_open)
+            # Determine if test passed.
+            self.assertEqual(exp_iconf.size, act_iconf.size)
+            self.assertEqual(exp_iconf.layers, act_iconf.layers)
+            self.assertEqual(exp_iconf.filters, act_iconf.filters)
+            self.assertEqual(exp_iconf.color, act_iconf.color)
+            self.assertEqual(exp_iconf, act_iconf)
+            self.assertEqual(exp_sconf, act_sconf)
+            open_mock.assert_called_with(*exp_open)
+        
+        # Restore original state.
+        finally:
+            sys.argv = argv_bkp
     
     def test_parse_arguments(self):
         """Given command line arguments, create configuration to drive 
@@ -475,6 +490,86 @@ class InterfaceTestCase(ut.TestCase):
         for key in exp_conf:
             for ckey in exp_conf[key]:
                 self.assertEqual(exp_conf[key][ckey], act_conf[key][ckey])
+    
+    def test_set_image_location_with_command_line_args(self):
+        """Given a location from the command line, update the location 
+        of all the generators.
+        """
+        # Back up initial state.
+        argv_bkp = sys.argv
+        try:
+        
+            # Set up test data for expected values.
+            filter_kwargs = {
+                'filter': 'rotate90',
+                'args': ['r',]
+            }
+            filterconfig = [core.FilterConfig(**filter_kwargs),]
+            layer_kwargs = [
+                {
+                    'generator': 'lines',
+                    'args': [],
+                    'mode': 'replace',
+                    'location': (5, 0, 0),
+                    'filters': [],
+                },
+                {
+                    'generator': 'lines',
+                    'args': [],
+                    'mode': 'difference',
+                    'location': (5, 0, 0),
+                    'filters': filterconfig,
+                },
+            ]
+            layerconfig = [core.LayerConfig(**kwargs) for kwargs in layer_kwargs]
+            image_kwargs = {
+                'size': (1, 5, 5),
+                'layers': layerconfig,
+                'filters': filterconfig,
+                'color': COLOR['e'],
+            }
+            saveconfig_kwargs = {
+                'filename': 'spam.mp4',
+                'format': 'MP4',
+                'mode': 'L',
+                'framerate': 29.95,
+            }
+        
+            # Expected values.
+            exp = (
+                core.ImageConfig(**image_kwargs),
+                core.SaveConfig(**saveconfig_kwargs),
+            )
+            
+            # Set up test data and state.
+            sys.argv = [
+                'python3.8 -m pjinoise.core',
+                '-f', 'rotate90:r',
+                '-k', 'e',
+                '-l', '0', '0', '5',
+                '-m', 'L',
+                '-n', 'lines__0:0:0__replace',
+                '-n', 'lines__0:0:0_rotate90:r_difference',
+                '-o', 'spam.mp4',
+                '-r', '29.95',
+                '-s', '5', '5', '1',
+            ]
+        
+            # Run test.
+            args = core.parse_cli_arguments()
+            act = core.make_config(args)
+        
+            # Determine if test passed.
+            self.assertEqual(exp[0].size, act[0].size)
+            self.assertListEqual(exp[0].layers, act[0].layers)
+            self.assertEqual(exp[0].filters, act[0].filters)
+            self.assertListEqual(exp[0].color, act[0].color)
+            self.assertEqual(exp[0], act[0])
+            self.assertEqual(exp[1], act[1])
+        
+        # Restore original state.
+        finally:
+            sys.argv = argv_bkp
 
 
 class LayerTestCase(ut.TestCase):

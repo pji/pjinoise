@@ -68,7 +68,7 @@ class ImageConfig(NamedTuple):
 class SaveConfig(NamedTuple):
     filename: str
     format: str
-    mode: str
+    mode: str = 'L'
     framerate: Union[None, float] = 12
     
     def asdict(self) -> dict:
@@ -193,7 +193,8 @@ def get_format(filename:str) -> str:
         raise SystemExit
 
 
-def load_config(filename:str) -> Tuple[ImageConfig, SaveConfig]:
+def load_config(filename:str, 
+                args:argparse.Namespace) -> Tuple[ImageConfig, SaveConfig]:
     """Load configuration from a file."""
     # Load the configuration file.
     with open(filename, 'r') as fh:
@@ -203,6 +204,14 @@ def load_config(filename:str) -> Tuple[ImageConfig, SaveConfig]:
     config = json.loads(text)
     version = config['Version']
     if version == '0.0.1':
+        # Modify the loaded configuration based on the CLI options.
+        if args.color:
+            config['ImageConfig']['color'] = COLOR[args.color]
+        if args.location:
+            for layer in config['ImageConfig']['layers']:
+                layer['location'] = [n + m for n, m in zip(layer['location'], 
+                                                           args.location[::-1])]
+        
         def make_fconf(filter:Mapping) -> FilterConfig:
             return FilterConfig(filter['filter'], filter['args'])
         
@@ -248,6 +257,8 @@ def make_config(args:argparse.Namespace) -> Tuple[ImageConfig, SaveConfig]:
         name, args_, loc, filters_, mode = layer.split('_')
         args_ = [arg for arg in args_.split(':') if arg]
         loc = tuple(int(n) for n in loc.split(':'))
+        if args.location:
+            loc = tuple(n + int(m) for n, m in zip(loc, args.location[::-1]))
         lfilters = parse_filters(filters_)
         layers.append(LayerConfig(name, args_, mode, loc, lfilters))
     
@@ -255,8 +266,15 @@ def make_config(args:argparse.Namespace) -> Tuple[ImageConfig, SaveConfig]:
     filters_ = parse_filters(args.filters)
     iconf = ImageConfig(size, layers, filters_, color)
     
-    format = get_format(args.filename)
-    sconf = SaveConfig(args.filename, format, args.mode)
+    kwargs = {
+        'filename': args.filename,
+        'format': get_format(args.filename),
+    }
+    if args.mode:
+        kwargs['mode'] = args.mode
+    if args.framerate:
+        kwargs['framerate'] = args.framerate
+    sconf = SaveConfig(**kwargs)
     return iconf, sconf
 
 
@@ -292,8 +310,16 @@ def parse_cli_arguments() -> argparse.Namespace:
                 'help': 'The filters to run on the final image.'
             },
         },
+        'framerate': {
+            'args': ('-r', '--framerate',),
+            'kwargs': {
+                'type': float,
+                'action': 'store',
+                'help': 'The framerate of the animation.'
+            },
+        },
         'load_config': {
-            'args': ('-l', '--load_config',),
+            'args': ('-c', '--load_config',),
             'kwargs': {
                 'type': str,
                 'action': 'store',
@@ -301,13 +327,20 @@ def parse_cli_arguments() -> argparse.Namespace:
                 'help': 'Load configuration from the given file.'
             },
         },
+        'location': {
+            'args': ('-l', '--location',),
+            'kwargs': {
+                'type': int,
+                'nargs': '*',
+                'action': 'store',
+                'help': 'Offset the starting location of each generator.'
+            },
+        },
         'mode': {
             'args': ('-m', '--mode',),
             'kwargs': {
                 'type': str,
                 'action': 'store',
-                'default': 'L',
-                'required': False,
                 'help': 'The color space for the image.'
             },
         },

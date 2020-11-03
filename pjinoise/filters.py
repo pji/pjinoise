@@ -14,6 +14,7 @@ import numpy as np
 
 from pjinoise.constants import X, Y, Z
 from pjinoise import ease as e
+from pjinoise import generators as g
 from pjinoise import noise
 from pjinoise import operations as op
 
@@ -258,7 +259,7 @@ class Curve(ForImage, ForLayer):
             a = np.around(a).astype(np.uint8)
             return Image.fromarray(a, mode='L')
         else:
-            return self.ease(a)
+            return self.ease(img)
 
 
 class Grain(ForImage, ForLayer):
@@ -271,6 +272,7 @@ class Grain(ForImage, ForLayer):
     # Public methods.
     def process(self, img:Union[np.ndarray, 
                                 Image.Image]) -> Union[np.ndarray, Image.Image]:
+        """Perform the filter action on the image."""
         # Handle as a pillow Image for old ForImage interface.
         if isinstance(img, Image.Image):
             if not self._grain:
@@ -285,9 +287,9 @@ class Grain(ForImage, ForLayer):
         
         # Handle as an ndarray for the ForLayer interface.
         if not self._grain:
-            size = (img.height, img.width)
+            size = img.shape
+            self._noise = g.Random(.5, self.scale)
             grain = self._noise.fill(size)
-            grain = np.around(grain).astype(np.uint8)
             self._grain = grain
         return op.overlay(img, self._grain)
 

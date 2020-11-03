@@ -38,7 +38,7 @@ class PatternTestCase(ut.TestCase):
         self.assertIsInstance(act_obj, exp_cls)
         self.assertDictEqual(exp_attrs, act_attrs)
     
-    def test_linenoise_fill_with_noise(self):
+    def test_lines_fill(self):
         """Given the size of a space to fill with noise, return an 
         array of that size filled with noise.
         """
@@ -64,6 +64,42 @@ class PatternTestCase(ut.TestCase):
             'ease': 'ioc',
         }
         n = g.Lines(**attrs)
+        size = (2, 4, 4)
+        
+        # Run test.
+        values = n.fill(size)
+        
+        # Extract actual values.
+        values = np.around(values * 0xff).astype(int)
+        act = values.tolist()
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+    
+    def test_solid_fill(self):
+        """Given a size and location, Solid.fill should return a 
+        volume filled with a single color.
+        """
+        # Expected values.
+        exp = [[
+                [0x40, 0x40, 0x40, 0x40],
+                [0x40, 0x40, 0x40, 0x40],
+                [0x40, 0x40, 0x40, 0x40],
+                [0x40, 0x40, 0x40, 0x40],
+            ],
+            [
+                [0x40, 0x40, 0x40, 0x40],
+                [0x40, 0x40, 0x40, 0x40],
+                [0x40, 0x40, 0x40, 0x40],
+                [0x40, 0x40, 0x40, 0x40],
+            ],
+        ]
+        
+        # Set up test data and state.
+        attrs = {
+            'color': .25,
+        }
+        n = g.Solid(**attrs)
         size = (2, 4, 4)
         
         # Run test.

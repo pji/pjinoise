@@ -34,6 +34,7 @@ class Layer(NamedTuple):
     """A layer of an image or animation."""
     mode: Callable
     data: np.ndarray
+    args: Sequence[Any] = tuple()
 
 
 class LayerConfig(NamedTuple):
@@ -118,7 +119,7 @@ def blend_layers(layers:Sequence[Layer]) -> np.ndarray:
     layers = [layer for layer in layers]
     result = np.zeros_like(layers[0].data)
     for layer in layers:
-        result = layer.mode(result, layer.data)
+        result = layer.mode(result, layer.data, *layer.args)
     return result
 
 
@@ -134,7 +135,7 @@ def make_image(conf:ImageConfig) -> np.ndarray:
     """Create the image from the given configuration."""
     layers = make_layers(conf.layers, conf.size)
     image = blend_layers(layers)
-    ifilters = make_filters(conf.filters)
+    ifilters = tuple(make_filters(conf.filters))
     image = filters.process(image, ifilters)
     return image
 
@@ -153,14 +154,32 @@ def make_layers(lconfs:Sequence[LayerConfig],
             size = filters.preprocess(size, lfilters)
         data = filters.process(data, lfilters)
         data = filters.postprocess(data, lfilters)
+        
+        # The image data should be between 0 and 1. Sometimes it ends 
+        # up outside of that range. I'm not sure why. It could be 
+        # I have a logical error somewhere, but it could be normal 
+        # problems with floating point math. This step renormalizes 
+        # the image data for the layer.
+        if np.max(data) > 1 or np.min(data) < 0:
+            data_min = np.min(data)
+            data_max = np.max(data)
+            scale = data_max - data_min
+            data = data + data_min
+            data = data / scale
 
-        mode = op.registered_ops[conf.mode]
-        yield Layer(mode, data)
+        mode, *args = conf.mode.split(':')
+        mode = op.registered_ops[mode]
+        yield Layer(mode, data, args)
 
 
 def save_image(array:np.ndarray, config:SaveConfig) -> None:
     """Save the image file to disk."""
     if config.format not in VIDEO_FORMATS:
+        if len(array.shape) == 4 and config.mode != 'L':
+            array = array[0].copy()
+        if len(array.shape) == 3 and config.mode == 'L':
+            array = array[0].copy()
+        array = array.astype(np.uint8)
         image = Image.fromarray(array, mode=config.mode)
         image.save(config.filename, config.format)
     
@@ -404,8 +423,9 @@ def main() -> None:
         iconf, sconf = load_config(args.load_config)
     else:
         iconf, sconf = make_config(args)
-    layers = make_layers(iconf.layers, iconf.size)
-    image = blend_layers(layers)
+#     layers = make_layers(iconf.layers, iconf.size)
+#     image = blend_layers(layers)
+    image = make_image(iconf)
     image = bake_image(image, 0xff, sconf.mode, iconf.color)
     save_image(image, sconf)
     save_config(iconf, sconf)

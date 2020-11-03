@@ -7,9 +7,10 @@ Python "generators," which is, I know, confusing. These are just
 generators in the sense they make things.
 """
 from abc import ABC, abstractmethod
-from typing import Sequence, Union
+from typing import Any, Sequence, Union
 
 import numpy as np
+from numpy.random import default_rng
 
 from pjinoise.constants import X, Y, Z
 from pjinoise import ease as e
@@ -79,9 +80,20 @@ class Lines(ValueGenerator):
         values = values % period
         values[values > period / 2] = period - values[values > period / 2] 
         values = (values / (period / 2)) 
-        values = self.ease(values)
-        return values
+        return self.ease(values)
 
+
+class Solid(ValueGenerator):
+    def __init__(self, color:Union[str, float]) -> None:
+        self.color = float(color)
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], 
+             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        a = np.zeros(size)
+        a.fill(self.color)
+        return a
+ 
 
 class Spheres(ValueGenerator):
     def __init__(self, radius:float, ease:str, offset:str = None) -> None:
@@ -132,21 +144,75 @@ class Spheres(ValueGenerator):
         # Then run the easing function on those spheres.
         a = np.sqrt(a[X] ** 2 + a[Y] ** 2 + a[Z] ** 2)
         a = 1 - (a / np.sqrt(3 * self.radius ** 2))
-        return self.ease(a)
+        a = self.ease(a)
+        return a
+
+
+class Spot(ValueGenerator):
+    def __init__(self, radius:float, ease:str) -> None:
+        self.radius = float(radius)
+        self.ease = e.registered_functions[ease]
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], 
+             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Return a space filled with noise."""
+        # Map out the volume of space that will be created.
+        a = np.indices(size)
+        for axis in X, Y, Z:
+            a[axis] += loc[axis]
+        
+            # Calculate where every point is relative to the center 
+            # of the spot. 
+            a[axis] = abs(a[axis] - size[axis] // 2)
+        
+        # Then determine what percentage of the way 
+        # they are to being over the radius, with everything 
+        # over the radius being 100%.
+#         a[a > self.radius] = self.radius
+        
+        # Perform a spherical interpolation on the points in the 
+        # volume and run the easing function on the results.
+        a = np.sqrt(a[X] ** 2 + a[Y] ** 2)
+        a = 1 - (a / np.sqrt(2 * self.radius ** 2))
+        a[a > 1] = 1
+        a[a < 0] = 0
+        a = self.ease(a)
+        return a
+
+
+# Random noise generators.
+class Random(ValueGenerator):
+    """Create random noise with a gaussian (normal) distribution."""
+    def __init__(self, mid:float = .5, scale:float = .02, 
+                 *args, **kwargs) -> None:
+        self.mid = mid
+        self.rng = default_rng()
+        self.scale = scale
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], _:Any = None) -> np.array:
+        random = self.rng.random(size) * self.scale * 2 - self.scale
+        return random + self.mid
 
 
 # Registration.
 registered_generators = {
     'lines': Lines,
     'spheres': Spheres,
+    'spot': Spot,
 }
 
 
 if __name__ == '__main__':
 #     raise NotImplementedError
     
-    ring = Spheres(5, 'l', 'x')
-    val = ring.fill((1, 15, 15))
+#     ring = Spheres(5, 'l', 'x')
+#     spot = Spot(5, 'l')
+#     val = spot.fill((1, 15, 15), (0, 0, 0))
+    random = Random(.5, .02)
+    val = random.fill((1, 15, 15), (0, 0, 0))
     
     # For volumetric indicies.
     if len(val.shape) == 4:

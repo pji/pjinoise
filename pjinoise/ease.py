@@ -17,17 +17,48 @@ def linear(a:np.ndarray) -> np.ndarray:
 
 
 # Ease in and out functions.
+def in_out_back(a:np.ndarray) -> np.ndarray:
+    c1 = 1.70158
+    c2 = c1 * 1.525
+    m = np.zeros(a.shape, bool)
+    m[a < .5] = True
+    a[m] = (2 * a[m]) ** 2 * ((c2 + 1) * 2 * a[m] - c2) / 2
+    a[~m] = ((2 * a[~m] - 2) ** 2 * ((c2 + 1) * (a[~m] * 2 - 2) + c2) + 2) / 2
+    return a
+
+
 def in_out_cubic(a:np.ndarray) -> np.ndarray:
     """Perform the in out cubic easing function on the array."""
     a[a < .5] = 4 * a[a < .5] ** 3
     a[a >= .5] = 1 - (-2 * a[a >= .5] + 2) ** 3 / 2
     return a
 
+
+def in_out_elastic(a:np.ndarray) -> np.ndarray:
+    c5 = (2 * np.pi) / 4.5
+    
+    # Create masks for the array.
+    m1 = np.zeros(a.shape, bool)
+    m1[a < .5] = True
+    m1[a <= 0] = False
+    m2 = np.zeros(a.shape, bool)
+    m2[a >= .5] = True
+    m2[a >= 1] = False
+    
+    # Run the easing function based on the masks.
+    a[m1] = -(2 ** (20 * a[m1]-10) * np.sin((20 * a[m1] - 11.125) * c5))
+    a[m1] = a[m1] / 2
+    a[m2] = (2 ** (-20 * a[m2] + 10) * np.sin((20 * a[m2] - 11.125) * c5))
+    a[m2] = a[m2] / 2 + 1
+    return a
+
+
 def in_out_quint(a:np.ndarray) -> np.ndarray:
     """Perform the in out quint function on the array."""
     a[a < .5] = 16 * a[a < .5] ** 5
     a[a >= .5] = 1 - (-2 * a[a >= .5] + 2) ** 5 / 2
     return a
+
 
 def in_out_sin(a:np.ndarray) -> np.ndarray:
     return -1 * (np.cos(np.pi * a) - 1) /2
@@ -61,18 +92,25 @@ def out_bounce(a:np.array) -> np.array:
     return a
 
 
+def out_quint(a:np.ndarray) -> np.ndarray:
+    return 1 - (1 - a) ** 5
+
+
 # Abbreviated function names both for registration and ease of use in 
 # command line configuration.
 registered_functions = {
     '': linear,
     'ic': in_cubic,
+    'ioba': in_out_back,
     'ioc': in_out_cubic,
+    'ioco': in_out_cos,
+    'ioe': in_out_elastic,
     'ioq': in_out_quint,
     'ios': in_out_sin,
-    'ioco': in_out_cos,
     'iq': in_quint,
     'l': linear,
     'ob': out_bounce,
+    'oq': out_quint,
 }
 
 if __name__ == '__main__':
@@ -86,7 +124,7 @@ if __name__ == '__main__':
     a = np.array(a)
     a = a / 0xff
     
-    res = in_out_sin(a)
+    res = in_cubic_inverse(a)
     
     res = res * 0xff
     res = np.around(res).astype(int)

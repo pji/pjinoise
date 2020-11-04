@@ -13,6 +13,42 @@ from pjinoise import generators as g
 
 
 class PatternTestCase(ut.TestCase):
+    def test_gradient_fill(self):
+        """Given the size of a space to fill with noise, return an 
+        array of that size filled with noise.
+        """
+        # Expected values.
+        exp = [[
+                [0x00, 0x00, 0x00, 0x00],
+                [0x80, 0x80, 0x80, 0x80],
+                [0xff, 0xff, 0xff, 0xff],
+                [0x80, 0x80, 0x80, 0x80],
+                [0x00, 0x00, 0x00, 0x00],
+            ],
+            [
+                [0x00, 0x00, 0x00, 0x00],
+                [0x80, 0x80, 0x80, 0x80],
+                [0xff, 0xff, 0xff, 0xff],
+                [0x80, 0x80, 0x80, 0x80],
+                [0x00, 0x00, 0x00, 0x00],
+            ],
+        ]
+        
+        # Set up test data and state.
+        args = ['v', 'l', 0., 0., .5, 1., 1., 0.]
+        n = g.Gradient(*args)
+        size = (2, 5, 4)
+        
+        # Run test.
+        values = n.fill(size)
+        
+        # Extract actual values.
+        values = np.around(values * 0xff).astype(int)
+        act = values.tolist()
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+    
     def test_lines_class(self):
         """An instance of noise.LineNoise should be initiated with 
         the given attributes.
@@ -23,7 +59,7 @@ class PatternTestCase(ut.TestCase):
             'type': 'Lines',
             'direction': 'h',
             'length': 10,
-            'ease': 'iq',
+            'ease': 'i5',
         }
         
         # Set up test data and state.
@@ -61,7 +97,7 @@ class PatternTestCase(ut.TestCase):
         attrs = {
             'direction': 'h',
             'length': 5,
-            'ease': 'ioc',
+            'ease': 'io3',
         }
         n = g.Lines(**attrs)
         size = (2, 4, 4)

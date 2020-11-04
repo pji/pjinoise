@@ -222,7 +222,7 @@ class SolidTestCase(ut.TestCase):
             'min': 0x00,
             'direction': 'h',
             'length': 10,
-            'ease': 'iq',
+            'ease': 'i5',
             'scale': 0xff,
         }
         
@@ -256,7 +256,7 @@ class SolidTestCase(ut.TestCase):
             'min': 0x00,
             'direction': 'h',
             'length': 5,
-            'ease': 'ioc',
+            'ease': 'io3',
         }
         n = noise.LineNoise(**attrs)
         size = (4, 4)

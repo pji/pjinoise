@@ -107,7 +107,7 @@ class CutShadowTestCase(ut.TestCase):
             [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
         ])
         threshold = 0x80
-        easing = 'ioc'
+        easing = 'io3'
         f = filters.CutShadow(threshold, easing)
         act = f.process(img).tolist()
         
@@ -134,7 +134,7 @@ class CutShadowTestCase(ut.TestCase):
             [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
         ])
         threshold = 0x80
-        easing = 'iq'
+        easing = 'i5'
         f = filters.CutShadow(threshold, easing)
         act = f.process(img).tolist()
         
@@ -448,7 +448,7 @@ class CurveTestCase(ut.TestCase):
             [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
             [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
         ], dtype=np.uint8))
-        f = filters.Curve('ioc')
+        f = filters.Curve('io3')
         
         result = f.process(img)
         

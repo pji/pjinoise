@@ -46,6 +46,7 @@ EN_TEXT = {
     'postprocess_end': '{:>4d}:{:>02d} Postprocessing complete.',
     'save_start': '{:>4d}:{:>02d} Saving {}.',
     'save_end': '{:>4d}:{:>02d} {} saved.',
+    'gradient_error': 'Missing color value for gradient stop.',
     
     # Exception messages.
     'vol_dim_oob': 'Noise cannot have more generations than the table.',

@@ -27,6 +27,14 @@ def in_out_back(a:np.ndarray) -> np.ndarray:
     return a
 
 
+def in_out_circ(a:np.ndarray) -> np.ndarray:
+    m = np.zeros(a.shape, bool)
+    m[a < .5] = True
+    a[m] = (1 - np.sqrt(1 - (2 * a[m]) ** 2)) / 2
+    a[~m] = (np.sqrt(1 - (-2 * a[~m] + 2) ** 2) + 1) / 2
+    return a
+
+
 def in_out_cubic(a:np.ndarray) -> np.ndarray:
     """Perform the in out cubic easing function on the array."""
     a[a < .5] = 4 * a[a < .5] ** 3
@@ -46,7 +54,7 @@ def in_out_elastic(a:np.ndarray) -> np.ndarray:
     m2[a >= 1] = False
     
     # Run the easing function based on the masks.
-    a[m1] = -(2 ** (20 * a[m1]-10) * np.sin((20 * a[m1] - 11.125) * c5))
+    a[m1] = -(2 ** (20 * a[m1] - 10) * np.sin((20 * a[m1] - 11.125) * c5))
     a[m1] = a[m1] / 2
     a[m2] = (2 ** (-20 * a[m2] + 10) * np.sin((20 * a[m2] - 11.125) * c5))
     a[m2] = a[m2] / 2 + 1
@@ -69,9 +77,22 @@ def in_out_cos(a:np.ndarray) -> np.ndarray:
 
 
 # Ease in functions.
-def in_cubic(a:np.array) -> np.array:
+def in_circ(a:np.ndarray) -> np.ndarray:
+    return 1 - np.sqrt(1 - a ** 2)
+
+
+def in_cubic(a:np.ndarray) -> np.ndarray:
     """Perform the in quint easing function on the array."""
     return a ** 3
+
+
+def in_elastic(a:np.ndarray) -> np.ndarray:
+    c4 = (2 * np.pi) / 3
+    m = np.zeros(a.shape, bool)
+    m[a == 0] = True
+    m[a == 1] = True
+    a[~m] = -(2 ** (10 * a[~m] - 10)) * np.sin((a[~m] * 10 - 10.75) * c4)
+    return a
 
 
 def in_quint(a:np.array) -> np.array:
@@ -79,8 +100,12 @@ def in_quint(a:np.array) -> np.array:
     return a ** 5
 
 
+def in_sine(a:np.array) -> np.array:
+    return 1 - np.cos(a * np.pi / 2)
+
+
 # Ease out functions.
-def out_bounce(a:np.array) -> np.array:
+def out_bounce(a:np.ndarray) -> np.ndarray:
     n1 = 7.5625
     d1 = 2.75
     
@@ -92,25 +117,57 @@ def out_bounce(a:np.array) -> np.array:
     return a
 
 
+def out_circ(a:np.ndarray) -> np.ndarray:
+    return np.sqrt(1 - (a - 1) ** 2)
+
+
+def out_cubic(a:np.ndarray) -> np.ndarray:
+    return 1 - (1 - a) ** 3
+
+
+def out_elastic(a:np.ndarray) -> np.ndarray:
+    c4 = (2 * np.pi) / 3
+    m = np.zeros(a.shape, bool)
+    m[a == 0] = True
+    m[a == 1] = True
+    a[~m] = 2 ** (-10 * a[~m]) * np.sin((a[~m] * 10 - .75) * c4) + 1
+    return a
+
+
 def out_quint(a:np.ndarray) -> np.ndarray:
     return 1 - (1 - a) ** 5
+
+
+def out_sine(a:np.ndarray) -> np.ndarray:
+    return np.sin(a * np.pi / 2)
 
 
 # Abbreviated function names both for registration and ease of use in 
 # command line configuration.
 registered_functions = {
     '': linear,
-    'ic': in_cubic,
-    'ioba': in_out_back,
-    'ioc': in_out_cubic,
-    'ioco': in_out_cos,
-    'ioe': in_out_elastic,
-    'ioq': in_out_quint,
-    'ios': in_out_sin,
-    'iq': in_quint,
     'l': linear,
+    
+    'io3': in_out_cubic,
+    'io5': in_out_quint,
+    'ioa': in_out_back,
+    'ioc': in_out_cos,
+    'ioe': in_out_elastic,
+    'ior': in_out_circ,
+    'ios': in_out_sin,
+    
+    'i3': in_cubic,
+    'i5': in_quint,
+    'ie': in_elastic,
+    'is': in_sine,
+    'ir': in_circ,
+    
+    'o3': out_cubic,
+    'o5': out_quint,
     'ob': out_bounce,
-    'oq': out_quint,
+    'oe': out_elastic,
+    'or': out_circ,
+    'os': out_sine,
 }
 
 if __name__ == '__main__':
@@ -121,10 +178,17 @@ if __name__ == '__main__':
         [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
         [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
     ]
+    a = [
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+    ]
     a = np.array(a)
     a = a / 0xff
     
-    res = in_cubic_inverse(a)
+    res = out_elastic(a)
     
     res = res * 0xff
     res = np.around(res).astype(int)

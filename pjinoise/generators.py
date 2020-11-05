@@ -7,7 +7,8 @@ Python "generators," which is, I know, confusing. These are just
 generators in the sense they make things.
 """
 from abc import ABC, abstractmethod
-from typing import Any, Sequence, Union
+import random
+from typing import Any, List, Sequence, Union
 
 import numpy as np
 from numpy.random import default_rng
@@ -35,6 +36,8 @@ class ValueGenerator(ABC):
             vals = list(e.registered_functions.values())
             keys = list(e.registered_functions)
             attrs['ease'] = keys[vals.index(attrs['ease'])]
+        if 'table' in attrs:
+            attrs['table'] = self.table.tolist()
         return attrs
     
     @abstractmethod
@@ -274,6 +277,268 @@ class Spot(ValueGenerator):
 
 
 # Random noise generators.
+class Curtains(ValueGenerator):
+    """A class to generate value noise. Reference algorithms taken 
+    from:
+    
+    https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/procedural-patterns-noise-part-1/creating-simple-1D-noise
+    """
+    def __init__(self, 
+                 unit:Sequence[int], 
+                 ease:str = '',
+                 table:Union[Sequence[int], None] = None,
+                 scale:int = 255) -> None:
+        if isinstance(unit, str):
+            unit = unit.split(',')
+            unit = [int(n) for n in unit[::-1]]
+        while len(unit) < 3:
+            unit = list(unit)
+            unit.insert(0, scale)
+        self.unit = unit
+        self.ease = e.registered_functions[ease]
+        if not table:
+            table = self._make_table()
+        self.table = np.array(table)
+        self.scale = scale
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
+        """Return a space filled with noise."""
+        # Start by creating the two-dimensional matrix with the X 
+        # and Z axis in order to save time by not running repetitive 
+        # actions along the Y axis. Each position within the matrix 
+        # represents a pixel in the final image.
+        while len(size) < 3:
+            size = list(size)
+            size.insert(0, 1)
+        xz_size = (size[Z], size[X])
+        indices = np.indices(xz_size)
+        
+        # Since we are changing the indices of the axes, everything 
+        # based on the two-dimensional XZ axes will lowercase the 
+        # axis names. Everything based on the three-dimensional XYZ 
+        # axes will continue to capitalize the axis names.
+        x, z = -1, -2
+        
+        # Adjust the value of the indices by loc. This will offset the 
+        # generated noise within the space of potential noise.
+        if loc is None:
+            loc = []
+        while len(loc) < 3:
+            loc.append(0)
+        indices[x] = indices[x] + loc[X]
+        indices[z] = indices[z] + loc[Z]
+        
+        # Translate the pixel measurements of the indices into unit 
+        # measurements based on the unit size of noise given to the 
+        # noise object.
+        unit = np.array((self.unit[Z], self.unit[X]))
+        unit_distance = indices / unit[:, np.newaxis, np.newaxis]
+        unit_floor = indices // unit[:, np.newaxis, np.newaxis]
+        unit_distance = unit_distance - unit_floor
+        
+        # Look up and interpolate values.
+        lerp = np.vectorize(self._lookup_and_lerp)
+        zx_values = lerp(unit_floor[z], unit_distance[z], 
+                         unit_floor[x], unit_distance[x])
+        
+        # Stretch X over the Y axis.
+        result = np.zeros(size)
+        for i in range(result.shape[Z]):
+            try:
+                result[i] = np.tile(zx_values[i], (result.shape[Y], 1))
+            except TypeError as e:
+                raise ValueError(f'i={i}, size={size}')
+            except ValueError:
+                raise ValueError(f'i={i}, size={size}')
+        
+        return self.ease(result)
+    
+    # Private methods.
+    def _lerp(self, a:float, b:float, x:float) -> float:
+        """Performs a linear interpolation."""
+        return a * (1 - x) + b * x
+
+    def _lookup_and_lerp(self, z:int, zd:float, x:int, xd:float) -> float:
+        vertex_mask = np.array([
+            [0, 0],
+            [0, 1],
+            [1, 0],
+            [1, 1],
+        ])
+        base_location = np.array([z, x])
+        vertices = vertex_mask + base_location
+        vertices = vertices.astype(int)
+        
+        try:
+            x1a = self.table[sum(vertices[0]) % len(self.table)]
+            x1b = self.table[sum(vertices[1]) % len(self.table)]
+            x1 = self._lerp(x1a, x1b, xd)
+            x2a = self.table[sum(vertices[2]) % len(self.table)]
+            x2b = self.table[sum(vertices[3]) % len(self.table)]
+            x2 = self._lerp(x2a, x2b, xd)
+        except IndexError:
+            msg = f'{sum(vertices[0])} % {len(self.table)}'
+            raise ValueError(msg)
+        
+        return self._lerp(x1, x2, zd)
+    
+    def _make_table(self) -> List:
+        table = [n for n in range(256)]
+        table.extend(table)
+        random.shuffle(table)        
+        return table
+
+
+class Values(ValueGenerator):
+    """Produce a gradient over a multidimensional space."""
+    def __init__(self, 
+                 unit:Union[Sequence[int], str],
+                 ease:str,
+                 size:Union[Sequence[int], None] = (50, 720, 1280), 
+                 table:Union[Sequence, None] = None, 
+                 *args, **kwargs) -> None:
+        """Initialize an instance of GradientNoise.
+        
+        :param unit: The number of pixels between vertices along an 
+            axis. The vertices are the locations where colors for 
+            the gradient are set.
+        :param size: (Optional.) The expected size of the noise that 
+            will be generated. This is only used if no table is passed. 
+        :param table: (Optional.) The colors to set for the vertices. 
+            They will repeat if there are more units along the axis 
+            in an image then there are colors defined for that axis.
+        """
+        self.ease = e.registered_functions[ease]
+        self.hashes = [f'{n:>03b}'[::-1] for n in range(2 ** 3)]
+        if isinstance(unit, str):
+            unit = self._normalize_coordinates(unit)
+        self.unit = unit
+        
+        if table is None:
+            table = self._make_table(size)
+        self.table = np.array(table)
+        self.shape = self.table.shape
+        self.table = np.ravel(self.table)
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], 
+             location:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Return a space filled with noise."""
+        # Map out the space.
+        a = np.indices(size, float)
+        for axis in X, Y, Z:
+            a[axis] += location[axis]
+        
+            # Split the space up into units.
+            a[axis] = a[axis] / self.unit[axis]
+            a[axis] %= 255
+        
+        # The unit distances are split. The unit values are needed 
+        # to set the color value of each vertex within the volume. 
+        # The parts value is needed to interpolate the noise value 
+        # at each pixel.
+        whole = (a // 1).astype(int)
+        parts = a - whole
+        
+        # Get the color for the eight vertices that surround each of 
+        # the pixels.
+        hash_table = {}
+        for hash in self.hashes:
+            hash_whole = whole.copy()
+            a_hash = np.zeros(a.shape)
+            if hash[2] == '1':
+                hash_whole[X] += 1
+            if hash[1] == '1':
+                hash_whole[Y] += 1
+            if hash[0] == '1':
+                hash_whole[Z] += 1
+            a_hash = (hash_whole[Z] * self.shape[Y] * self.shape[X] 
+                      + hash_whole[Y] * self.shape[X] 
+                      + hash_whole[X])
+            a_hash = np.take(self.table, a_hash)
+            hash_table[hash] = a_hash
+        else:
+            del a_hash, hash_whole, whole
+        
+        # And now we interpolate.
+        x1 = self._lerp(hash_table['000'], hash_table['001'], parts[X])
+        x2 = self._lerp(hash_table['010'], hash_table['011'], parts[X])
+        x3 = self._lerp(hash_table['100'], hash_table['101'], parts[X])
+        x4 = self._lerp(hash_table['110'], hash_table['111'], parts[X])
+        
+        y1 = self._lerp(x1, x2, parts[Y])
+        y2 = self._lerp(x3, x4, parts[Y])
+        del x1, x2, x3, x4
+        
+        z = self._lerp(y1, y2, parts[Z])
+        del y1, y2
+        
+        # Apply the easing function and return.
+        return self.ease(z)
+        
+        
+        # Create the space.
+        result = np.zeros(size)
+        
+        # Pad missing dimensions in the size.
+        size = size[:]
+        if len(self.table.shape) < len(size):
+            raise ValueError(TEXT['vol_dim_oob'])
+        diff = len(self.table.shape) - len(size)
+        padding = [0 for i in range(diff)]
+        
+        # Fill the space with noise.
+        index = [0 for i in range(len(size))]
+        while index[0] < size[0]:
+            full_index = padding[:]
+            full_index.extend(index)
+            result[tuple(index)] = self.noise(full_index)
+            index[-1] += 1
+            for i in range(1, len(size))[::-1]:
+                if index[i] == size[i]:
+                    index[i] = 0
+                    index[i - 1] += 1
+                else:
+                    break
+        
+        # Return the noise-filled space.
+        return result
+
+    # Private methods.
+    def _normalize_coordinates(self, 
+                               s:Union[Sequence[int], str]) -> Sequence[int]:
+        if isinstance(s, str):
+            result = s.split(',')
+            result = [int(n) for n in unit[::-1]]
+            return result
+        return s
+    
+    def _lerp(self, a:float, b:float, x:float) -> float:
+        """Performs a linear interpolation."""
+        return a * (1 - x) + b * x
+
+    def _make_table(self, size:Sequence[int]) -> List:
+        """Create a color table for vertices."""
+        def fill_table(dim:Sequence[int]) -> List:
+            """Recursively fill a table of the given dimensions."""
+            if len(dim) > 1:
+                result = [fill_table(dim[1:]) for _ in range(dim[0])]
+            else:
+                result = [random.random() for _ in range(dim[0])]
+            return result
+        
+        # Determine the dimensions of the table.
+        # The "upside down" floor division here is the equivalent to 
+        # ceiling division without the messy float conversion of the 
+        # math.ceil() function.
+        dim = [-(-n // u) + 1 for n, u in zip(size, self.unit)]
+        
+        # Create the table.
+        table = fill_table(dim)
+        return table
+
+
 class Random(ValueGenerator):
     """Create random noise with a gaussian (normal) distribution."""
     def __init__(self, mid:float = .5, scale:float = .02, 
@@ -293,8 +558,12 @@ class Random(ValueGenerator):
 registered_generators = {
     'gradient': Gradient,
     'lines': Lines,
+    'solid': Solid,
     'spheres': Spheres,
     'spot': Spot,
+    
+    'curtains': Curtains,
+    'random': Random,
 }
 
 
@@ -305,34 +574,74 @@ if __name__ == '__main__':
 #     spot = Spot(5, 'l')
 #     val = spot.fill((1, 15, 15), (0, 0, 0))
 #     random = Random(.5, .02)
-    gradient = Gradient('v', 'l', 0., 0., .5, 1., 1., 0.)
-    val = gradient.fill((2, 5, 4), (0, 0, 0))
+#     gradient = Gradient('v', 'l', 0., 0., .5, 1., 1., 0.)
+#     val = gradient.fill((2, 5, 4), (0, 0, 0))
     
-    # For volumetric indicies.
-    if len(val.shape) == 4:
-        for axis in val:
-            for plane in axis:
+    table = [
+        [
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+        ],
+        [
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+        ],
+        [
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+            [0, 127, 255, 255],
+        ],
+    ]
+    table = np.array(table) / 255
+    table = table.tolist()
+    tsize = (3, 4, 4)
+    size = (1, 3, 5)
+    unit = (2, 2, 2)
+    obj = Values(size=tsize, ease='l', unit=unit)
+    val = obj.fill(size)
+    
+    # For hash_tables:
+    if isinstance(val, dict):
+        for key in val:
+            for plane in val[key]:
                 for row in plane:
                     for column in row:
                         column = int(column * 0xff)
                         print(f'{column:02x}', end=' ')
                     print()
                 print()
-            print()
     
-    # For volumes.
-    elif len(val.shape) == 3:
-        for plane in val:
-            for row in plane:
-                for column in row:
-                    column = int(column * 0xff)
-                    print(f'{column:02x}', end=' ')
+    if isinstance(val, np.ndarray):
+        # For volumetric indicies.
+        if len(val.shape) == 4:
+            for axis in val:
+                for plane in axis:
+                    for row in plane:
+                        for column in row:
+                            column = int(column * 0xff)
+                            print(f'{column:02x}', end=' ')
+                        print()
+                    print()
                 print()
-            print()
     
-    else:
-        for column in val:
-#             print(column)
-            column = int(column * 0xff)
-            print(f'{column:02x}', end=' ')
-        print()
+        # For volumes.
+        elif len(val.shape) == 3:
+            for plane in val:
+                for row in plane:
+                    for column in row:
+                        column = int(column * 0xff)
+                        print(f'{column:02x}', end=' ')
+                    print()
+                print()
+    
+        else:
+            for column in val:
+    #             print(column)
+                column = int(column * 0xff)
+                print(f'{column:02x}', end=' ')
+            print()

@@ -10,7 +10,59 @@ from unittest.mock import call, patch
 
 import numpy as np
 
+from pjinoise.constants import P
 from pjinoise import generators as g
+
+
+class OctaveTestCases(ut.TestCase):
+    def test_octavecosinecurtains_fill(self):
+        """Given the size of a volume to generate, fill the space 
+        with octave cosine curtain noise and return it.
+        """
+        # Expected values.
+        exp = [
+            [
+                [0x11, 0xad, 0xc7, 0x87, 0xe5, 0x5d, 0x5e, 0x68,],
+                [0x11, 0xad, 0xc7, 0x87, 0xe5, 0x5d, 0x5e, 0x68,],
+                [0x11, 0xad, 0xc7, 0x87, 0xe5, 0x5d, 0x5e, 0x68,],
+                [0x11, 0xad, 0xc7, 0x87, 0xe5, 0x5d, 0x5e, 0x68,],
+                [0x11, 0xad, 0xc7, 0x87, 0xe5, 0x5d, 0x5e, 0x68,],
+                [0x11, 0xad, 0xc7, 0x87, 0xe5, 0x5d, 0x5e, 0x68,],
+                [0x11, 0xad, 0xc7, 0x87, 0xe5, 0x5d, 0x5e, 0x68,],
+                [0x11, 0xad, 0xc7, 0x87, 0xe5, 0x5d, 0x5e, 0x68,],
+            ],
+            [
+                [0x78, 0x9f, 0xbb, 0xc6, 0x6c, 0x77, 0xd7, 0x30,],
+                [0x78, 0x9f, 0xbb, 0xc6, 0x6c, 0x77, 0xd7, 0x30,],
+                [0x78, 0x9f, 0xbb, 0xc6, 0x6c, 0x77, 0xd7, 0x30,],
+                [0x78, 0x9f, 0xbb, 0xc6, 0x6c, 0x77, 0xd7, 0x30,],
+                [0x78, 0x9f, 0xbb, 0xc6, 0x6c, 0x77, 0xd7, 0x30,],
+                [0x78, 0x9f, 0xbb, 0xc6, 0x6c, 0x77, 0xd7, 0x30,],
+                [0x78, 0x9f, 0xbb, 0xc6, 0x6c, 0x77, 0xd7, 0x30,],
+                [0x78, 0x9f, 0xbb, 0xc6, 0x6c, 0x77, 0xd7, 0x30,],
+            ],
+        ]
+        
+        # Set up test data and state.
+        octaves = 4
+        persistence = 8
+        amplitude = 8
+        frequency = 2
+        unit = (4, 4, 4)
+        ease = 'l'
+        table = P
+        args = [octaves, persistence, amplitude, frequency, unit, ease, table]
+        obj = g.OctaveCosineCurtains(*args)
+        
+        # Run test.
+        result = obj.fill((2, 8, 8))
+        
+        # Extract actual values.
+        result = np.around(result * 0xff).astype(int)
+        act = result.tolist()
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
 
 
 class PatternTestCase(ut.TestCase):
@@ -156,17 +208,42 @@ class RandomTestCase(ut.TestCase):
         generators.Value.fill should return a space of that size 
         filled with noise.
         """
-        exp = [[
-            [255.0, 255.0, 255.0],
-            [255.0, 255.0, 255.0],
-            [255.0, 255.0, 255.0],
-        ],]
+        # Expected values.
+        exp = [
+            [
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+            ],
+            [
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+            ],
+        ]
         
-        args = ['2,2,1', 'l', [255 for _ in range(512)]]
+        # Set up test data and state.
+        args = ['4,4,4', 'l', P]
         obj = g.Curtains(*args)
-        array = obj.fill((3, 3))
-        act = array.tolist()
         
+        # Run test.
+        result = obj.fill((2, 8, 8))
+        
+        # Extract actual values.
+        result = np.around(result * 0xff).astype(int)
+        act = result.tolist()
+        
+        # Determine if test passed.
         self.assertListEqual(exp, act)
     
     @patch('random.shuffle')
@@ -174,16 +251,24 @@ class RandomTestCase(ut.TestCase):
         """If not given a permutations table, generators.Value will 
         create one on initialization.
         """
-        exp = [n for n in range(256)]
-        exp.extend([n for n in range(256)])
+        # Set up for expected values.
+        table = [n for n in range(0xff)]
+        table.extend(table)
+        
+        # Expected values.
+        exp = table
         exp_random = [
             call(exp),
         ]
         
+        # Set up test data and state.
         n = g.Curtains(unit=[32, 32])
+        
+        # Run test.
         act = n.table.tolist()
         act_random = mock_random.mock_calls
         
+        # Determine if test passed.
         self.assertListEqual(exp, act)
         self.assertListEqual(exp_random, act_random)
     
@@ -192,40 +277,47 @@ class RandomTestCase(ut.TestCase):
         Values.fill should return an array that contains 
         the expected noise.
         """
+        # Expected values.
         exp = [[
-            [0., 63.5, 127., 191., 255.],
-            [0., 63.5, 127., 191., 255.],
-            [0., 63.5, 127., 191., 255.],
+            [0x00, 0x40, 0x7f, 0xbf, 0xff,],
+            [0x00, 0x40, 0x7f, 0xbf, 0xff,],
+            [0x00, 0x40, 0x7f, 0xbf, 0xff,],
         ],]
         
+        # Set up test data and state.
         size = (1, 3, 5)
         table = [
                 [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
                 ],
                 [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
                 ],
                 [
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
-                    [0, 127, 255, 255],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
+                    [0x00, 0x7f, 0xff, 0xff,],
                 ],
             ]
         unit = (2, 2, 2)
         obj = g.Values(table=table, ease='l', unit=unit)
-        act = obj.fill(size).tolist()
         
+        # Perform test.
+        result = obj.fill(size)
+        
+        # Extract actual values.
+        result = np.around(result * 0xff).astype(int)
+        act = result.tolist()
+        
+        # Determine if test passed.
         self.assertListEqual(exp, act)
-    
-
 
 
 if __name__ == '__main__':

@@ -61,6 +61,14 @@ def in_out_elastic(a:np.ndarray) -> np.ndarray:
     return a
 
 
+def in_out_quad(a:np.ndarray) -> np.ndarray:
+    m = np.zeros(a.shape, bool)
+    m[a < .5] = True
+    a[m] = 2 * a[m] ** 2
+    a[~m] = 1 - (-2 * a[~m] + 2) ** 2 / 2
+    return a
+
+
 def in_out_quint(a:np.ndarray) -> np.ndarray:
     """Perform the in out quint function on the array."""
     a[a < .5] = 16 * a[a < .5] ** 5
@@ -95,12 +103,16 @@ def in_elastic(a:np.ndarray) -> np.ndarray:
     return a
 
 
-def in_quint(a:np.array) -> np.array:
+def in_quad(a:np.ndarray) -> np.ndarray:
+    return a ** 2
+
+
+def in_quint(a:np.ndarray) -> np.ndarray:
     """Perform the in quint easing function on the array."""
     return a ** 5
 
 
-def in_sine(a:np.array) -> np.array:
+def in_sine(a:np.ndarray) -> np.ndarray:
     return 1 - np.cos(a * np.pi / 2)
 
 
@@ -134,6 +146,9 @@ def out_elastic(a:np.ndarray) -> np.ndarray:
     return a
 
 
+def out_quad(a:np.ndarray) -> np.ndarray:
+    return 1 - (1 - a) ** 2
+
 def out_quint(a:np.ndarray) -> np.ndarray:
     return 1 - (1 - a) ** 5
 
@@ -148,6 +163,7 @@ registered_functions = {
     '': linear,
     'l': linear,
     
+    'io2': in_out_quad,
     'io3': in_out_cubic,
     'io5': in_out_quint,
     'ioa': in_out_back,
@@ -156,12 +172,14 @@ registered_functions = {
     'ior': in_out_circ,
     'ios': in_out_sin,
     
+    'i2': in_quad,
     'i3': in_cubic,
     'i5': in_quint,
     'ie': in_elastic,
     'is': in_sine,
     'ir': in_circ,
     
+    'o2': out_quad,
     'o3': out_cubic,
     'o5': out_quint,
     'ob': out_bounce,
@@ -172,13 +190,6 @@ registered_functions = {
 
 if __name__ == '__main__':
     a = [
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-    ]
-    a = [
         [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
         [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
         [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
@@ -188,7 +199,7 @@ if __name__ == '__main__':
     a = np.array(a)
     a = a / 0xff
     
-    res = out_elastic(a)
+    res = in_out_quad(a)
     
     res = res * 0xff
     res = np.around(res).astype(int)

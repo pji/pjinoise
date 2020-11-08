@@ -150,11 +150,11 @@ class Lines(ValueGenerator):
     """Generate simple lines."""
     def __init__(self, 
                  direction:str = 'h', 
-                 length:Union[int, str] = 64, 
+                 length:Union[float, str] = 64, 
                  ease:str = 'ioq',
                  *args, **kwargs) -> None:
         self.direction = direction
-        self.length = int(length)
+        self.length = float(length)
         self.ease = e.registered_functions[ease]
         super().__init__(*args, **kwargs)
     
@@ -212,7 +212,15 @@ class Spheres(ValueGenerator):
             d = self.radius * 2
             dd = d * 2
             mask[a[Y] % dd < d] = True
-            a[X][~mask] = a[X][~mask] - self.radius
+            
+            # Note: This used to be just subtracting the radius from 
+            # a[X][~mask], but it stopped working. I'm not sure why. 
+            # Maybe it never did, and my headache was keeping me from 
+            # noticing it. Either way, this seems to work.
+            a[X][mask] = a[X][mask] + self.radius
+            a[Y][mask] = a[Y][mask] + self.radius
+            a[Y][~mask] = a[Y][~mask] + self.radius
+            
         if self.offset == 'y':
             mask = np.zeros(a[X].shape, bool)
             d = self.radius * 2
@@ -783,7 +791,9 @@ registered_generators = {
 if __name__ == '__main__':
 #     raise NotImplementedError
     
-#     ring = Spheres(5, 'l', 'x')
+    ring = Spheres(5, 'l', 'x')
+    val = ring.fill((2, 8, 8))
+    
 #     spot = Spot(5, 'l')
 #     val = spot.fill((1, 15, 15), (0, 0, 0))
 #     random = Random(.5, .02)
@@ -826,17 +836,17 @@ if __name__ == '__main__':
 #     val = curtains.fill(size)
 #     val = np.around(val * 0xff).astype(int)
     
-    octaves = 4
-    persistence = 8
-    amplitude = 8
-    frequency = 2
-    unit = (4, 4, 4)
-    ease = 'l'
-    table = P
-    curtains = OctaveCosineCurtains(octaves, persistence, amplitude, frequency, 
-                                    unit, ease, table)
-    size = (2, 8, 8)
-    val = curtains.fill(size)
+#     octaves = 4
+#     persistence = 8
+#     amplitude = 8
+#     frequency = 2
+#     unit = (4, 4, 4)
+#     ease = 'l'
+#     table = P
+#     curtains = OctaveCosineCurtains(octaves, persistence, amplitude, frequency, 
+#                                     unit, ease, table)
+#     size = (2, 8, 8)
+#     val = curtains.fill(size)
     val = np.around(val * 0xff).astype(int)
 
     # For hash_tables:

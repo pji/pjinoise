@@ -143,15 +143,16 @@ def make_image(conf:ImageConfig) -> np.ndarray:
 def make_layers(lconfs:Sequence[LayerConfig], 
                 size:Sequence[int]) -> Sequence[Layer]:
     """Generate each layer of the image."""
-    size = size[:]
     for conf in lconfs:
-        gen_cls = g.registered_generators[conf.generator]
-        gen = gen_cls(*conf.args)
-        data = gen.fill(size, conf.location)
-
+        lsize = size[:]
         lfilters = [filter for filter in make_filters(conf.filters)]
         for filter in lfilters:
-            size = filters.preprocess(size, lfilters)
+            lsize = filters.preprocess(size, lfilters)
+
+        gen_cls = g.registered_generators[conf.generator]
+        gen = gen_cls(*conf.args)
+        data = gen.fill(lsize, conf.location)
+
         data = filters.process(data, lfilters)
         data = filters.postprocess(data, lfilters)
         
@@ -267,7 +268,7 @@ def make_config(args:argparse.Namespace) -> Tuple[ImageConfig, SaveConfig]:
     """Parse command line arguments into configuration."""
     def parse_filters(s:str) -> List[FilterConfig]:
         filters_ = []
-        for filter in s.split('!'):
+        for filter in s.split('+'):
             if filter:
                 name, *args_ = filter.split(':')
                 filters_.append(FilterConfig(name, args_))
@@ -278,7 +279,10 @@ def make_config(args:argparse.Namespace) -> Tuple[ImageConfig, SaveConfig]:
     for layer in args.noise:
         name, args_, loc, filters_, mode = layer.split('_')
         args_ = [arg for arg in args_.split(':') if arg]
-        loc = tuple(int(n) for n in loc.split(':'))
+        if loc:
+            loc = tuple(int(n) for n in loc.split(':'))
+        else:
+            loc = (0, 0, 0)
         if args.location:
             loc = tuple(n + int(m) for n, m in zip(loc, args.location[::-1]))
         lfilters = parse_filters(filters_)
@@ -405,6 +409,7 @@ def save_config(iconf:ImageConfig, sconf:SaveConfig) -> None:
     
     # Serialize the configuration for storage.
     config = {
+        'Version': "0.0.1",
         'ImageConfig': iconf.asdict(),
         'SaveConfig': sconf.asdict(),
     }
@@ -420,7 +425,7 @@ def main() -> None:
     """Mainline."""
     args = parse_cli_arguments()
     if args.load_config:
-        iconf, sconf = load_config(args.load_config)
+        iconf, sconf = load_config(args.load_config, args)
     else:
         iconf, sconf = make_config(args)
 #     layers = make_layers(iconf.layers, iconf.size)

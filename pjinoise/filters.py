@@ -82,6 +82,107 @@ class CutShadow(CutLight):
         return values
 
 
+class Inverse(ForLayer):
+    def __init__(self, ease:str = '') -> None:
+        self._ease = e.registered_functions[ease]
+    
+    # Public methods.
+    def process(self, a:np.ndarray, *args) -> np.ndarray:
+        return 1 - a
+
+
+class Pinch(ForLayer):
+    def __init__(self, 
+                 amount:Union[float, str], 
+                 radius:Union[float, str], 
+                 scale:Union[Tuple[float], str], 
+                 offset:Union[Tuple[float], str] = (0, 0, 0)):
+        self.amount = np.float32(amount)
+        self.radius = np.float32(radius)
+        if isinstance(scale, str):
+            scale = scale.split(',')
+        self.scale = tuple(np.float32(n) for n in scale)
+        if isinstance(offset, str):
+            offset = offset.split(',')
+        self.offset = tuple(np.float32(n) for n in offset)
+    
+    # Public methods.
+    def process(self, a:np.ndarray, *args) -> np.ndarray:
+        """Based on logic found here:
+        https://stackoverflow.com/questions/64067196/pinch-bulge-distortion-using-python-opencv
+        """
+        scale = self.scale
+        amount = self.amount
+        radius = self.radius
+        center = tuple((n) / 2 + o for n, o in zip(a.shape, self.offset))
+        
+        # set up the x and y maps as float32
+        flex_x = np.zeros(a.shape[Y:], np.float32)
+        flex_y = np.zeros(a.shape[Y:], np.float32)
+        
+        indices = np.indices(a.shape)
+        y = indices[Y][0]
+        x = indices[X][0]
+        delta_y = scale[Y] * (y - center[Y])
+        delta_x = scale[X] * (x - center[X])
+        distance = delta_x ** 2 + delta_y ** 2
+        
+        r_mask = np.zeros(x.shape, bool)
+        r_mask[distance >= radius ** 2] = True
+        flex_x[r_mask] = x[r_mask]
+        flex_y[r_mask] = y[r_mask]
+        
+        pmask = np.zeros(x.shape, bool)
+        pmask[distance > 0.0] = True
+        pmask[r_mask] = False
+        factor = np.sin(np.pi * np.sqrt(distance) / radius / 2)
+        factor[factor > 0] = factor[factor > 0] ** -amount
+        factor[factor < 0] = -((-factor[factor < 0]) ** -amount)
+        flex_x[pmask] = factor[pmask] * delta_x[pmask] /scale[X] + center[X]
+        flex_y[pmask] = factor[pmask] * delta_y[pmask] /scale[Y] + center[Y]
+        
+        flex_x[~pmask] = 1.0 * delta_x[~pmask] /scale[X] + center[X]
+        flex_y[~pmask] = 1.0 * delta_y[~pmask] /scale[Y] + center[Y]
+        
+        for i in range(a.shape[Z]):
+            a[i] = cv2.remap(a[i], flex_x, flex_y, cv2.INTER_LINEAR)
+        return a
+
+
+class PolarToLinear(ForLayer):
+    # Filter Protocol.
+    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+        """Determine the size the filter needs the image to be during 
+        processing.
+        """
+        new_size = list(size[:])
+        if size[Y] > size[X]:
+            new_size[X] = size[Y]
+        elif size[Y] < size[X]:
+            new_size[Y] = size[X]
+        self.padding = tuple([new - old for new, old in zip(new_size, size)])
+        return tuple(new_size)         
+    
+    def process(self, a:np.ndarray) -> np.ndarray:
+        """ Based on code taken from:
+        https://stackoverflow.com/questions/51675940/converting-an-image-from-cartesian-to-polar-limb-darkening
+        """
+        # cv2.linearPolar only works on two dimensional arrays. If the 
+        # array is three dimensional, call process recursively with 
+        # each two-dimensional slice of the three-dimensional array.
+        if len(a.shape) == 3:
+            for index in range(a.shape[Z]):
+                a[index] = self.process(a[index])
+            return a
+        
+        # Map the array into polar coordinates and then make those 
+        # polar coordinates into linear coordinates.
+        dim_half = tuple([n / 2 for n in a.shape])
+        dim_pyth = np.sqrt(sum(n ** 2 for n in dim_half))
+        a = cv2.linearPolar(a, dim_half, dim_pyth, cv2.WARP_FILL_OUTLIERS)
+        return a.astype(float)
+
+
 class Rotate90(ForLayer):
     """Rotate the image ninety degrees in the given direction."""
     def __init__(self, direction:str) -> None:
@@ -100,7 +201,7 @@ class Rotate90(ForLayer):
         self.padding = tuple([new - old for new, old in zip(new_size, size)])
         return tuple(new_size)         
     
-    def process(self, values:np.array) -> np.array:
+    def process(self, values:np.ndarray) -> np.ndarray:
         """Run the filter over the image."""
         direction = 1
         if self.direction == 'r':
@@ -369,7 +470,7 @@ def process(values:np.ndarray,
 
 
 def postprocess(values:np.ndarray, 
-                f_layers:Sequence[Sequence[ForLayer]]) -> np.array:
+                f_layers:Sequence[Sequence[ForLayer]]) -> np.ndarray:
     # If there are no layer filters, bounce out.
     if not f_layers:
         return values
@@ -413,6 +514,9 @@ def process_image(img:Image.Image,
 REGISTERED_FILTERS = {
     'cutshadow': CutShadow,
     'cutlight': CutLight,
+    'inverse': Inverse,
+    'pinch': Pinch,
+    'polartolinear': PolarToLinear,
     'rotate90': Rotate90,
     'skew': Skew,
     'curve': Curve,
@@ -431,14 +535,56 @@ REGISTERED_IMAGE_FILTERS = {
 if __name__ == '__main__':
 #     raise NotImplemented
     
+#     a = [
+#         [
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#         ],
+#         [
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+#         ],
+#     ]
     a = [
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-        [0x40, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0],
+            [0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0],
+            [0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0],
+            [0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80],
+            [0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60],
+            [0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40],
+            [0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20],
+            [0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20, 0x00],
+        ],
+        [
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0],
+            [0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0],
+            [0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0],
+            [0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80],
+            [0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60],
+            [0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40],
+            [0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20],
+            [0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20, 0x00],
+        ],
     ]
-    a = np.array(a, dtype=np.uint8)
+    a = np.array(a, dtype=float)
+    a = a / 0xff
     
 #     srctri = np.array([[0, 0], [a.shape[X] - 1, 0], [0, a.shape[Y] - 1]])
 #     srctri = srctri.astype(np.float32)
@@ -461,11 +607,29 @@ if __name__ == '__main__':
 #     warp_mat = cv2.getAffineTransform(srcpts, dstpts)
 #     res = cv2.warpAffine(a, warp_mat, (a.shape[X], a.shape[Y]), borderMode=cv2.BORDER_WRAP)
     
-    skew = Skew(1)
-    res = skew.process(a)
+#     skew = Skew(1)
+#     res = skew.process(a)
     
-    res = np.around(res).astype(np.uint)
-    for y in res:
-        print(' ' * 8, end='')
-        r = [f'0x{x:02x}' for x in y]
-        print('[' + ', '.join(r) + '],')
+#     obj = PolarToLinear()
+#     obj = Inverse()
+#     obj = Pinch(.75, 16, (5, 5, 5))
+    obj = Pinch('.75', '16', '5,5,5')
+    size = preprocess((1, 8, 8), [obj,])
+    res = obj.process(a)
+#     res = postprocess(res, [obj,])
+    
+    res = np.around(res * 0xff).astype(np.uint)
+    if len(res.shape) == 2:
+        for y in res:
+            print(' ' * 8, end='')
+            r = [f'0x{x:02x}' for x in y]
+            print('[' + ', '.join(r) + '],')
+    
+    if len(res.shape) == 3:
+        for plane in res:
+            print('    [')
+            for row in plane:
+                print(' ' * 8, end='')
+                r = [f'0x{col:02x}' for col in row]
+                print('[' + ', '.join(r) + '],')
+            print('    ],')

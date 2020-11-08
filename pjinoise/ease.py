@@ -149,12 +149,32 @@ def out_elastic(a:np.ndarray) -> np.ndarray:
 def out_quad(a:np.ndarray) -> np.ndarray:
     return 1 - (1 - a) ** 2
 
+
 def out_quint(a:np.ndarray) -> np.ndarray:
     return 1 - (1 - a) ** 5
 
 
 def out_sine(a:np.ndarray) -> np.ndarray:
     return np.sin(a * np.pi / 2)
+
+
+# Other easing functions.
+def mid_bump_linear(a:np.ndarray) -> np.ndarray:
+    a = np.abs(a - .5)
+    m = np.zeros(a.shape, bool)
+    m[a < .25] = True
+    a[m] = (.25 - a[m]) * 4
+    a[~m] = 0
+    return a
+
+
+def mid_bump_sine(a:np.ndarray) -> np.ndarray:
+    a = np.abs(a - .5)
+    m = np.zeros(a.shape, bool)
+    m[a < .25] = True
+    a[m] = (.25 - a[m]) * 4
+    a[~m] = 0
+    return in_out_sin(a)
 
 
 # Abbreviated function names both for registration and ease of use in 
@@ -186,6 +206,9 @@ registered_functions = {
     'oe': out_elastic,
     'or': out_circ,
     'os': out_sine,
+    
+    'mbl': mid_bump_linear,
+    'mbs': mid_bump_sine,
 }
 
 if __name__ == '__main__':
@@ -199,7 +222,7 @@ if __name__ == '__main__':
     a = np.array(a)
     a = a / 0xff
     
-    res = in_out_quad(a)
+    res = mid_bump_sine(a)
     
     res = res * 0xff
     res = np.around(res).astype(int)

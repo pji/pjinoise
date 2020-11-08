@@ -42,9 +42,9 @@ def lighter(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 def screen(a:np.ndarray, b:np.array, amount:float = 1) -> np.ndarray:
     rev_a = 1 - a
     rev_b = 1 - b
-    result = rev_a * rev_b
+    ab = rev_a * rev_b
     if amount == 1:
-        return 1 - result
+        return 1 - ab
     return a + (ab - a) * float(amount)
 
 

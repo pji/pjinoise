@@ -92,8 +92,7 @@ class Inverse(ForLayer):
 
 
 class Pinch(ForLayer):
-    def __init__(self, 
-                 amount:Union[float, str], 
+    def __init__(self, amount:Union[float, str], 
                  radius:Union[float, str], 
                  scale:Union[Tuple[float], str], 
                  offset:Union[Tuple[float], str] = (0, 0, 0)):
@@ -181,6 +180,100 @@ class PolarToLinear(ForLayer):
         dim_pyth = np.sqrt(sum(n ** 2 for n in dim_half))
         a = cv2.linearPolar(a, dim_half, dim_pyth, cv2.WARP_FILL_OUTLIERS)
         return a.astype(float)
+
+
+class Ripple(ForLayer):
+    def __init__(self, wavelength:Union[Sequence[float], str],
+                 amplitude:Union[Sequence[float], str],
+                 distort_axis:str = 'cross',
+                 offset:Union[Sequence[float], str] = (0, 0, 0)) -> None:
+        """Initialize an instance of the Ripple filter.
+        
+        :param wavelength: The distance between peaks in the distortion. 
+            There needs to be one value in the sequence per dimension 
+            in the image.
+        :param amplitude: The amount of change caused by each ripple. 
+            There needs to be one value in the sequence per dimension 
+            in the image.
+        :param distort_axis: Whether the distortion should be along the 
+            same axis being distorted, causing the pattern to bunch up 
+            like it is rippling, or along a different axis, causing the 
+            pattern to wave like it's the cross-section of a wave. The 
+            value "cross" uses different axis. By convention, use "same" 
+            or an empty string to use the same axis.
+        :param offset: (Optional.) The amount to offset the location 
+            of the ripples in the image. There needs to be one value 
+            in the sequence per dimension in the image. The default 
+            value for all dimensions is zero.
+        :return: None.
+        :rtype: None.
+        
+        Note: The cv2.remap function used by this filter only ripples 
+        in two dimensions, so right now any values set for the Z axis 
+        are ignored. This may change in future versions, so it is 
+        probably safest to set Z to zero in all parameters for now.
+        """
+        self.wave = deserialize_sequence(wavelength)
+        self.amp = deserialize_sequence(amplitude)
+        self.offset = deserialize_sequence(offset)
+        self.distort_axis = (X, Y)
+        if distort_axis == 'cross':
+            self.distort_axis = (Y, X)
+    
+    # Public methods.
+    def process(self, a:np.ndarray) -> np.ndarray:
+        """Adapted from the example by jpmutant here:
+        https://stackoverflow.com/questions/42732873
+        """
+        # Map out the volume of the given image and make sure everything is 
+        # in float32 to keep the cv2.remap function happy.
+        a = a.astype(np.float32)
+        flex = np.indices(a.shape, np.float32)
+        flex_x = flex[X].copy()
+        flex_y = flex[Y].copy()
+        
+        # Modify the mapping to apply the ripple to create the flex 
+        # maps for cv.remap. The flex map value for each pixel will 
+        # indicate how far that pixel moves in the remapped image.
+        da_x, da_y = self.distort_axis
+        _, off_y, off_x = self.offset
+        if self.wave[X]:
+            flex_x = np.cos((off_x + flex[da_x]) / self.wave[X] * 2 * np.pi)
+            flex_x = flex[X] + flex_x * self.amp[X]
+        if self.wave[Y]:
+            flex_y = np.cos((off_y + flex[da_y]) / self.wave[Y] * 2 * np.pi)
+            flex_y = flex[Y] + flex_y * self.amp[Y]
+        
+        # Remap the color values in the original image using the 
+        # rippled flex map.
+        for i in range(a.shape[Z]):
+            a[i] = cv2.remap(a[i], flex_x[i], flex_y[i], cv2.INTER_LINEAR)
+        return a.astype(float)
+        
+        import math
+        
+        # Grab the dimensions of the image and calculate the center
+        # of the image  (center not needed at this time)
+        (t, h, w) = a.shape
+        center = (w // 2, h // 2)
+
+        # set up the x and y maps as float32
+        flex_x = np.zeros((h,w),np.float32)
+        flex_y = np.zeros((h,w),np.float32)
+
+        # create simple maps with a modified assignment
+        # the math modifier creates ripples.  increase the divisor for less waves, 
+        # increase the multiplier for greater movement
+        # this is where the magic is assembled
+        for y in range(h):
+            for x in range(w):
+                flex_x[y,x] = x + math.cos(x/15) * 15
+                flex_y[y,x] = y + math.cos(y/30) * 25
+
+
+        # do the remap  this is where the magic happens      
+        dst = cv2.remap(a[0],flex_x,flex_y,cv2.INTER_LINEAR)
+        return dst
 
 
 class Rotate90(ForLayer):
@@ -510,6 +603,18 @@ def process_image(img:Image.Image,
     return img
 
 
+# Utility functions.
+def deserialize_sequence(value:Union[Sequence[float], str]) -> Tuple[float]:
+    """Deserialize a set of coordinates that could have come from 
+    command line input.
+    """
+    if not value:
+        return (0, 0, 0)
+    if isinstance(value, str):
+        value = value.split(',')[::-1]
+    return tuple(float(n) for n in value)
+
+
 # Registrations.
 REGISTERED_FILTERS = {
     'cutshadow': CutShadow,
@@ -517,6 +622,7 @@ REGISTERED_FILTERS = {
     'inverse': Inverse,
     'pinch': Pinch,
     'polartolinear': PolarToLinear,
+    'ripple': Ripple,
     'rotate90': Rotate90,
     'skew': Skew,
     'curve': Curve,
@@ -612,8 +718,8 @@ if __name__ == '__main__':
     
 #     obj = PolarToLinear()
 #     obj = Inverse()
-#     obj = Pinch(.75, 16, (5, 5, 5))
     obj = Pinch('.75', '16', '5,5,5')
+#     obj = Ripple('0,8,8','0,3.0,3.0', 'cross', '0,1,1')
     size = preprocess((1, 8, 8), [obj,])
     res = obj.process(a)
 #     res = postprocess(res, [obj,])

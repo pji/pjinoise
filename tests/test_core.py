@@ -296,7 +296,10 @@ class InterfaceTestCase(ut.TestCase):
             
                 # Run test.
                 args = core.parse_cli_arguments()
-                act_iconf, act_sconf = core.load_config(filename, args)
+                act_iconfs, act_sconf = core.load_config(filename, args)
+            
+            # Extract actual values.
+            act_iconf = act_iconfs[0]
         
             # Determine if test passed.
             self.assertEqual(exp_iconf.size, act_iconf.size)
@@ -374,7 +377,13 @@ class InterfaceTestCase(ut.TestCase):
         
             # Run test.
             args = core.parse_cli_arguments()
-            act = core.make_config(args)
+            result = core.make_config(args)
+            
+            # Extract actual value.
+            act = [
+                result[0][0],
+                result[1],
+            ]
         
             # Determine if test passed.
             self.assertEqual(exp[0].size, act[0].size)
@@ -395,7 +404,8 @@ class InterfaceTestCase(ut.TestCase):
         # Expected value.
         exp_call = ('spam.json', 'w')
         exp_conf = {
-            'ImageConfig': {
+            'Version': '0.0.2',
+            'ImageConfig': [{
                 'size': [1, 5, 5],
                 'layers': [
                     {
@@ -425,7 +435,8 @@ class InterfaceTestCase(ut.TestCase):
                     },
                 ],
                 'color': COLOR['c'],
-            },
+                'mode': 'difference',
+            },],
             'SaveConfig': {
                 'filename': 'spam.tiff',
                 'format': 'TIFF',
@@ -437,38 +448,38 @@ class InterfaceTestCase(ut.TestCase):
         # Set up test data and state.
         lfconf = [
             core.FilterConfig(
-                exp_conf['ImageConfig']['layers'][1]['filters'][0]['filter'],
-                exp_conf['ImageConfig']['layers'][1]['filters'][0]['args'],
+                exp_conf['ImageConfig'][0]['layers'][1]['filters'][0]['filter'],
+                exp_conf['ImageConfig'][0]['layers'][1]['filters'][0]['args'],
             ),
         ]
         lconf = [
             core.LayerConfig(
-                exp_conf['ImageConfig']['layers'][0]['generator'],
-                exp_conf['ImageConfig']['layers'][0]['args'],
-                exp_conf['ImageConfig']['layers'][0]['mode'],
-                exp_conf['ImageConfig']['layers'][0]['location'],
-                exp_conf['ImageConfig']['layers'][0]['filters']
+                exp_conf['ImageConfig'][0]['layers'][0]['generator'],
+                exp_conf['ImageConfig'][0]['layers'][0]['args'],
+                exp_conf['ImageConfig'][0]['layers'][0]['mode'],
+                exp_conf['ImageConfig'][0]['layers'][0]['location'],
+                exp_conf['ImageConfig'][0]['layers'][0]['filters']
             ),
             core.LayerConfig(
-                exp_conf['ImageConfig']['layers'][1]['generator'],
-                exp_conf['ImageConfig']['layers'][1]['args'],
-                exp_conf['ImageConfig']['layers'][1]['mode'],
-                exp_conf['ImageConfig']['layers'][1]['location'],
+                exp_conf['ImageConfig'][0]['layers'][1]['generator'],
+                exp_conf['ImageConfig'][0]['layers'][1]['args'],
+                exp_conf['ImageConfig'][0]['layers'][1]['mode'],
+                exp_conf['ImageConfig'][0]['layers'][1]['location'],
                 lfconf
             ),
         ]
         ifconf = [
             core.FilterConfig(
-                exp_conf['ImageConfig']['filters'][0]['filter'],
-                exp_conf['ImageConfig']['filters'][0]['args'],
+                exp_conf['ImageConfig'][0]['filters'][0]['filter'],
+                exp_conf['ImageConfig'][0]['filters'][0]['args'],
             ),
         ]
-        iconf = core.ImageConfig(
-            exp_conf['ImageConfig']['size'], 
+        iconfs = [core.ImageConfig(
+            exp_conf['ImageConfig'][0]['size'], 
             lconf, 
             ifconf, 
-            exp_conf['ImageConfig']['color'], 
-        )
+            exp_conf['ImageConfig'][0]['color'], 
+        ),]
         sconf = core.SaveConfig(
             exp_conf['SaveConfig']['filename'],
             exp_conf['SaveConfig']['format'],
@@ -479,7 +490,7 @@ class InterfaceTestCase(ut.TestCase):
         with patch('pjinoise.core.open', open_mock, create=True):
         
             # Run test.
-            core.save_config(iconf, sconf)
+            core.save_config(iconfs, sconf)
         
         # Extract actual values.
         result = open_mock.return_value.write.call_args[0][0] 
@@ -488,8 +499,7 @@ class InterfaceTestCase(ut.TestCase):
         # Determine if test passed.
         open_mock.assert_called_with(*exp_call)
         for key in exp_conf:
-            for ckey in exp_conf[key]:
-                self.assertEqual(exp_conf[key][ckey], act_conf[key][ckey])
+            self.assertEqual(exp_conf[key], act_conf[key])
     
     def test_set_image_location_with_command_line_args(self):
         """Given a location from the command line, update the location 
@@ -537,7 +547,7 @@ class InterfaceTestCase(ut.TestCase):
         
             # Expected values.
             exp = (
-                core.ImageConfig(**image_kwargs),
+                [core.ImageConfig(**image_kwargs),],
                 core.SaveConfig(**saveconfig_kwargs),
             )
             
@@ -560,11 +570,11 @@ class InterfaceTestCase(ut.TestCase):
             act = core.make_config(args)
         
             # Determine if test passed.
-            self.assertEqual(exp[0].size, act[0].size)
-            self.assertListEqual(exp[0].layers, act[0].layers)
-            self.assertEqual(exp[0].filters, act[0].filters)
-            self.assertListEqual(exp[0].color, act[0].color)
-            self.assertEqual(exp[0], act[0])
+            self.assertEqual(exp[0][0].size, act[0][0].size)
+            self.assertListEqual(exp[0][0].layers, act[0][0].layers)
+            self.assertEqual(exp[0][0].filters, act[0][0].filters)
+            self.assertListEqual(exp[0][0].color, act[0][0].color)
+            self.assertListEqual(exp[0], act[0])
             self.assertEqual(exp[1], act[1])
         
         # Restore original state.

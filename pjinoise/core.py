@@ -57,6 +57,7 @@ class ImageConfig(NamedTuple):
     layers: Sequence[LayerConfig]
     filters: Sequence[FilterConfig]
     color: Sequence[str]
+    mode: str = 'difference'
     
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
@@ -107,6 +108,19 @@ def bake_image(array:np.ndarray,
         image = image.convert(mode)
     array = np.array(image)
     return array
+
+
+def blend_images(images:Sequence[Image.Image], 
+                 iconfs:Sequence[ImageConfig],
+                 mode:str) -> Image.Image:
+    if len(images) < 2:
+        return images[0]
+    a = None
+    for image, conf in zip(images, iconfs):
+        if a is None:
+            a = np.zeros(image.shape, np.float64)
+        a = op.registered_ops[conf.mode](a, image)
+    return a
 
 
 def blend_layers(layers:Sequence[Layer]) -> np.ndarray:
@@ -259,7 +273,49 @@ def load_config(filename:str,
             config['SaveConfig']['mode'],
             config['SaveConfig']['framerate'],
         )
-        return iconf, sconf
+        return [iconf,], sconf
+    
+    if version == '0.0.2':
+        # Modify the loaded configuration based on the CLI options.
+        if args.color:
+            config['ImageConfig']['color'] = COLOR[args.color]
+        if args.location:
+            for layer in config['ImageConfig']['layers']:
+                layer['location'] = [n + m for n, m in zip(layer['location'], 
+                                                           args.location[::-1])]
+        if args.size:
+            config['ImageConfig']['size'] = args.size[::-1]
+        
+        # Deserialize the modified configuration.
+        def make_fconf(filter:Mapping) -> FilterConfig:
+            return FilterConfig(filter['filter'], filter['args'])
+        
+        def make_lconf(layer:Mapping) -> LayerConfig:
+            return LayerConfig(
+                layer['generator'],
+                layer['args'],
+                layer['mode'],
+                layer['location'],
+                [make_fconf(filter) for filter in layer['filters']]
+            )
+        
+        iconfs = []
+        for item in config['ImageConfig']:
+            iconf = ImageConfig(
+                item['size'],
+                [make_lconf(layer) for layer in item['layers']],
+                [make_fconf(filter) for filter in item['filters']],
+                item['color'],
+                item['mode']
+            )
+            iconfs.append(iconf)
+        sconf = SaveConfig(
+            config['SaveConfig']['filename'],
+            config['SaveConfig']['format'],
+            config['SaveConfig']['mode'],
+            config['SaveConfig']['framerate'],
+        )
+        return iconfs, sconf
     else:
         raise ValueError(f'pjinoise.core does not recognize version {version}')
 
@@ -301,7 +357,7 @@ def make_config(args:argparse.Namespace) -> Tuple[ImageConfig, SaveConfig]:
     if args.framerate:
         kwargs['framerate'] = args.framerate
     sconf = SaveConfig(**kwargs)
-    return iconf, sconf
+    return [iconf,], sconf
 
 
 def parse_cli_arguments() -> argparse.Namespace:
@@ -401,7 +457,7 @@ def parse_cli_arguments() -> argparse.Namespace:
     return p.parse_args()
 
 
-def save_config(iconf:ImageConfig, sconf:SaveConfig) -> None:
+def save_config(iconfs:Sequence[ImageConfig], sconf:SaveConfig) -> None:
     """Serialize the current configuration to disk."""
     # Construct the configuration filename.
     name = sconf.filename.split('.')
@@ -409,8 +465,8 @@ def save_config(iconf:ImageConfig, sconf:SaveConfig) -> None:
     
     # Serialize the configuration for storage.
     config = {
-        'Version': "0.0.1",
-        'ImageConfig': iconf.asdict(),
+        'Version': "0.0.2",
+        'ImageConfig': [iconf.asdict() for iconf in iconfs],
         'SaveConfig': sconf.asdict(),
     }
     config = json.dumps(config, indent=4)
@@ -425,15 +481,17 @@ def main() -> None:
     """Mainline."""
     args = parse_cli_arguments()
     if args.load_config:
-        iconf, sconf = load_config(args.load_config, args)
+        iconfs, sconf = load_config(args.load_config, args)
     else:
-        iconf, sconf = make_config(args)
-#     layers = make_layers(iconf.layers, iconf.size)
-#     image = blend_layers(layers)
-    image = make_image(iconf)
-    image = bake_image(image, 0xff, sconf.mode, iconf.color)
+        iconfs, sconf = make_config(args)
+    images = []
+    for iconf in iconfs:
+        image = make_image(iconf)
+        image = bake_image(image, 0xff, sconf.mode, iconf.color)
+        images.append(image)
+    image = blend_images(images, iconfs, sconf.mode)
     save_image(image, sconf)
-    save_config(iconf, sconf)
+    save_config(iconfs, sconf)
 
 
 if __name__ == '__main__':

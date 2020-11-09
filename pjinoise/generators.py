@@ -420,8 +420,8 @@ class UnitNoise(ValueGenerator):
     
     def __init__(self, 
                  unit:Union[Sequence[int], str],
-                 ease:str,
-                 table:Union[Sequence[float], None]) -> None:
+                 ease:str = '',
+                 table:Union[Sequence[float], None] = None) -> None:
         """Initialize an instance of UnitNoise.
         
         :param unit: The number of pixels between vertices along an 
@@ -594,6 +594,170 @@ class CosineCurtains(Curtains):
         """Eased linear interpolation function to smooth the noise."""
         x = (1 - np.cos(x * np.pi)) / 2
         return super()._lerp(a, b, x)
+
+
+class Perlin(UnitNoise):
+    """A class to generate Perlin noise."""
+    # Public classes.
+    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
+        """Return a space filled with Perlin noise."""
+        # Perlin noise requires a three-dimensional space.
+        while len(size) < 3:
+            size = list(size[:])
+            size.insert(0, 1)
+        while loc and len(loc) < 3:
+            loc = list(loc[:])
+            loc.append(0)
+        
+        # Map out the locations of the pixels that need to be 
+        # generated within the space. If a starting location was 
+        # given, adjust the positions of the pixels to be relative 
+        # to that starting position.
+        indices = np.indices(size)
+        if loc:
+            indices[X] = indices[X] + loc[X]
+            indices[Y] = indices[Y] + loc[Y]
+            indices[Z] = indices[Z] + loc[Z]
+        
+        # The Perlin noise algorithm sets the value of noise at the 
+        # unit vertices. The size in pixels of these units was set 
+        # when this noise object was initialized. Here we translate 
+        # the pixel positions into unit measurements.
+        unit_size = np.array([
+            np.full(indices[Z].shape, self.unit[Z]),
+            np.full(indices[Y].shape, self.unit[Y]),
+            np.full(indices[X].shape, self.unit[X]),
+        ])
+        units = indices / np.array(unit_size)
+        units = units % 255
+        del indices
+        del unit_size
+        
+        # The noise value at a pixel, then, is determined through 
+        # interpolating the noise value at the nearest unit vertices 
+        # for each pixel. In order to do that, we're going to need 
+        # the unit each pixel is in (whole) and how far into the unit 
+        # each pixel is (part). In order to smooth out the noise, we 
+        # also need a value from an easing function (fades).
+        whole = (units // 1).astype(int)
+        parts = units - whole
+        fades = 6 * parts ** 5 - 15 * parts ** 4 + 10 * parts ** 3
+        del units
+        
+        # A unit is a rectangle. That means there are eight unit 
+        # vertices that surround each pixel. Those vertices are 
+        # named with a binary mask representing whether the vertex 
+        # is before or after the pixel on a particular axis. So 
+        # the vertex "011" is ahead of the pixel on the Y and X 
+        # axis, but behind the pixel on the Z axis. The hash_table 
+        # then contains the noise value for the named vertex.
+        hash_table = {}
+        for hash in self.hashes:
+            hash_whole = whole.copy()
+            if hash[2] == '1':
+                hash_whole[X] += 1
+            if hash[1] == '1':
+                hash_whole[Y] += 1
+            if hash[0] == '1':
+                hash_whole[Z] += 1
+            result = hash_whole[Z]
+            for axis in (Y, X):
+                result = np.take(self.table, result) + hash_whole[axis]
+            hash_table[hash] = result
+        del whole
+        del hash_whole
+        
+        # To be honest, I don't fully understand what this part of 
+        # the Perlin noise algorithm is doing. It's called the 
+        # gradient, so it must have something to do with how the 
+        # level of noise changes between unit vertices. Beyond that 
+        # I'm not sure.
+        def vector_grad(mask, hash, x, y, z):
+            if mask[0] == '1':
+                z -= 1
+            if mask[1] == '1':
+                y -= 1
+            if mask[2] == '1':
+                x -= 1
+            
+            n = hash & 0xF
+            out = 0
+            if n == 0x0:
+                out = x + y
+            elif n == 0x1:
+                out = -x + y
+            elif n == 0x2:
+                out = x - y
+            elif n == 0x3:
+                out = -x - y
+            elif n == 0x4:
+                out = x + z
+            elif n == 0x5:
+                out = -x + z
+            elif n == 0x6:
+                out = x - z
+            elif n == 0x7:
+                out = -x - z
+            elif n == 0x8:
+                out = y + z
+            elif n == 0x9:
+                out = -y + z
+            elif n == 0xA:
+                out = y - z
+            elif n == 0xB:
+                out = -y - z
+            elif n == 0xC:
+                out = y + x
+            elif n == 0xD:
+                out = -y + z
+            elif n == 0xE:
+                out = y - x
+            elif n == 0xF:
+                out = -y - z
+            return out
+        
+        # Perform the linear interpolation of the results of the 
+        # gradient function for each of the surrounding vertices to 
+        # determine the level of noise at each pixel. This is done 
+        # by axis, interpolating the X values to get the Y values, 
+        # and interpolating those to get the Z value.
+        grad = np.vectorize(vector_grad)
+        x1a = grad('000', hash_table['000'], parts[X], parts[Y], parts[Z])
+        x1b = grad('001', hash_table['001'], parts[X], parts[Y], parts[Z])
+        x1 = self._lerp(x1a, x1b, fades[X])
+        del x1a, x1b
+
+        x2a = grad('010', hash_table['010'], parts[X], parts[Y], parts[Z])
+        x2b = grad('011', hash_table['011'], parts[X], parts[Y], parts[Z])
+        x2 = self._lerp(x2a, x2b, fades[X])
+        del x2a, x2b
+        
+        x3a = grad('100', hash_table['100'], parts[X], parts[Y], parts[Z])
+        x3b = grad('101', hash_table['101'], parts[X], parts[Y], parts[Z])
+        x3 = self._lerp(x3a, x3b, fades[X])
+        del x3a, x3b
+        
+        x4a = grad('110', hash_table['110'], parts[X], parts[Y], parts[Z])
+        x4b = grad('111', hash_table['111'], parts[X], parts[Y], parts[Z])
+        x4 = self._lerp(x4a, x4b, fades[X])
+        del x4a, x4b
+        
+        y1 = self._lerp(x1, x2, fades[Y])
+        y2 = self._lerp(x3, x4, fades[Y])
+        del x1, x2, x3, x4
+        values = (self._lerp(y1, y2, fades[Z]) + 1) / 2
+        
+        # The result from the Perlin noise function is a percentage 
+        # of how much of the maximum noise each pixel contains. 
+        # Run the noise through the easing function and return.
+        return self.ease(values)
+    
+    # Private methods.
+    def _make_table(self) -> List:
+        table = [n for n in range(self.scale)]
+        table.extend(table)
+        random.shuffle(table)        
+        return table
 
 
 class Values(UnitNoise):
@@ -771,6 +935,17 @@ class OctaveCosineCurtains(OctaveMixin, CosineCurtains):
     genclass = CosineCurtains
 
 
+class OctavePerlin(OctaveMixin, Perlin):
+    """Create octave Perlin noise. Arguments that provide good results:
+    octaves: 6
+    persistence: -4
+    amplitude: 24
+    frequency: 4
+    unit: (1024, 1024, 1024)
+    """
+    genclass = Perlin
+
+
 # Registration.
 registered_generators = {
     'gradient': Gradient,
@@ -781,10 +956,12 @@ registered_generators = {
     
     'curtains': Curtains,
     'cosinecurtains': CosineCurtains,
+    'perlin': Perlin,
     'random': Random,
     'values': Values,
     
     'octavecosinecurtains': OctaveCosineCurtains,
+    'octaveperlin': OctavePerlin,
 }
 
 

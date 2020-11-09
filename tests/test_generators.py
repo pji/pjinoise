@@ -402,6 +402,74 @@ class RandomTestCase(ut.TestCase):
         
         # Determine if test passed.
         self.assertListEqual(exp, act)
+    
+    def test_octaveperlinnoise_fill(self):
+        """Given the size of a space to fill, PerlinNoise.fill should 
+        return a np.array of that shape filled with noise.
+        """
+        # Expected data.
+        exp = [
+            [0x80, 0x70, 0x7c, 0x8b,],
+            [0x78, 0x79, 0x7e, 0x82,],
+            [0x7c, 0x89, 0x80, 0x7e,],
+            [0x76, 0x80, 0x86, 0x7f,],
+        ]
+        
+        # Set up test data and state.
+        size = (1, 4, 4)
+        start = (4, 0, 0)
+        kwargs = {
+            'octaves': 4,
+            'persistence': 8,
+            'amplitude': 8,
+            'frequency': 2,
+            'unit': (8, 8, 8),
+            'ease': '',
+            'table': P,
+        }
+        obj = g.OctavePerlin(**kwargs)
+        
+        # Run test.
+        result = obj.fill(size, start)
+        
+        # Extract actual result.
+        result = np.around(result * 0xff).astype(int)
+        act = result.tolist()[0]
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+    
+    def test_perlin_fill(self):
+        """Given the size of a space to fill, Perlin.fill should 
+        return a np.array of that shape filled with noise.
+        """
+        # Expected value.
+        exp = [[
+            [0x9f, 0x8e, 0x77, 0x60],
+            [0xa5, 0x94, 0x7d, 0x65],
+            [0x9f, 0x90, 0x7c, 0x68],
+            [0x8b, 0x81, 0x74, 0x67],
+        ],]
+        
+        # Set up test data and state.
+        size = (1, 4, 4)
+        start = (4, 0, 0)
+        kwargs = {
+            'unit': (8, 8, 8),
+            'ease': '',
+            'table': P,
+        }
+        obj = g.Perlin(**kwargs)
+        
+        # Run test.
+        result = obj.fill(size, start)
+        
+        # Extract actual result.
+        result = np.around(result * 0xff).astype(int)
+        act = result.tolist()
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
 
 
 if __name__ == '__main__':

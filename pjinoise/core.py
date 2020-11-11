@@ -119,7 +119,11 @@ def blend_images(images:Sequence[Image.Image],
     for image, conf in zip(images, iconfs):
         if a is None:
             a = np.zeros(image.shape, np.float64)
-        a = op.registered_ops[conf.mode](a, image)
+        amount = 1
+        mode = conf.mode
+        if ':' in mode:
+            mode, amount = mode.split(':')
+        a = op.registered_ops[mode](a, image, amount)
     return a
 
 

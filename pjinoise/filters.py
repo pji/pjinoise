@@ -53,6 +53,16 @@ class ForLayer(ABC):
         return tuple(n - pad for n, pad in zip (size, self.padding))
 
 
+class Contrast(ForLayer):
+    def process(self, a:np.ndarray, *args) -> np.ndarray:
+        a_min = np.min(a)
+        a_max = np.max(a)
+        scale = a_max - a_min
+        a -= a_min
+        a /= scale
+        return a
+
+
 class CutLight(ForLayer):
     def __init__(self, threshold:float, 
                  ease:str = '', 
@@ -617,6 +627,7 @@ def deserialize_sequence(value:Union[Sequence[float], str]) -> Tuple[float]:
 
 # Registrations.
 REGISTERED_FILTERS = {
+    'contrast': Contrast,
     'cutshadow': CutShadow,
     'cutlight': CutLight,
     'inverse': Inverse,

@@ -269,17 +269,54 @@ class Spot(ValueGenerator):
             # of the spot. 
             a[axis] = abs(a[axis] - size[axis] // 2)
         
-        # Then determine what percentage of the way 
-        # they are to being over the radius, with everything 
-        # over the radius being 100%.
-#         a[a > self.radius] = self.radius
-        
         # Perform a spherical interpolation on the points in the 
         # volume and run the easing function on the results.
         a = np.sqrt(a[X] ** 2 + a[Y] ** 2)
         a = 1 - (a / np.sqrt(2 * self.radius ** 2))
         a[a > 1] = 1
         a[a < 0] = 0
+        a = self.ease(a)
+        return a
+
+
+class Ring(ValueGenerator):
+    def __init__(self, radius:float, 
+                 width:float, 
+                 gap:float = 0,
+                 count:int = 1,
+                 ease:str = 'l') -> None:
+        self.radius = float(radius)
+        self.width = float(width)
+        self.gap = float(gap)
+        self.count = int(count)
+        self.ease = e.registered_functions[ease]
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], 
+             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Return a space filled with noise."""
+        # Map out the volume of space that will be created.
+        a = np.zeros(size)
+        c = np.indices(size)
+        for axis in X, Y, Z:
+            c[axis] += loc[axis]
+        
+            # Calculate where every point is relative to the center 
+            # of the spot. 
+            c[axis] = abs(c[axis] - size[axis] // 2)
+        
+        # Perform a spherical interpolation on the points in the 
+        # volume and run the easing function on the results.
+        c = np.sqrt(c[X] ** 2 + c[Y] ** 2)
+        for i in range(self.count):
+            radius = self.radius + self.gap * (i - 1)
+            working = c / np.sqrt(radius ** 2)
+            working = np.abs(working - 1)
+            wr = self.width / 2 / radius
+            m = np.zeros(working.shape, bool)
+            m[working <= wr] = True
+            a[m] = working[m] * (radius / (self.width / 2))
+            a[m] = 1 - a[m]
         a = self.ease(a)
         return a
 
@@ -950,6 +987,7 @@ class OctavePerlin(OctaveMixin, Perlin):
 registered_generators = {
     'gradient': Gradient,
     'lines': Lines,
+    'ring': Ring,
     'solid': Solid,
     'spheres': Spheres,
     'spot': Spot,
@@ -968,7 +1006,7 @@ registered_generators = {
 if __name__ == '__main__':
 #     raise NotImplementedError
     
-    ring = Spheres(5, 'l', 'x')
+    ring = Ring(4, 2, 'l')
     val = ring.fill((2, 8, 8))
     
 #     spot = Spot(5, 'l')

@@ -8,7 +8,9 @@ animation.
 from functools import wraps
 from typing import Callable
 
+import cv2
 import numpy as np
+from PIL import Image
 
 
 # Decorators.
@@ -173,6 +175,17 @@ def difference(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @scaled
+def exclusion(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+    """This is based on the equations found here:
+    http://www.simplefilter.de/en/basics/mixmods.html
+    """
+    ab = a + b - 2 * a * b
+    if amount == 1:
+        return ab
+    return a + (ab - a) * float(amount)    
+
+
+@scaled
 def hard_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
@@ -180,6 +193,31 @@ def hard_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     ab = np.zeros(a.shape)
     ab[a < .5] = 2 * a[a < .5] * b[a < .5]
     ab[a >= .5] = 1 - 2 * (1 - a[a >= .5]) * (1 - b[a >= .5])
+    if amount == 1:
+        return ab
+    return a + (ab - a) * float(amount)
+
+
+@scaled
+def hard_mix(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+    """This is based on the equations found here:
+    http://www.simplefilter.de/en/basics/mixmods.html
+    """
+    ab = np.zeros_like(a)
+    ab[a < 1 - b] = 0
+    ab[a > 1 - b] = 1
+    if amount == 1:
+        return ab
+    return a + (ab - a) * float(amount)    
+
+
+@clipped
+@scaled
+def linear_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+    """This is based on the equations found here:
+    http://www.simplefilter.de/en/basics/mixmods.html
+    """
+    ab = b + 2 * a - 1    
     if amount == 1:
         return ab
     return a + (ab - a) * float(amount)
@@ -194,6 +232,33 @@ def overlay(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     ab = np.zeros_like(a)
     ab[~mask] = (2 * a * b)[~mask]
     ab[mask] = (1 - 2 * (1 - a) * (1 - b))[mask]
+    if amount == 1:
+        return ab
+    return a + (ab - a) * float(amount)
+
+
+@clipped
+@scaled
+def pin_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+    """This is based on the equations found here:
+    http://www.simplefilter.de/en/basics/mixmods.html
+    """
+    # Build array masks to handle how the algorithm changes.
+    m1 = np.zeros(a.shape, bool)
+    m1[b < 2 * a - 1] = True
+    m2 = np.zeros(a.shape, bool)
+    m2[b > 2 * a] = True
+    m3 = np.zeros(a.shape, bool)
+    m3[~m1] = True
+    m3[m2] = False
+    
+    # Blend the arrays using the algorithm.
+    ab = np.zeros_like(a)
+    ab[m1] = 2 * a[m1] - 1
+    ab[m2] = 2 * a[m2]
+    ab[m3] = b[m3]
+    
+    # Reduce the effect by the given amount and return.
     if amount == 1:
         return ab
     return a + (ab - a) * float(amount)
@@ -217,11 +282,43 @@ def soft_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 @clipped
 @scaled
 def vivid_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
-    m = np.zeros(a.shape, bool)
-    m[a <= .5] = True
+    """This is based on the equations found here:
+    http://www.simplefilter.de/en/basics/mixmods.html
+    """
+    # Create masks to handle the algorithm change and avoid division 
+    # by zero.
+    m1 = np.zeros(a.shape, bool)
+    m1[a <= .5] = True
+    m1[a == 0] = False
+    m2 = np.zeros(a.shape, bool)
+    m2[a > .5] = True
+    m2[a == 1] = False
+    
+    # Use the algorithm to blend the arrays.
     ab = np.zeros_like(a)
-    ab[m] = 1 - (1 - b[m]) / (2 * a[m])
-    ab[~m] = b / (2 * (1 - a))
+    ab[m1] = 1 - (1 - b[m1]) / (2 * a[m1])
+    ab[m2] = b[m2] / (2 * (1 - a[m2]))
+    if amount == 1:
+        return ab
+    return a + (ab - a) * float(amount)
+
+
+# Color blending operations.
+def rgb_hue(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+    """This is based on the equations found here:
+    http://www.simplefilter.de/en/basics/mixmods.html
+    """
+    if len(a.shape) != 4:
+        raise ValueError('Given arrays must be RGB images.')
+    ab = np.zeros_like(a)
+    for i in range(a.shape[0]):
+        a_hsv = cv2.cvtColor(a[i].astype(np.float32), cv2.COLOR_RGB2HSV)
+        b_hsv = cv2.cvtColor(b[i].astype(np.float32), cv2.COLOR_RGB2HSV)
+        ab_hsv = a_hsv.copy()
+        ab_hsv[:, :, 0] = b_hsv[:, :, 0] * (b_hsv[:, :, 2] / 0xff)
+        ab_hsv[:, :, 0] += a_hsv[:, :, 0] * (1 - (b_hsv[:, :, 2] / 0xff))
+        ab_rgb = cv2.cvtColor(ab_hsv, cv2.COLOR_HSV2RGB)
+        ab[i] = ab_rgb
     if amount == 1:
         return ab
     return a + (ab - a) * float(amount)
@@ -234,16 +331,93 @@ registered_ops = {
     'colordodge': color_dodge,
     'darker': darker,
     'difference': difference,
+    'exclusion': exclusion,
     'hardlight': hard_light,
+    'hardmix': hard_mix,
     'lighter': lighter,
     'linearburn': linear_burn,
     'lineardodge': linear_dodge,
+    'linearlight': linear_light,
     'multiply': multiply,
     'overlay': overlay,
+    'pinlight': pin_light,
     'replace': replace,
     'screen': screen,
     'softlight': soft_light,
+    'vividlight': vivid_light,
+    
+    'rgbhue': rgb_hue,
 }
 
 if __name__ == '__main__':
-    raise NotImplementedError
+#     raise NotImplementedError
+    a = [
+        [
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        ],
+        [
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        ],
+    ]
+    b = [
+        [
+            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            [0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20],
+            [0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40],
+            [0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60],
+            [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80],
+            [0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0],
+            [0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0],
+            [0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
+        ],
+        [
+            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            [0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20],
+            [0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40],
+            [0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60],
+            [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80],
+            [0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0],
+            [0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0],
+            [0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
+        ],
+    ]
+    scale = 0xff
+    a = np.array(a, dtype=float)
+    b = np.array(b, dtype=float)
+    a[a != 0] = a[a != 0] / scale
+    b[b != 0] = b[b != 0] / scale
+    amount = 1
+    
+    op = hard_mix
+    
+    ab = op(a, b, amount)
+    ab = np.around(ab * scale).astype(int)
+    print('[')
+    for frame in ab:
+        print(' ' * 4 + '[')
+        for row in frame:
+            cols = [f'0x{n:02x}' for n in row]
+            print(' ' * 8 + '[' + ', '.join(cols) + ']',)
+        print(' ' * 4 + ']')
+    print(']')
+            
+    
+    

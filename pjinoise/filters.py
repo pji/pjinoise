@@ -192,6 +192,48 @@ class PolarToLinear(ForLayer):
         return a.astype(float)
 
 
+class Resize(ForLayer):
+    """Generate layers at a different size than the final image 
+    size. This can be used to reduce the generation time of expensive 
+    generators or crop out awkward edges of generated images.
+    """
+    def __init__(self, new_size:Sequence[int], crop:bool = False) -> None:
+        if crop == 'false':
+            crop = False
+        self.crop = crop
+        if isinstance(new_size, str):
+            new_size = new_size.split(',')
+            new_size = [int(n) for n in new_size[::-1]]
+        self.new_size = new_size
+    
+    # Public methods.
+    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+        """Determine the size the filter needs the image to be during 
+        processing.
+        """
+        if size[0] != self.new_size[0]:
+            raise ValueError('Resize filter cannot change Z axis.')
+        self.padding = [n - o for n, o in zip(self.new_size, size)]
+        return self.new_size
+    
+    def process(self, a:np.ndarray) -> np.ndarray:
+        """If the filter isn't cropping, resize the image. Otherwise, 
+        return the image unchanged.
+        """
+        if self.crop:
+            return a
+        X, Y, Z = 2, 1, 0
+        current_size = a.shape[:3]
+        old_size = [n - p for n, p in zip(self.new_size, self.padding)]
+        resized = np.zeros(old_size, dtype=a.dtype)
+        for i in range(a.shape[Z]):
+            frame = np.zeros(a.shape[Y:3], dtype=a.dtype)
+            frame = a[i]
+            resized[i] = cv2.resize(frame, (old_size[X], old_size[Y]))
+        self.padding = [0 for _ in self.padding]
+        return resized
+
+
 class Ripple(ForLayer):
     def __init__(self, wavelength:Union[Sequence[float], str],
                  amplitude:Union[Sequence[float], str],
@@ -341,7 +383,7 @@ class Skew(ForLayer):
         self.padding = tuple(int(n) for n in self.padding)
         return tuple(int(n) for n in new_size)
     
-    def process(self, values:np.array) -> np.array:
+    def process(self, values:np.ndarray) -> np.ndarray:
         """Run the filter over the image."""
         # The affine transform is only two dimensional, so if we're 
         # given three dimensions, call this recursively for every Z.
@@ -633,6 +675,7 @@ REGISTERED_FILTERS = {
     'inverse': Inverse,
     'pinch': Pinch,
     'polartolinear': PolarToLinear,
+    'resize': Resize,
     'ripple': Ripple,
     'rotate90': Rotate90,
     'skew': Skew,
@@ -729,12 +772,15 @@ if __name__ == '__main__':
     
 #     obj = PolarToLinear()
 #     obj = Inverse()
-    obj = Pinch('.75', '16', '5,5,5')
+#     obj = Pinch('.75', '16', '5,5,5')
 #     obj = Ripple('0,8,8','0,3.0,3.0', 'cross', '0,1,1')
-    size = preprocess((1, 8, 8), [obj,])
+    size = (2, 13, 10)
+    obj = Resize((2, 9, 9))
+    size = preprocess(size, [obj,])
     res = obj.process(a)
-#     res = postprocess(res, [obj,])
+    res = postprocess(res, [obj,])
     
+    print(obj.padding)
     res = np.around(res * 0xff).astype(np.uint)
     if len(res.shape) == 2:
         for y in res:

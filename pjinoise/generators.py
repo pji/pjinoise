@@ -458,7 +458,7 @@ class UnitNoise(ValueGenerator):
     def __init__(self, 
                  unit:Union[Sequence[int], str],
                  ease:str = '',
-                 table:Union[Sequence[float], None] = None) -> None:
+                 table:Union[Sequence[float], str, None] = None) -> None:
         """Initialize an instance of UnitNoise.
         
         :param unit: The number of pixels between vertices along an 
@@ -476,6 +476,8 @@ class UnitNoise(ValueGenerator):
             unit = self._norm_coordinates(unit)
         self.unit = unit
         
+        if table == 'P':
+            table = P
         if table is None:
             table = self._make_table()
         self.table = np.array(table)

@@ -211,9 +211,19 @@ class Resize(ForLayer):
         """Determine the size the filter needs the image to be during 
         processing.
         """
+        # The cv2.resize function is only two dimensional, so at 
+        # this time Resize cannot handle resizing along the Z axis.
         if size[0] != self.new_size[0]:
             raise ValueError('Resize filter cannot change Z axis.')
+        
         self.padding = [n - o for n, o in zip(self.new_size, size)]
+
+        # Resize doesn't currently add padding when set to crop the 
+        # image, so it can't handle situations where a dimension of 
+        # the image is smaller than the original size when cropping.
+        if self.crop and [n for n in self.padding if n < 0]:
+            raise ValueError('Resize filter can\'t crop smaller images.')
+        
         return self.new_size
     
     def process(self, a:np.ndarray) -> np.ndarray:

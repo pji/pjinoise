@@ -20,6 +20,7 @@ write, flush = sys.stdout.write, sys.stdout.flush
 INIT = 0x0
 STATUS = 0x1
 PROG = 0x2
+KILL = 0xe
 END = 0xf
 
 
@@ -124,6 +125,11 @@ def status_writer(msg_queue:Queue, stages:int, maxlines:int = 4) -> None:
                 msg=args[0]
                 newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
                 update_status(status, newline, maxlines)
+            elif cmd == KILL:
+                msg='Exception raised by core.'
+                newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
+                update_status(status, newline, maxlines)
+                raise args[0]
             elif cmd == END:
                 write('\r' + ' ' * len(status) + '\r')
                 msg=args[0]

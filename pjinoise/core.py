@@ -486,41 +486,49 @@ def save_config(iconfs:Sequence[ImageConfig], sconf:SaveConfig) -> None:
 # Main.
 def main(silent=True):
     """Mainline."""
-    args = parse_cli_arguments()
-    if args.load_config:
-        iconfs, sconf = load_config(args.load_config, args)
-    else:
-        iconfs, sconf = make_config(args)
-    if not silent:
-        stages = 2 + len(iconfs)
-        status = Queue()
-        t = Thread(target=ui.status_writer, args=(status, stages))
-        t.start()
-        status.put((ui.INIT,))
-    
-    if not silent:
-        status.put((ui.STATUS, 'Generating images...'))
-    images = []
-    for i, iconf in enumerate(iconfs):
-        image = make_image(iconf)
-        image = bake_image(image, 0xff, sconf.mode, iconf.color)
-        images.append(image)
+    try:
+        status = None
+        args = parse_cli_arguments()
+        if args.load_config:
+            iconfs, sconf = load_config(args.load_config, args)
+        else:
+            iconfs, sconf = make_config(args)
         if not silent:
-            status.put((ui.PROG, f'Image {i} of {len(iconfs)} generated.'))
+            stages = 2 + len(iconfs)
+            status = Queue()
+            t = Thread(target=ui.status_writer, args=(status, stages))
+            t.start()
+            status.put((ui.INIT,))
     
-    if not silent:
-        status.put((ui.STATUS, 'Blending images...'))
-    image = blend_images(images, iconfs, sconf.mode)
-    if not silent:
-        status.put((ui.PROG, 'Images blended.'))
+        if not silent:
+            status.put((ui.STATUS, 'Generating images...'))
+        images = []
+        for i, iconf in enumerate(iconfs):
+            image = make_image(iconf)
+            image = bake_image(image, 0xff, sconf.mode, iconf.color)
+            images.append(image)
+            if not silent:
+                status.put((ui.PROG, f'Image {i} of {len(iconfs)} generated.'))
     
-    if not silent:
-        status.put((ui.STATUS, 'Saving...'))
-    save_image(image, sconf)
-    save_config(iconfs, sconf)
-    if not silent:
-        status.put((ui.PROG, 'Saved.'))
-        status.put((ui.END, 'Good-bye.'))
+        if not silent:
+            status.put((ui.STATUS, 'Blending images...'))
+        image = blend_images(images, iconfs, sconf.mode)
+        if not silent:
+            status.put((ui.PROG, 'Images blended.'))
+    
+        if not silent:
+            status.put((ui.STATUS, 'Saving...'))
+        save_image(image, sconf)
+        save_config(iconfs, sconf)
+        if not silent:
+            status.put((ui.PROG, 'Saved.'))
+            status.put((ui.END, 'Good-bye.'))
+    
+    except Exception as e:
+        if status:
+            status.put((ui.KILL, e))
+        else:
+            raise e
 
 
 if __name__ == '__main__':

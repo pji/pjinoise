@@ -6,6 +6,8 @@ The core image generation functions for pjinoise.
 """
 import argparse
 import json
+from queue import Queue
+from threading import Thread
 from typing import (Any, Callable, List, Mapping, NamedTuple, Sequence, 
                     Tuple, Union)
 
@@ -17,6 +19,7 @@ from pjinoise.constants import COLOR, SUPPORTED_FORMATS, VIDEO_FORMATS
 from pjinoise import filters
 from pjinoise import generators as g
 from pjinoise import operations as op
+from pjinoise import ui
 
 
 # Configuration objects.
@@ -481,22 +484,48 @@ def save_config(iconfs:Sequence[ImageConfig], sconf:SaveConfig) -> None:
 
 
 # Main.
-def main() -> None:
+def main(silent=True):
     """Mainline."""
+    if not silent:
+        status = Queue()
+        t = Thread(target=ui.status_writer, args=(status, 4))
+        t.start()
+        status.put((ui.INIT,))
+    
+    if not silent:
+        status.put((ui.STATUS, 'Configuring...'))
     args = parse_cli_arguments()
     if args.load_config:
         iconfs, sconf = load_config(args.load_config, args)
     else:
         iconfs, sconf = make_config(args)
+    if not silent:
+        status.put((ui.PROG, 'Configuration read.'))
+    
+    if not silent:
+        status.put((ui.STATUS, 'Generating images...'))
     images = []
     for iconf in iconfs:
         image = make_image(iconf)
         image = bake_image(image, 0xff, sconf.mode, iconf.color)
         images.append(image)
+    if not silent:
+        status.put((ui.PROG, 'Images generated.'))
+    
+    if not silent:
+        status.put((ui.STATUS, 'Blending images...'))
     image = blend_images(images, iconfs, sconf.mode)
+    if not silent:
+        status.put((ui.PROG, 'Images blended.'))
+    
+    if not silent:
+        status.put((ui.STATUS, 'Saving...'))
     save_image(image, sconf)
     save_config(iconfs, sconf)
+    if not silent:
+        status.put((ui.PROG, 'Saved.'))
+        status.put((ui.END, 'Good-bye.'))
 
 
 if __name__ == '__main__':
-    main()
+    main(False)

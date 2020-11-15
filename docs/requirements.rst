@@ -194,3 +194,64 @@ support.
 Given that I'm going with a final colorization, that seems to be 
 best placed in the image bake. Color will me part of the image 
 configuration.
+
+
+Core and UI
+~~~~~~~~~~~
+The original UI for pjinoise was basically just a log of actions. It 
+only updated when an action was complete, and it quickly rolled off 
+the screen. I'd like the UI for core to avoid those problems.
+
+First, though, what do I want the UI for core to look like? How about 
+this:
+
+    ```
+    PJINOISE: Pattern and Noise Generation
+    ┌       ┐
+    │██░░░░░│
+    └       ┘
+    00:01:23 Generating images...
+    ```
+
+That seems doable. I might be able to write that on my own, but I do 
+have the interfaces from blackjack and life that I can look at, too. 
+It might be best to just go with something ncurses-like. Though, the 
+problem with using blessed is that it takes over the full terminal 
+and goes away once the program ends. I'd like to keep the display so 
+I can see how long the generation took.
+
+That probably means interprocess messaging. Why process and not thread? 
+The image generation is CPU bound not IO bound, so concurrency should 
+be process-focused not thread-focused. Granted, the UI isn't CPU bound, 
+but I really only want to use one type of concurrency, I think. So 
+interprocess communication it is.
+
+If I need interprocess messaging, I'll need a message protocol. I can 
+keep the code in the functions pretty abstract, and maybe even use a 
+decorator rather than inserting the messaging code into the functions. 
+However it's done, the UI updater will need to have the ability to 
+do these things based on messages:
+
+*   Draw initial state.
+*   Update status message.
+*   Update progress bar.
+*   Terminate.
+
+The messages should be tuples with the structure:
+
+    ```
+    (command, args)
+    ```
+
+The arguments will vary depending on the command. The breakdown is as 
+follows:
+
+------- --- ----------- ------------
+CMD     ID  ARGS        DESCRIPTION
+------- --- ----------- ------------
+INIT    0   None        Start UI.
+STATUS  1   str         Update the status msg without updating progress.
+PROG    2   str         Update progress and the status message.
+END     F   str         Update the status message and terminate.
+------- --- ----------- ------------
+

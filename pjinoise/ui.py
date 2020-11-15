@@ -4,6 +4,7 @@ ui
 
 User interface elements for noise generation.
 """
+from collections import deque
 from queue import Queue
 import sys
 import time
@@ -11,6 +12,9 @@ from typing import Tuple
 
 from pjinoise.constants import TEXT
 
+
+# Shortcut names for writing to standard output.
+write, flush = sys.stdout.write, sys.stdout.flush
 
 # Status message commands.
 INIT = 0x0
@@ -58,15 +62,44 @@ def split_time(duration:float) -> Tuple[int]:
     return h, m, s
 
 
-def status_writer(msg_queue:Queue, stages:int) -> None:
-    write, flush = sys.stdout.write, sys.stdout.flush
+def update_progress(progress:str, stages_done:int, status:deque) -> None:
+    progress = list(progress)
+    progress[stages_done] = '\u2588'
+    progress = ''.join(progress)
+    
+    write('\033[A' * (len(status) + 2) + '\r')
+    write(progress)
+    write('\n' * (len(status) + 1) + '\r')
+    
+    return progress
+
+
+def update_status(status:deque, newline:str, 
+                  maxlines:int, roll:bool = True) -> None:
+    if roll:
+        for i in range(len(status))[::-1]:
+            write('\r\033[A' + ' ' * len(status[i]))
+        if len(status) >= maxlines:
+            status.popleft()
+        status.append(newline)
+        for line in status:
+            write('\r' + line + '\n')
+    else:
+        write('\r\033[A' + ' ' * len(status[-1]))
+        status[-1] = newline
+        write('\r' + status[-1] + '\n')
+
+
+def status_writer(msg_queue:Queue, stages:int, maxlines:int = 4) -> None:
     t0 = time.time()
     stages_done = 0
     title = 'PJINOISE: Pattern and Noise Generation\n'
-    progress = '\u2591' * stages + '\n'
+    bar_top = '\u250c' + ' ' * stages + '\u2510\n'
+    progress = '\u2502' + '\u2591' * stages + '\u2502\n'
+    bar_bot = '\u2514' + ' ' * stages + '\u2518\n'
     status_tmp = '{h:02d}:{m:02d}:{s:02d} {msg}'
     msg = 'Starting...'
-    status = ''
+    status = deque()
     runflag = False
     
     while True:
@@ -74,45 +107,34 @@ def status_writer(msg_queue:Queue, stages:int) -> None:
         if not msg_queue.empty():
             cmd, *args = msg_queue.get()
             if cmd == INIT:
-                status = status_tmp.format(h=h, m=m, s=s, msg=msg)
+                newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
                 write(title)
+                write(bar_top)
                 write(progress)
-                write(status)
+                write(bar_bot + '\r')
+                update_status(status, newline, maxlines)
                 runflag = True
             elif cmd == STATUS:
-                write('\x08' * len(status))
-                write(' ' * len(status))
-                write('\x08' * len(status))
                 msg=args[0]
-                status = status_tmp.format(h=h, m=m, s=s, msg=msg)
-                write(status)
+                newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
+                update_status(status, newline, maxlines)
             elif cmd == PROG:
-                write('\x08' * len(status))
-                write(' ' * len(status))
-                write('\x08' * len(status))
                 stages_done += 1
-                stages -= 1
-                progress = '\u2588' * stages_done + '\u2591' * stages + '\n'
-                write(f'\033[A{progress}')
+                progress = update_progress(progress, stages_done, status)
                 msg=args[0]
-                status = status_tmp.format(h=h, m=m, s=s, msg=msg)
-                write(status)
+                newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
+                update_status(status, newline, maxlines)
             elif cmd == END:
-                write('\x08' * len(status))
-                write(' ' * len(status))
-                write('\x08' * len(status))
+                write('\r' + ' ' * len(status) + '\r')
                 msg=args[0]
-                status = status_tmp.format(h=h, m=m, s=s, msg=msg)
-                write(status + '\n')
+                newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
+                update_status(status, newline, maxlines)
                 flush()
                 break
         elif runflag:
             time.sleep(1)
-            write('\x08' * len(status))
-            write(' ' * len(status))
-            write('\x08' * len(status))
-            status = status_tmp.format(h=h, m=m, s=s, msg=msg)
-            write(status)
+            newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
+            update_status(status, newline, maxlines, False)
         flush()
 
 

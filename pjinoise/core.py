@@ -486,31 +486,27 @@ def save_config(iconfs:Sequence[ImageConfig], sconf:SaveConfig) -> None:
 # Main.
 def main(silent=True):
     """Mainline."""
-    if not silent:
-        status = Queue()
-        t = Thread(target=ui.status_writer, args=(status, 4))
-        t.start()
-        status.put((ui.INIT,))
-    
-    if not silent:
-        status.put((ui.STATUS, 'Configuring...'))
     args = parse_cli_arguments()
     if args.load_config:
         iconfs, sconf = load_config(args.load_config, args)
     else:
         iconfs, sconf = make_config(args)
     if not silent:
-        status.put((ui.PROG, 'Configuration read.'))
+        stages = 2 + len(iconfs)
+        status = Queue()
+        t = Thread(target=ui.status_writer, args=(status, stages))
+        t.start()
+        status.put((ui.INIT,))
     
     if not silent:
         status.put((ui.STATUS, 'Generating images...'))
     images = []
-    for iconf in iconfs:
+    for i, iconf in enumerate(iconfs):
         image = make_image(iconf)
         image = bake_image(image, 0xff, sconf.mode, iconf.color)
         images.append(image)
-    if not silent:
-        status.put((ui.PROG, 'Images generated.'))
+        if not silent:
+            status.put((ui.PROG, f'Image {i} of {len(iconfs)} generated.'))
     
     if not silent:
         status.put((ui.STATUS, 'Blending images...'))

@@ -24,3 +24,6 @@
 # Ignore experiments.
 audio.py
 chunk_video.sh
+
+# Ignore helper/shortcut scripts.
+runtests.sh

@@ -98,8 +98,8 @@ class ImageTestCase(ut.TestCase):
             core.FilterConfig('rotate90', ['r',]),
         ]
         lconf = [
-            core.LayerConfig('gen', {}, 'replace', (0, 0, 0), []),
-            core.LayerConfig('gen', {}, 'multiply', (0, 0, 0), lfconf),
+            core.LayerConfig(Gen(), 'replace', (0, 0, 0), []),
+            core.LayerConfig(Gen(), 'multiply', (0, 0, 0), lfconf),
         ]
         ifconf = [
             core.FilterConfig('curve', ['l',]),
@@ -202,7 +202,7 @@ class ImageTestCase(ut.TestCase):
 
 
 class InterfaceTestCase(ut.TestCase):
-    def test_load_config(self):
+    def test_load_config_v0_0_1(self):
         """Given the name of a file containing serialized 
         configuration, load the file and deserialize the 
         configuration.
@@ -218,15 +218,13 @@ class InterfaceTestCase(ut.TestCase):
             ]
             lconf = [
                 core.LayerConfig(
-                    'lines', 
-                    ['v', 128, 'ioq'], 
+                    g.Lines('v', 128, 'io5'),
                     'replace', 
                     [5, 0, 0],
                     []
                 ),
                 core.LayerConfig(
-                    'lines', 
-                    ['h', 128, 'ioc'], 
+                    g.Lines('h', 128, 'ioc'),
                     'difference', 
                     [5, 0, 0],
                     lfconf
@@ -256,7 +254,7 @@ class InterfaceTestCase(ut.TestCase):
                     'layers': [
                         {
                             'generator': 'lines',
-                            'args': ['v', 128, 'ioq'],
+                            'args': ['v', 128, 'io5'],
                             'mode': 'replace',
                             'location': [0, 0, 0],
                             'filters': [],
@@ -314,6 +312,119 @@ class InterfaceTestCase(ut.TestCase):
         finally:
             sys.argv = argv_bkp
     
+    def test_load_config_v0_0_2(self):
+        """Given the name of a file containing serialized 
+        configuration, load the file and deserialize the 
+        configuration.
+        """
+        # Back up initial state.
+        argv_bkp = sys.argv
+        try:
+        
+            # Construct data for expected values.
+            size = [1, 5, 5]
+            lfconf = [
+                core.FilterConfig('curve', ['',]),
+            ]
+            lconf = [
+                core.LayerConfig(
+                    g.Lines('v', 128, 'io5'),
+                    'replace', 
+                    [5, 0, 0],
+                    []
+                ),
+                core.LayerConfig(
+                    g.Lines('h', 128, 'ioc'),
+                    'difference', 
+                    [5, 0, 0],
+                    lfconf
+                ),
+            ]
+            ifconf = [
+                core.FilterConfig('rotate90', ['r',]),
+            ]
+            filename = 'spam.json'
+        
+            # Expected values.
+            exp_iconf = core.ImageConfig(size, lconf, ifconf, COLOR['c'])
+            exp_sconf = core.SaveConfig('spam.mp4', 'MP4', 'RGB', None)
+            exp_open = (filename, 'r')
+        
+            # Build test data and state.
+            sys.argv = [
+                'python3.8 -m pjinoise.core',
+                '-c', filename,
+                '-l', '0', '0', '5',
+                '-o', 'spam.mp4',
+            ]
+            config = {
+                'Version' : '0.0.2',
+                'ImageConfig': [
+                    {
+                        'size': [1, 5, 5],
+                        'layers': [
+                                {
+                                    'generator': 'lines',
+                                    'args': ['v', 128, 'io5'],
+                                    'mode': 'replace',
+                                    'location': [0, 0, 0],
+                                    'filters': [],
+                                },
+                                {
+                                    'generator': 'lines',
+                                    'args': ['h', 128, 'ioc'],
+                                    'mode': 'difference',
+                                    'location': [0, 0, 0],
+                                    'filters': [
+                                        {
+                                            'filter': 'curve',
+                                            'args': ['',],
+                                        },
+                                    ],
+                                },
+                            ],
+                        'filters': [
+                            {
+                                'filter': 'rotate90',
+                                'args': ['r',],
+                            },
+                        ],
+                        'color': COLOR['c'],
+                        'mode': 'difference',
+                    },
+                ],
+                'SaveConfig': {
+                    'filename': 'spam.tiff',
+                    'format': 'TIFF',
+                    'mode': 'RGB',
+                    'framerate': None
+                },
+            }
+            text = json.dumps(config, indent=4)
+            open_mock = mock_open()
+            with patch('pjinoise.core.open', open_mock, create=True):
+                open_mock.return_value.read.return_value = text
+            
+                # Run test.
+                args = core.parse_cli_arguments()
+                act_iconfs, act_sconf = core.load_config(filename, args)
+            
+            # Extract actual values.
+            act_iconf = act_iconfs[0]
+        
+            # Determine if test passed.
+            self.assertEqual(exp_iconf.size, act_iconf.size)
+            self.assertEqual(exp_iconf.layers, act_iconf.layers)
+            self.assertEqual(exp_iconf.filters, act_iconf.filters)
+            self.assertEqual(exp_iconf.color, act_iconf.color)
+            self.assertEqual(exp_iconf, act_iconf)
+            self.assertEqual(exp_sconf, act_sconf)
+            open_mock.assert_called_with(*exp_open)
+        
+        # Restore original state.
+        finally:
+            sys.argv = argv_bkp
+    
     def test_parse_arguments(self):
         """Given command line arguments, create configuration to drive 
         the image generation.
@@ -330,15 +441,13 @@ class InterfaceTestCase(ut.TestCase):
             filterconfig = [core.FilterConfig(**filter_kwargs),]
             layer_kwargs = [
                 {
-                    'generator': 'lines',
-                    'args': [],
+                    'generator': g.Lines(),
                     'mode': 'replace',
                     'location': (0, 0, 0),
                     'filters': [],
                 },
                 {
-                    'generator': 'lines',
-                    'args': [],
+                    'generator': g.Lines(),
                     'mode': 'difference',
                     'location': (0, 0, 0),
                     'filters': filterconfig,
@@ -410,7 +519,7 @@ class InterfaceTestCase(ut.TestCase):
                 'layers': [
                     {
                         'generator': 'lines',
-                        'args': ['h', 128, 'ioq'],
+                        'args': ['h', 128, 'io5'],
                         'mode': 'replace',
                         'location': [0, 0, 0],
                         'filters': [],
@@ -454,15 +563,13 @@ class InterfaceTestCase(ut.TestCase):
         ]
         lconf = [
             core.LayerConfig(
-                exp_conf['ImageConfig'][0]['layers'][0]['generator'],
-                exp_conf['ImageConfig'][0]['layers'][0]['args'],
+                g.Lines(*exp_conf['ImageConfig'][0]['layers'][0]['args']),
                 exp_conf['ImageConfig'][0]['layers'][0]['mode'],
                 exp_conf['ImageConfig'][0]['layers'][0]['location'],
                 exp_conf['ImageConfig'][0]['layers'][0]['filters']
             ),
             core.LayerConfig(
-                exp_conf['ImageConfig'][0]['layers'][1]['generator'],
-                exp_conf['ImageConfig'][0]['layers'][1]['args'],
+                g.Lines(*exp_conf['ImageConfig'][0]['layers'][1]['args']),
                 exp_conf['ImageConfig'][0]['layers'][1]['mode'],
                 exp_conf['ImageConfig'][0]['layers'][1]['location'],
                 lfconf
@@ -499,6 +606,7 @@ class InterfaceTestCase(ut.TestCase):
         # Determine if test passed.
         open_mock.assert_called_with(*exp_call)
         for key in exp_conf:
+            self.maxDiff = None
             self.assertEqual(exp_conf[key], act_conf[key])
     
     def test_set_image_location_with_command_line_args(self):
@@ -517,15 +625,13 @@ class InterfaceTestCase(ut.TestCase):
             filterconfig = [core.FilterConfig(**filter_kwargs),]
             layer_kwargs = [
                 {
-                    'generator': 'lines',
-                    'args': [],
+                    'generator': g.Lines(),
                     'mode': 'replace',
                     'location': (5, 0, 0),
                     'filters': [],
                 },
                 {
-                    'generator': 'lines',
-                    'args': [],
+                    'generator': g.Lines(),
                     'mode': 'difference',
                     'location': (5, 0, 0),
                     'filters': filterconfig,
@@ -612,8 +718,8 @@ class LayerTestCase(ut.TestCase):
             core.FilterConfig('rotate90', ['r']),
         ]
         lconf = [
-            core.LayerConfig('gen', [], 'replace', (0, 0, 0), []),
-            core.LayerConfig('gen', [], 'multiply', (0, 0, 0), fconf),
+            core.LayerConfig(Gen(), 'replace', (0, 0, 0), []),
+            core.LayerConfig(Gen(), 'multiply', (0, 0, 0), fconf),
         ]
         size = (1, 5, 5)
         with patch.dict(g.registered_generators, {'gen': Gen,}):

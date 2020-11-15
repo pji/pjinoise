@@ -7,6 +7,7 @@ Python "generators," which is, I know, confusing. These are just
 generators in the sense they make things.
 """
 from abc import ABC, abstractmethod
+import inspect
 import random
 from typing import Any, List, Sequence, Tuple, Union
 
@@ -28,6 +29,12 @@ class ValueGenerator(ABC):
         return self.asdict() == other.asdict()
     
     # Public methods.
+    def asargs(self) -> List[Any]:
+        sig = inspect.signature(self.__init__)
+        kwargs = self.asdict()
+        args = [kwargs[key] for key in sig.parameters if key in kwargs]
+        return args
+    
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
         attrs = self.__dict__.copy()
@@ -151,7 +158,7 @@ class Lines(ValueGenerator):
     def __init__(self, 
                  direction:str = 'h', 
                  length:Union[float, str] = 64, 
-                 ease:str = 'ioq',
+                 ease:str = 'io5',
                  *args, **kwargs) -> None:
         self.direction = direction
         self.length = float(length)
@@ -483,6 +490,13 @@ class UnitNoise(ValueGenerator):
         self.table = np.array(table)
         self.shape = self.table.shape
         self.table = np.ravel(self.table)
+    
+    # Public methods.
+    def asdict(self) -> dict:
+        attrs = super().asdict()
+        if attrs['table'] == P:
+            attrs['table'] = 'P'
+        return attrs
     
     # Private methods.
     def _build_vertices_table(self, 
@@ -944,6 +958,16 @@ class OctaveMixin():
         super().__init__(*args, **kwargs)
     
     # Public methods.
+    def asargs(self) -> List[Any]:
+        sig = inspect.signature(self.__init__)
+        sigkeys = [k for k in sig.parameters]
+        gcsig = inspect.signature(self.genclass.__init__)
+        genclasskeys = [k for k in gcsig.parameters]
+        keys = [*sigkeys, *genclasskeys]
+        kwargs = self.asdict()
+        args = [kwargs[key] for key in keys if key in kwargs]
+        return args
+    
     def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
         total = 0
         max_value = 0
@@ -1004,6 +1028,12 @@ registered_generators = {
     'octaveperlin': OctavePerlin,
 }
 
+
+# Registration utility functions.
+def get_regname_for_class(obj:object) -> str:
+    regnames = {registered_generators[k]: k for k in registered_generators}
+    clsname = obj.__class__
+    return regnames[clsname]
 
 if __name__ == '__main__':
 #     raise NotImplementedError

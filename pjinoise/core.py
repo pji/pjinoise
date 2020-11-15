@@ -41,8 +41,7 @@ class Layer(NamedTuple):
 
 
 class LayerConfig(NamedTuple):
-    generator: str
-    args: List[Any]
+    generator: g.ValueGenerator
     mode: str
     location: Sequence[int]
     filters: Sequence[FilterConfig]
@@ -50,6 +49,8 @@ class LayerConfig(NamedTuple):
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
         attrs = {k: getattr(self, k) for k in self._fields}
+        attrs['args'] = attrs['generator'].asargs()
+        attrs['generator'] = g.get_regname_for_class(attrs['generator'])
         if attrs['filters']:
             attrs['filters'] = [filter.asdict() for filter in attrs['filters']]
         return attrs
@@ -170,10 +171,7 @@ def make_layers(lconfs:Sequence[LayerConfig],
         for filter in lfilters:
             lsize = filters.preprocess(size, lfilters)
 
-        gen_cls = g.registered_generators[conf.generator]
-        gen = gen_cls(*conf.args)
-        data = gen.fill(lsize, conf.location)
-
+        data = conf.generator.fill(lsize, conf.location)
         data = filters.process(data, lfilters)
         data = filters.postprocess(data, lfilters)
         
@@ -260,9 +258,9 @@ def load_config(filename:str,
             return FilterConfig(filter['filter'], filter['args'])
         
         def make_lconf(layer:Mapping) -> LayerConfig:
+            gencls = g.registered_generators[layer['generator']]
             return LayerConfig(
-                layer['generator'],
-                layer['args'],
+                gencls(*layer['args']),
                 layer['mode'],
                 layer['location'],
                 [make_fconf(filter) for filter in layer['filters']]
@@ -287,20 +285,25 @@ def load_config(filename:str,
         if args.color:
             config['ImageConfig']['color'] = COLOR[args.color]
         if args.location:
-            for layer in config['ImageConfig']['layers']:
-                layer['location'] = [n + m for n, m in zip(layer['location'], 
-                                                           args.location[::-1])]
+            locmod = args.location[::-1]
+            for image in config['ImageConfig']:
+                for layer in image['layers']:
+                    loc = layer['location']
+                    layer['location'] = [n + m for n, m in zip(loc, locmod)]
         if args.size:
             config['ImageConfig']['size'] = args.size[::-1]
+        if args.filename:
+            config['SaveConfig']['filename'] = args.filename
+            config['SaveConfig']['format'] = get_format(args.filename)
         
         # Deserialize the modified configuration.
         def make_fconf(filter:Mapping) -> FilterConfig:
             return FilterConfig(filter['filter'], filter['args'])
         
         def make_lconf(layer:Mapping) -> LayerConfig:
+            gencls = g.registered_generators[layer['generator']]
             return LayerConfig(
-                layer['generator'],
-                layer['args'],
+                gencls(*layer['args']),
                 layer['mode'],
                 layer['location'],
                 [make_fconf(filter) for filter in layer['filters']]
@@ -342,6 +345,7 @@ def make_config(args:argparse.Namespace) -> Tuple[ImageConfig, SaveConfig]:
     for layer in args.noise:
         name, args_, loc, filters_, mode = layer.split('_')
         args_ = [arg for arg in args_.split(':') if arg]
+        gencls = g.registered_generators[name]
         if loc:
             loc = tuple(int(n) for n in loc.split(':'))
         else:
@@ -349,7 +353,7 @@ def make_config(args:argparse.Namespace) -> Tuple[ImageConfig, SaveConfig]:
         if args.location:
             loc = tuple(n + int(m) for n, m in zip(loc, args.location[::-1]))
         lfilters = parse_filters(filters_)
-        layers.append(LayerConfig(name, args_, mode, loc, lfilters))
+        layers.append(LayerConfig(gencls(*args_), mode, loc, lfilters))
     
     color = COLOR[args.color]
     filters_ = parse_filters(args.filters)
@@ -524,6 +528,11 @@ def main(silent=True):
             status.put((ui.PROG, 'Saved.'))
             status.put((ui.END, 'Good-bye.'))
     
+    # Since the status updates run in an independent thread, letting 
+    # exceptions bubble up from this thread clobbers causes the last 
+    # status updates to clobber the last few lines of the exception. 
+    # To avoid that, send the exception through the status update 
+    # thread. This also ensures the status update thread is terminated. 
     except Exception as e:
         if status:
             status.put((ui.KILL, e))

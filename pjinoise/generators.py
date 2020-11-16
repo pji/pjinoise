@@ -329,119 +329,6 @@ class Ring(ValueGenerator):
 
 
 # Random noise generators.
-class Curtains(ValueGenerator):
-    """A class to generate value noise. Reference algorithms taken 
-    from:
-    
-    https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/procedural-patterns-noise-part-1/creating-simple-1D-noise
-    """
-    def __init__(self, 
-                 unit:Sequence[int], 
-                 ease:str = '',
-                 table:Union[Sequence[int], None] = None,
-                 scale:int = 255) -> None:
-        if isinstance(unit, str):
-            unit = unit.split(',')
-            unit = [int(n) for n in unit[::-1]]
-        while len(unit) < 3:
-            unit = list(unit)
-            unit.insert(0, scale)
-        self.unit = unit
-        self.ease = e.registered_functions[ease]
-        if not table:
-            table = self._make_table()
-        self.table = np.array(table)
-        self.scale = scale
-    
-    # Public methods.
-    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
-        """Return a space filled with noise."""
-        # Start by creating the two-dimensional matrix with the X 
-        # and Z axis in order to save time by not running repetitive 
-        # actions along the Y axis. Each position within the matrix 
-        # represents a pixel in the final image.
-        while len(size) < 3:
-            size = list(size)
-            size.insert(0, 1)
-        xz_size = (size[Z], size[X])
-        indices = np.indices(xz_size)
-        
-        # Since we are changing the indices of the axes, everything 
-        # based on the two-dimensional XZ axes will lowercase the 
-        # axis names. Everything based on the three-dimensional XYZ 
-        # axes will continue to capitalize the axis names.
-        x, z = -1, -2
-        
-        # Adjust the value of the indices by loc. This will offset the 
-        # generated noise within the space of potential noise.
-        if loc is None:
-            loc = []
-        while len(loc) < 3:
-            loc.append(0)
-        indices[x] = indices[x] + loc[X]
-        indices[z] = indices[z] + loc[Z]
-        
-        # Translate the pixel measurements of the indices into unit 
-        # measurements based on the unit size of noise given to the 
-        # noise object.
-        unit = np.array((self.unit[Z], self.unit[X]))
-        unit_distance = indices / unit[:, np.newaxis, np.newaxis]
-        unit_floor = indices // unit[:, np.newaxis, np.newaxis]
-        unit_distance = unit_distance - unit_floor
-        
-        # Look up and interpolate values.
-        lerp = np.vectorize(self._lookup_and_lerp)
-        zx_values = lerp(unit_floor[z], unit_distance[z], 
-                         unit_floor[x], unit_distance[x])
-        
-        # Stretch X over the Y axis.
-        result = np.zeros(size)
-        for i in range(result.shape[Z]):
-            try:
-                result[i] = np.tile(zx_values[i], (result.shape[Y], 1))
-            except TypeError as e:
-                raise ValueError(f'i={i}, size={size}')
-            except ValueError:
-                raise ValueError(f'i={i}, size={size}')
-        
-        return self.ease(result)
-    
-    # Private methods.
-    def _lerp(self, a:float, b:float, x:float) -> float:
-        """Performs a linear interpolation."""
-        return a * (1 - x) + b * x
-
-    def _lookup_and_lerp(self, z:int, zd:float, x:int, xd:float) -> float:
-        vertex_mask = np.array([
-            [0, 0],
-            [0, 1],
-            [1, 0],
-            [1, 1],
-        ])
-        base_location = np.array([z, x])
-        vertices = vertex_mask + base_location
-        vertices = vertices.astype(int)
-        
-        try:
-            x1a = self.table[sum(vertices[0]) % len(self.table)]
-            x1b = self.table[sum(vertices[1]) % len(self.table)]
-            x1 = self._lerp(x1a, x1b, xd)
-            x2a = self.table[sum(vertices[2]) % len(self.table)]
-            x2b = self.table[sum(vertices[3]) % len(self.table)]
-            x2 = self._lerp(x2a, x2b, xd)
-        except IndexError:
-            msg = f'{sum(vertices[0])} % {len(self.table)}'
-            raise ValueError(msg)
-        
-        return self._lerp(x1, x2, zd)
-    
-    def _make_table(self) -> List:
-        table = [n for n in range(256)]
-        table.extend(table)
-        random.shuffle(table)        
-        return table
-
-
 class Random(ValueGenerator):
     """Create random noise with a gaussian (normal) distribution."""
     def __init__(self, mid:float = .5, scale:float = .02, 
@@ -460,12 +347,13 @@ class Random(ValueGenerator):
 # Random noise using unit cubes.
 class UnitNoise(ValueGenerator):
     hashes = [f'{n:>03b}'[::-1] for n in range(2 ** 3)]
-    scale = 0xff
     
     def __init__(self, 
                  unit:Union[Sequence[int], str],
                  ease:str = '',
-                 table:Union[Sequence[float], str, None] = None) -> None:
+                 table:Union[Sequence[float], str, None] = None,
+                 scale:int = 0xff,
+                 *args, **kwargs) -> None:
         """Initialize an instance of UnitNoise.
         
         :param unit: The number of pixels between vertices along an 
@@ -478,6 +366,7 @@ class UnitNoise(ValueGenerator):
             in an image then there are colors defined for that axis.
         """
         self.ease = e.registered_functions[ease]
+        self.scale = scale
         
         if isinstance(unit, str):
             unit = self._norm_coordinates(unit)
@@ -579,12 +468,6 @@ class Curtains(UnitNoise):
     https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/procedural-patterns-noise-part-1/creating-simple-1D-noise
     """
     hashes = [f'{n:>02b}'[::-1] for n in range(2 ** 2)]
-    
-    def __init__(self, 
-                 unit:Sequence[int], 
-                 ease:str = '',
-                 table:Union[Sequence[int], None] = None) -> None:
-        super().__init__(unit, ease, table)
     
     # Public methods.
     def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
@@ -994,6 +877,36 @@ class OctaveMixin():
         return a
 
 
+class OldOctaveCosineCurtains(OctaveMixin, CosineCurtains):
+    genclass = CosineCurtains
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
+        total = 0
+        max_value = 0
+        for i in range(self.octaves):
+            amp = self.amplitude + (self.persistence * i)
+            freq = self.frequency * 2 ** i
+            kwargs = self.asdict()
+            kwargs['unit'] = [n * freq for n in self.unit]
+            delkeys = [
+                'octaves', 
+                'persistence', 
+                'amplitude', 
+                'frequency',
+                'shape', 
+                'type'
+            ]
+            for key in delkeys:
+                if key in kwargs:
+                    del kwargs[key]
+            octave = self.genclass(**kwargs)
+            total += octave.fill(size, loc) * amp
+            max_value += amp
+        a = total / max_value
+        return a
+
+
 class OctaveCosineCurtains(OctaveMixin, CosineCurtains):
     genclass = CosineCurtains
 
@@ -1024,6 +937,7 @@ registered_generators = {
     'random': Random,
     'values': Values,
     
+    'oldoctavecosinecurtains': OldOctaveCosineCurtains,
     'octavecosinecurtains': OctaveCosineCurtains,
     'octaveperlin': OctavePerlin,
 }

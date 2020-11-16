@@ -453,12 +453,6 @@ class ForImage(ABC):
         """Run the filter over the image."""
 
 
-class Autocontrast(ForImage):
-    # Public methods.
-    def process(self, img:Image.Image) -> Image.Image:
-        return ImageOps.autocontrast(img)
-
-
 class Blur(ForImage):
     def __init__(self, amount:float, *args, **kwargs):
         self.amount = amount
@@ -497,6 +491,21 @@ class Overlay(ForImage):
 
 
 # Mixed filter classes:
+class Autocontrast(ForImage, ForLayer):
+    # Public methods.
+    def process(self, img:Image.Image) -> Image.Image:
+        if isinstance(img, Image.Image):
+            return ImageOps.autocontrast(img)
+        else:
+            for i in range(img.shape[0]):
+                a = np.zeros(img.shape[1:], dtype=img.dtype)
+                a = img[i]
+                a_img = Image.fromarray(a, mode='L')
+                a_img = ImageOps.autocontrast(a_img)
+                img[i] = np.array(a_img)
+            return img
+
+
 class Curve(ForImage, ForLayer):
     """Apply an easing curve to the given image."""
     def __init__(self, ease:str, scale:float = 0xff) -> None:
@@ -679,6 +688,7 @@ def deserialize_sequence(value:Union[Sequence[float], str]) -> Tuple[float]:
 
 # Registrations.
 REGISTERED_FILTERS = {
+    'autocontrast': Autocontrast,
     'contrast': Contrast,
     'cutshadow': CutShadow,
     'cutlight': CutLight,

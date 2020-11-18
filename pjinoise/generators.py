@@ -608,48 +608,35 @@ class Perlin(UnitNoise):
         # gradient, so it must have something to do with how the 
         # level of noise changes between unit vertices. Beyond that 
         # I'm not sure.
-        def vector_grad(mask, hash, x, y, z):
-            if mask[0] == '1':
+        def _grad(loc_mask, hash, x, y, z):
+            z = z.copy()
+            y = y.copy()
+            x = x.copy()
+            if loc_mask[0] == '1':
                 z -= 1
-            if mask[1] == '1':
+            if loc_mask[1] == '1':
                 y -= 1
-            if mask[2] == '1':
+            if loc_mask[2] == '1':
                 x -= 1
             
-            n = hash & 0xF
-            out = 0
-            if n == 0x0:
-                out = x + y
-            elif n == 0x1:
-                out = -x + y
-            elif n == 0x2:
-                out = x - y
-            elif n == 0x3:
-                out = -x - y
-            elif n == 0x4:
-                out = x + z
-            elif n == 0x5:
-                out = -x + z
-            elif n == 0x6:
-                out = x - z
-            elif n == 0x7:
-                out = -x - z
-            elif n == 0x8:
-                out = y + z
-            elif n == 0x9:
-                out = -y + z
-            elif n == 0xA:
-                out = y - z
-            elif n == 0xB:
-                out = -y - z
-            elif n == 0xC:
-                out = y + x
-            elif n == 0xD:
-                out = -y + z
-            elif n == 0xE:
-                out = y - x
-            elif n == 0xF:
-                out = -y - z
+            m = hash & 0xf
+            out = np.zeros_like(x)
+            out[m == 0x0] = x[m == 0x0] + y[m == 0x0]
+            out[m == 0x1] = -x[m == 0x1] + y[m == 0x1]
+            out[m == 0x2] = x[m == 0x2] - y[m == 0x2]
+            out[m == 0x3] = -x[m == 0x3] - y[m == 0x3]
+            out[m == 0x4] = x[m == 0x4] + z[m == 0x4]
+            out[m == 0x5] = -x[m == 0x5] + z[m == 0x5]
+            out[m == 0x6] = x[m == 0x6] - z[m == 0x6]
+            out[m == 0x7] = -x[m == 0x7] - z[m == 0x7]
+            out[m == 0x8] = y[m == 0x8] + z[m == 0x8]
+            out[m == 0x9] = -y[m == 0x9] + z[m == 0x9]
+            out[m == 0xa] = y[m == 0xa] - z[m == 0xa]
+            out[m == 0xb] = -y[m == 0xb] - z[m == 0xb]
+            out[m == 0xc] = y[m == 0xc] + x[m == 0xc]
+            out[m == 0xd] = -y[m == 0xd] + z[m == 0xd]
+            out[m == 0xe] = y[m == 0xe] - x[m == 0xe]
+            out[m == 0xf] = -y[m == 0xf] - z[m == 0xf]
             return out
         
         # Perform the linear interpolation of the results of the 
@@ -657,7 +644,7 @@ class Perlin(UnitNoise):
         # determine the level of noise at each pixel. This is done 
         # by axis, interpolating the X values to get the Y values, 
         # and interpolating those to get the Z value.
-        grad = np.vectorize(vector_grad)
+        grad = _grad
         x1a = grad('000', hash_table['000'], parts[X], parts[Y], parts[Z])
         x1b = grad('001', hash_table['001'], parts[X], parts[Y], parts[Z])
         x1 = self._lerp(x1a, x1b, fades[X])
@@ -949,11 +936,21 @@ def get_regname_for_class(obj:object) -> str:
     clsname = obj.__class__
     return regnames[clsname]
 
+
 if __name__ == '__main__':
 #     raise NotImplementedError
     
-    ring = Ring(4, 2, 'l')
-    val = ring.fill((2, 8, 8))
+#     ring = Ring(4, 2, 'l')
+#     val = ring.fill((2, 8, 8))
+
+    kwargs = {
+        'unit': (8, 8, 8),
+        'ease': '',
+        'table': P,
+    }
+    obj = Perlin(**kwargs)
+    val = obj.fill((1, 4, 4), (4, 0, 0))
+
     
 #     spot = Spot(5, 'l')
 #     val = spot.fill((1, 15, 15), (0, 0, 0))

@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from pjinoise.__version__ import __version__
 from pjinoise.constants import COLOR
 from pjinoise import core
 from pjinoise import generators as g
@@ -513,7 +514,7 @@ class InterfaceTestCase(ut.TestCase):
         # Expected value.
         exp_call = ('spam.json', 'w')
         exp_conf = {
-            'Version': '0.0.2',
+            'Version': __version__,
             'ImageConfig': [{
                 'size': [1, 5, 5],
                 'layers': [

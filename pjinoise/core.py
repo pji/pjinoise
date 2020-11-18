@@ -15,6 +15,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
+from pjinoise.__version__ import __version__
 from pjinoise.constants import COLOR, SUPPORTED_FORMATS, VIDEO_FORMATS
 from pjinoise import filters
 from pjinoise import generators as g
@@ -155,10 +156,13 @@ def make_filters(fconfs:Sequence[FilterConfig]) -> Sequence[filters.ForLayer]:
 
 def make_image(conf:ImageConfig) -> np.ndarray:
     """Create the image from the given configuration."""
-    layers = make_layers(conf.layers, conf.size)
-    image = blend_layers(layers)
     ifilters = tuple(make_filters(conf.filters))
+    size = filters.preprocess(conf.size, ifilters)
+    layers = make_layers(conf.layers, size)
+    image = blend_layers(layers)
     image = filters.process(image, ifilters)
+    image = filters.postprocess(image, ifilters)
+    
     return image
 
 
@@ -242,74 +246,7 @@ def load_config(filename:str,
     # Deserialize the configuration objects.
     config = json.loads(text)
     version = config['Version']
-    if version == '0.0.0':
-        # Modify the loaded configuration based on the CLI options.
-        if args.filename:
-            config['filename'] = args.filename
-            config['format'] = get_format(args.filename)
-        
-        # Parse the image filter configuration.
-        filters_ = []
-        for filter in config['filters'].split('+'):
-            part = filter.split('_')
-            place = part[1].split(':')
-            place = [int(s) for s in place]
-            args = part[2].split(',')
-            filters_.append((*place, FilterConfig(part[0], args)))
-        
-        # Turn the noises into generators.
-        noise_to_gen = {
-            'OctaveCosineNoise': g.OldOctaveCosineCurtains,
-        }
-        layers = []
-        for i, noise in enumerate(config['noises']):
-            gencls = noise_to_gen[noise['type']]
-            del noise['type']
-            gen = gencls(**noise)
-            loc = [0, 0, 0]
-            if 'start' in noise:
-                loc[0] = noise['start'][0]
-            lconf = LayerConfig(
-                gencls(**noise),
-                'difference',
-                loc,
-                []
-            )
-            for filter in filters_:
-                if i % filter[0] == filter[1]:
-                    lconf.filters.append(filter[2])
-            layers.append(lconf)
-        
-        # Construct the image filters.
-        ifconf = []
-        config.setdefault('autocontrast', None)
-        config.setdefault('overlay', None)
-        config.setdefault('curve', None)
-        config.setdefault('blur', None)
-        config.setdefault('grain', None)
-        if config['autocontrast']:
-            ifconf.append(FilterConfig('contrast', []))
-        if config['overlay']:
-            ifconf.append(FilterConfig('overlay', [.2,]))
-        if config['curve']:
-            ifconf.append(FilterConfig('curve'), [config['curve'],])
-        if config['blur']:
-            ifconf.append(FilterConfig('blur', [config['blur'],]))
-        if config['grain']:
-            ifconf.append(FilterConfig('grain', [config['grain'],]))
-        
-        # Now it's time to construct the image config.
-        iconf = ImageConfig(
-            config['size'],
-            layers,
-            ifconf,
-            config['colorize'],
-            'difference'
-        )
-        sconf = SaveConfig(config['filename'], config['format'], 'RGB', 12)
-        return [iconf,], sconf
-    
-    elif version == '0.0.1':
+    if version == '0.0.1':
         # Modify the loaded configuration based on the CLI options.
         if args.color:
             config['ImageConfig']['color'] = COLOR[args.color]
@@ -347,7 +284,7 @@ def load_config(filename:str,
         )
         return [iconf,], sconf
     
-    elif version == '0.0.2':
+    elif version == '0.0.2' or version == '0.1.0':
         # Modify the loaded configuration based on the CLI options.
         if args.color:
             config['ImageConfig']['color'] = COLOR[args.color]
@@ -544,7 +481,7 @@ def save_config(iconfs:Sequence[ImageConfig], sconf:SaveConfig) -> None:
     
     # Serialize the configuration for storage.
     config = {
-        'Version': "0.0.2",
+        'Version': __version__,
         'ImageConfig': [iconf.asdict() for iconf in iconfs],
         'SaveConfig': sconf.asdict(),
     }

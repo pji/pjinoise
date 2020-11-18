@@ -11,11 +11,11 @@ from typing import Sequence, Tuple, Union
 import cv2
 from PIL import Image, ImageChops, ImageFilter, ImageOps
 import numpy as np
+from skimage.transform import swirl
 
 from pjinoise.constants import X, Y, Z
 from pjinoise import ease as e
 from pjinoise import generators as g
-from pjinoise import noise
 from pjinoise import operations as op
 
 
@@ -99,6 +99,40 @@ class Inverse(ForLayer):
     # Public methods.
     def process(self, a:np.ndarray, *args) -> np.ndarray:
         return 1 - a
+
+
+class LinearToPolar(ForLayer):
+    # Filter protocol.
+    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+        """Determine the size the filter needs the image to be during 
+        processing.
+        """
+        new_size = list(size[:])
+        if size[Y] > size[X]:
+            new_size[X] = size[Y]
+        elif size[Y] < size[X]:
+            new_size[Y] = size[X]
+        self.padding = tuple([new - old for new, old in zip(new_size, size)])
+        return tuple(new_size)         
+    
+    def process(self, a:np.ndarray) -> np.ndarray:
+        """ Based on code taken from:
+        https://stackoverflow.com/questions/51675940/converting-an-image-from-cartesian-to-polar-limb-darkening
+        """
+        # cv2.warpPolar only works on two dimensional arrays. If the 
+        # array is three dimensional, call process recursively with 
+        # each two-dimensional slice of the three-dimensional array.
+        if len(a.shape) == 3:
+            for index in range(a.shape[Z]):
+                a[index] = self.process(a[index])
+            return a
+        
+        # Roll the image into polar coordinates.
+        center = tuple([n / 2 for n in a.shape])
+#         max_radius = min(center[:2])
+        max_radius = np.sqrt(sum(n ** 2 for n in center))
+        flags = cv2.WARP_POLAR_LINEAR + cv2.WARP_INVERSE_MAP
+        return cv2.warpPolar(a, a.shape, center, max_radius, flags)
 
 
 class Pinch(ForLayer):
@@ -433,6 +467,40 @@ class Skew(ForLayer):
         return values.astype(original_type)
 
 
+class Twirl(ForLayer):
+    def __init__(self, radius: Union[str, float], 
+                 strength: Union[str, float], 
+                 offset: Union[str, Sequence[int]] = (0, 0, 0)) -> None:
+        self.radius = float(radius)
+        self.strength = float(strength)
+        self.offset = deserialize_sequence(offset)
+    
+    # Filter protocol.
+    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+        """Determine the size the filter needs the image to be during 
+        processing.
+        """
+        new_size = list(size[:])
+        if size[Y] > size[X]:
+            new_size[X] = size[Y]
+        elif size[Y] < size[X]:
+            new_size[Y] = size[X]
+        self.padding = tuple([new - old for new, old in zip(new_size, size)])
+        return tuple(new_size)         
+    
+    def process(self, a:np.ndarray) -> np.ndarray:
+        """ Based on code taken from:
+        https://stackoverflow.com/questions/30448045
+        """
+        # Determine the location of the center of the twirl effect.
+        center = [n / 2 + o for n, o in zip(a.shape[1:3], self.offset[1:3])]
+        
+        # Run the swirl filter.
+        for i in range(a.shape[Z]):
+            a[i] = swirl(a[i], center, self.strength, self.radius)
+        return a
+
+
 # Image filter classes.
 class ForImage(ABC):
     def __eq__(self, other):
@@ -693,12 +761,14 @@ REGISTERED_FILTERS = {
     'cutshadow': CutShadow,
     'cutlight': CutLight,
     'inverse': Inverse,
+    'lineartopolar': LinearToPolar,
     'pinch': Pinch,
     'polartolinear': PolarToLinear,
     'resize': Resize,
     'ripple': Ripple,
     'rotate90': Rotate90,
     'skew': Skew,
+    'twirl': Twirl,
     'curve': Curve,
     'grain': Grain,
 }
@@ -794,13 +864,16 @@ if __name__ == '__main__':
 #     obj = Inverse()
 #     obj = Pinch('.75', '16', '5,5,5')
 #     obj = Ripple('0,8,8','0,3.0,3.0', 'cross', '0,1,1')
-    size = (2, 13, 10)
-    obj = Resize((2, 9, 9))
-    size = preprocess(size, [obj,])
+#     size = (2, 13, 10)
+#     obj = Resize((2, 9, 9))
+    
+#     obj = LinearToPolar()
+    obj = Twirl(3, 10)
+    size = preprocess(a.shape, [obj,])
     res = obj.process(a)
     res = postprocess(res, [obj,])
     
-    print(obj.padding)
+    print(res.shape)
     res = np.around(res * 0xff).astype(np.uint)
     if len(res.shape) == 2:
         for y in res:

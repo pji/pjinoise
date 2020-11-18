@@ -230,8 +230,8 @@ def overlay(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     """
     mask = a >= .5
     ab = np.zeros_like(a)
-    ab[~mask] = (2 * a * b)[~mask]
-    ab[mask] = (1 - 2 * (1 - a) * (1 - b))[mask]
+    ab[~mask] = (2 * a[~mask] * b[~mask])
+    ab[mask] = (1 - 2 * (1 - a[mask]) * (1 - b[mask]))
     if amount == 1:
         return ab
     return a + (ab - a) * float(amount)

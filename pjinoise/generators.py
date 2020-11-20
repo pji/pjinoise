@@ -15,7 +15,9 @@ import numpy as np
 from numpy.random import default_rng
 
 from pjinoise.constants import P, TEXT, X, Y, Z
+from pjinoise import common as c
 from pjinoise import ease as e
+
 
 # Base classes.
 class ValueGenerator(ABC):
@@ -185,6 +187,94 @@ class Lines(ValueGenerator):
         return self.ease(values)
 
 
+class Rays(ValueGenerator):
+    def __init__(self, count: Union[str, int],
+                 offset: Union[str, float] = 0,
+                 ease: str = 'l') -> None:
+        self.count = int(count)
+        self.offset = float(offset)
+        self.ease = e.registered_functions[ease]
+    
+    # Public methods.
+    def fill(self, size: Sequence[int], 
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        # Determine the center of the effect.
+        center = [(n - 1) / 2 + o for n, o in zip(size[Y:], loc[Y:])]
+        
+        # Determine the angle from center for every point
+        # in the array.
+        indices = np.indices(size[Y:], dtype=float)
+        for axis in X, Y:
+            indices[axis] -= center[axis]
+        x, y = indices[X], indices[Y]
+        angle = np.zeros_like(x)
+        angle[x != 0] = np.arctan(y[x != 0] / x[x != 0])
+        
+        # Correct for inaccuracy of the arctan function when one or 
+        # both of the coordinates is less than zero. 
+        m = np.zeros_like(x)
+        m[x < 0] += 1
+        m[y < 0] += 3
+        angle[m == 1] += np.pi
+        angle[m == 4] += np.pi
+        angle[m == 3] += 2 * np.pi
+        
+        # Create the rays.
+        ray_angle = 2 * np.pi / self.count
+        offset = (self.offset * np.pi) % (2 * np.pi)
+        rays = (angle + offset) % ray_angle
+        rays /= ray_angle
+        rays = abs(rays - .5) * 2
+        if center[X] % 1 == 0 and center[Y] % 1 == 0:
+            center = [int(n) for n in center]
+            rays[(center[Y], center[X])] = 1
+        rays = np.tile(rays, (size[Z], 1, 1))
+        return self.ease(rays)
+
+
+class Ring(ValueGenerator):
+    def __init__(self, radius: float, 
+                 width: float, 
+                 gap: float = 0,
+                 count: int = 1,
+                 ease: str = 'l') -> None:
+        self.radius = float(radius)
+        self.width = float(width)
+        self.gap = float(gap)
+        self.count = int(count)
+        self.ease = e.registered_functions[ease]
+    
+    # Public methods.
+    def fill(self, size:Sequence[int], 
+             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Return a space filled with noise."""
+        # Map out the volume of space that will be created.
+        a = np.zeros(size)
+        c = np.indices(size)
+        for axis in X, Y, Z:
+            c[axis] += loc[axis]
+        
+            # Calculate where every point is relative to the center 
+            # of the spot. 
+            c[axis] = abs(c[axis] - size[axis] // 2)
+        
+        # Perform a spherical interpolation on the points in the 
+        # volume and run the easing function on the results.
+        c = np.sqrt(c[X] ** 2 + c[Y] ** 2)
+        for i in range(self.count):
+            radius = self.radius + self.gap * (i - 1)
+            if radius != 0:
+                working = c / np.sqrt(radius ** 2)
+                working = np.abs(working - 1)
+                wr = self.width / 2 / radius
+                m = np.zeros(working.shape, bool)
+                m[working <= wr] = True
+                a[m] = working[m] * (radius / (self.width / 2))
+                a[m] = 1 - a[m]
+        a = self.ease(a)
+        return a
+
+
 class Solid(ValueGenerator):
     def __init__(self, color:Union[str, float]) -> None:
         self.color = float(color)
@@ -286,16 +376,12 @@ class Spot(ValueGenerator):
         return a
 
 
-class Ring(ValueGenerator):
-    def __init__(self, radius:float, 
-                 width:float, 
-                 gap:float = 0,
-                 count:int = 1,
-                 ease:str = 'l') -> None:
-        self.radius = float(radius)
-        self.width = float(width)
-        self.gap = float(gap)
-        self.count = int(count)
+class Waves(ValueGenerator):
+    def __init__(self, length: Union[str, float], 
+                 growth: str = 'l', 
+                 ease: str = 'l'):
+        self.length = float(length)
+        self.growth = growth
         self.ease = e.registered_functions[ease]
     
     # Public methods.
@@ -304,26 +390,33 @@ class Ring(ValueGenerator):
         """Return a space filled with noise."""
         # Map out the volume of space that will be created.
         a = np.zeros(size)
-        c = np.indices(size)
+        c = np.indices(size, dtype=float)
+        center = [(n - 1) / 2 + o for n, o in zip(size, loc)]
         for axis in X, Y, Z:
-            c[axis] += loc[axis]
-        
-            # Calculate where every point is relative to the center 
-            # of the spot. 
-            c[axis] = abs(c[axis] - size[axis] // 2)
+            c[axis] -= center[axis]
         
         # Perform a spherical interpolation on the points in the 
         # volume and run the easing function on the results.
         c = np.sqrt(c[X] ** 2 + c[Y] ** 2)
-        for i in range(self.count):
-            radius = self.radius + self.gap * (i - 1)
-            working = c / np.sqrt(radius ** 2)
-            working = np.abs(working - 1)
-            wr = self.width / 2 / radius
-            m = np.zeros(working.shape, bool)
-            m[working <= wr] = True
-            a[m] = working[m] * (radius / (self.width / 2))
-            a[m] = 1 - a[m]
+        if self.growth == 'l':
+            a = c % self.length
+            a /= self.length
+            a = abs(a - .5) * 2
+        
+        elif self.growth == 'g':
+            in_length = 0
+            out_length = self.length
+            while in_length < np.max(c):
+                m = np.ones(a.shape, bool)
+                m[c < in_length] = False
+                m[c > out_length] = False
+                a[m] = c[m]
+                a[m] -= in_length
+                a[m] /= out_length - in_length
+                a[m] = abs(a[m] - .5) * 2
+                in_length = out_length
+                out_length *= 2
+        
         a = self.ease(a)
         return a
 
@@ -913,10 +1006,12 @@ class OctavePerlin(OctaveMixin, Perlin):
 registered_generators = {
     'gradient': Gradient,
     'lines': Lines,
+    'rays': Rays,
     'ring': Ring,
     'solid': Solid,
     'spheres': Spheres,
     'spot': Spot,
+    'waves': Waves,
     
     'curtains': Curtains,
     'cosinecurtains': CosineCurtains,
@@ -943,13 +1038,14 @@ if __name__ == '__main__':
 #     ring = Ring(4, 2, 'l')
 #     val = ring.fill((2, 8, 8))
 
-    kwargs = {
-        'unit': (8, 8, 8),
-        'ease': '',
-        'table': P,
-    }
-    obj = Perlin(**kwargs)
-    val = obj.fill((1, 4, 4), (4, 0, 0))
+#     kwargs = {
+#         'unit': (8, 8, 8),
+#         'ease': '',
+#         'table': P,
+#     }
+#     obj = Perlin(**kwargs)
+    obj = Rays(4)
+    val = obj.fill((1, 8, 9), (4, 0, 0))
 
     
 #     spot = Spot(5, 'l')

@@ -13,6 +13,7 @@ from PIL import Image, ImageChops, ImageFilter, ImageOps
 import numpy as np
 from skimage.transform import swirl
 
+from pjinoise.common import deserialize_sequence
 from pjinoise.constants import X, Y, Z
 from pjinoise import ease as e
 from pjinoise import generators as g
@@ -129,7 +130,6 @@ class LinearToPolar(ForLayer):
         
         # Roll the image into polar coordinates.
         center = tuple([n / 2 for n in a.shape])
-#         max_radius = min(center[:2])
         max_radius = np.sqrt(sum(n ** 2 for n in center))
         flags = cv2.WARP_POLAR_LINEAR + cv2.WARP_INVERSE_MAP
         return cv2.warpPolar(a, a.shape, center, max_radius, flags)
@@ -740,18 +740,6 @@ def process_image(img:Image.Image,
         if status:
             status.update('filter_end', f.__class__.__name__)
     return img
-
-
-# Utility functions.
-def deserialize_sequence(value:Union[Sequence[float], str]) -> Tuple[float]:
-    """Deserialize a set of coordinates that could have come from 
-    command line input.
-    """
-    if not value:
-        return (0, 0, 0)
-    if isinstance(value, str):
-        value = value.split(',')[::-1]
-    return tuple(float(n) for n in value)
 
 
 # Registrations.

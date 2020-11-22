@@ -255,3 +255,231 @@ PROG    2   str         Update progress and the status message.
 END     F   str         Update the status message and terminate.
 ------- --- ----------- ------------
 
+
+MULTI-IMAGE OPERATIONS
+~~~~~~~~~~~~~~~~~~~~~~
+The original process for image generation described in "Core Image 
+Creation Steps" above had a problem. You couldn't limit which lower 
+layers were affected by a higher layer. It was all or nothing. This 
+was solved by allowing for the creation of multiple images. Now layers 
+can be grouped, so you can blend a few layers together before blending 
+the result with other layers.
+
+This solved the problems, but highlighted a couple of other problems:
+
+*   You now can't run filters on the final merged image,
+*   You can't easily duplicate noise across multiple images.
+
+The second one isn't a new problem. It's been true all along. I'd just 
+like to solve it as I solve the first one. So, the requirements are:
+
+1.  pjinoise can run filters on the result of multiple blended images.
+2.  pjinoise has noise generators only generate noise once when used 
+    in multiple layers.
+3.  pjinoise has generators that will duplicate the results of 
+    multiple blended layers or images.
+
+OK, so how do I address these?
+
+
+1: FILTERS ON MULTIPLE BLENDED IMAGES
+#####################################
+Requirement 1 potentially has two parts:
+
+A.  Running filters after image blending,
+B.  Creating subgroups of images for blending.
+
+An example use case:
+
+    Evanesco is creating a final image out of images A, B, and C. 
+    They wish to adjust the contrast of the blended image of B and 
+    C before that is blended with A. They then want to blur the 
+    blended image A, B, and C.
+
+Achieving this will probably need a huge change to the image generation 
+process. Today the process for generating the image would be:
+
+1.  Generate A.
+2.  Run filters on A.
+3.  Generate B.
+4.  Run filters on B.
+5.  Blend A and B to make AB.
+6.  Generate C.
+7.  Run filters on C.
+8.  Blend AB with C to make ABC.
+
+The new process would need to look like this:
+
+1.  Generate A.
+2.  Run A filters on A.
+3.  Generate B.
+4.  Run B filters on B.
+5.  Generate C.
+6.  Run C filters on C.
+7.  Blend B and C to make BC.
+8.  Run BC filters on BC.
+9.  Blend A and BC to make ABC.
+10. Run ABC filters on ABC.
+
+That means there are a couple of problems to solve:
+
+1.  How do I indicate how to group the images for blending?
+2.  How do I indicate the filters that should apply to that group?
+
+I think the following JSON configuration would solve both.
+
+    ```
+    {
+        "Version": "0.1.1",
+        "ImageConfig": {
+            "type": "ImageConfig",
+            "size": [1, 720, 1280],
+            "layers": [
+                {
+                    "type": "LayerConfig",
+                    "generator": "ring",
+                    "mode": "difference",
+                    "location": [0, 0, 0],
+                    "filters": [],
+                    "args": [256, 64, "l"]
+                },
+                {
+                    "type": "ImageConfig",
+                    "size": [1, 720, 1280],
+                    "layers": [
+                        {
+                            "type": "LayerConfig",
+                            "generator": "ring",
+                            "mode": "difference",
+                            "location": [0, 0, 0],
+                            "filters": [],
+                            "args": [128, 64, "l"]
+                        },
+                        {
+                            "type": "LayerConfig",
+                            "generator": "ring",
+                            "mode": "difference",
+                            "location": [0, 0, 0],
+                            "filters": [],
+                            "args": [256, 64, "l"]
+                        }
+                    ],
+                    "filters": [
+                        {
+                            "filter": "contrast",
+                            "args": []
+                        }
+                    ],
+                    "color": [
+                        "hsl(200, 100%, 75%)",
+                        "hsl(200, 100%, 25%)"
+                    ],
+                    "mode": "difference"            
+                }
+            ],
+            "filters": [
+                {
+                    "filter": "blur",
+                    "args": []
+                }
+            ],
+            "color": [
+                "hsl(200, 100%, 75%)",
+                "hsl(200, 100%, 25%)"
+            ],
+            "mode": "difference"            
+        },
+        "SaveConfig": {
+            "filename": "test.jpg",
+            "format": "JPEG",
+            "mode": "RGB",
+            "framerate": 12
+        }
+    }
+    ```
+
+OK, great, but what's the difference there? The differences are:
+
+1.  ImageConfig takes a dict rather than a list.
+2.  ImageConfig.layers can either be a LayerConfig or an ImageConfig 
+    object.
+
+How about CLI config? Well, I'm not really sure how to nest different 
+images in the CLI, so I think this will be something that requires 
+manipulating the JSON to do. I can maybe look at allowing JSON config 
+to be passed in as a string to the CLI to allow this to be able to be 
+scripted without the need for storing the config in a file.
+
+
+2: CACHING NOISE GENERATION
+###########################
+Requirement 2 can be done in a couple of ways:
+
+A.  Store the output of the generator in a common location outside 
+    of the object, and always check that location before generating 
+    new data.
+B.  Rather than each layer being a unique instance of the generator 
+    object, the layers are copies of the same object, and the result 
+    is cashed after the first time it is generated.
+C.  The output of the generator is cached in the class rather than 
+    in the object, so all instances will return the same value.
+
+A seems inelegant.
+
+B is much more elegant, but it requires me to be able to be able to 
+distinguish between when I want to create a new instance and when you 
+want to reuse an existing instance. That can probably be done by 
+naming layers when I want to reuse them. I would just need to keep a 
+library around when I'm creating the layers, so I can look up the 
+ones I want to reuse easily.
+
+C avoids having to keep a library of objects, so it's probably more 
+elegant. However, it runs into problems if I want to reuse two 
+difference instances of the same class. I could maybe address that 
+with a lookup table in the class. ValueGenerator.fill would then 
+have an optional key parameter that could be used to look up the 
+specific result.
+
+It seems then the main differences between B and C are:
+
+*   Whether the library is stored outside or inside the class,
+*   Whether the library stores the image or the object.
+
+I think I'm leaning towards C. It's probably a slightly more complex 
+solution, but it doesn't require much alteration of how the generator 
+objects are instantiated. I just need to pass a key as part of the 
+initialization of the object, rather than having to either override 
+object initialization or store a library of objects outside the class. 
+
+
+3: GENRATORS THAT DUPLICATE IMAGES
+##################################
+I think I want to implement the other two requirements before I tackle 
+the planning for this one.
+
+
+MULTI-IMAGE OPERATIONS, TAKE 2
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The discussion in the previous section runs into a key problem: it 
+doesn't address how multicolor images would happen. This is a key 
+problem since the initial usecase for layer grouping was to allow 
+colorization to be applied to different groups in ways that allowed 
+for multicolored images. It seems pretty clear that the multi-image 
+solution is too fragile, and the image creation image needs to be 
+rethought from the ground up. Hurray.
+
+
+LAYER GROUPING
+~~~~~~~~~~~~~~
+The key requirements for layer grouping are:
+
+1.  Allow blending operations to select which layers they apply to.
+2.  Allow the masking of blending operations.
+3.  Allow colorization to occur on layer groups.
+4.  Don't force layer groups to colorize.
+
+That last requirement may mean I need two types of layer groups:
+
+*   Grayscale
+*   Colorized
+

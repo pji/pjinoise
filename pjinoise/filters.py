@@ -54,6 +54,25 @@ class ForLayer(ABC):
         return tuple(n - pad for n, pad in zip (size, self.padding))
 
 
+class BoxBlur(ForLayer):
+    def __init__(self, box_size: Union[str, int]) -> None:
+        self.box_size = int(box_size)
+    
+    # Public methods.
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
+        """Taken from:
+        https://docs.opencv.org/master/d4/d13/tutorial_py_filtering.html
+        """
+        size = self.box_size
+        kernel = np.ones((size, size), float)/size ** 2
+        for i in range(a.shape[Z]):
+            blur = np.zeros(a.shape[Y:], dtype=a.dtype)
+            blur = a[i]
+            blur = cv2.filter2D(blur, -1, kernel)
+            a[i] = blur
+        return a
+
+
 class Contrast(ForLayer):
     def process(self, a:np.ndarray, *args) -> np.ndarray:
         a_min = np.min(a)
@@ -745,6 +764,7 @@ def process_image(img:Image.Image,
 # Registrations.
 REGISTERED_FILTERS = {
     'autocontrast': Autocontrast,
+    'boxblur': BoxBlur,
     'contrast': Contrast,
     'cutshadow': CutShadow,
     'cutlight': CutLight,
@@ -856,7 +876,8 @@ if __name__ == '__main__':
 #     obj = Resize((2, 9, 9))
     
 #     obj = LinearToPolar()
-    obj = Twirl(3, 10)
+#     obj = Twirl(3, 10)
+    obj = BoxBlur(5)
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)
     res = postprocess(res, [obj,])

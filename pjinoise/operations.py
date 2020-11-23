@@ -348,6 +348,7 @@ registered_ops = {
     
     'rgbhue': rgb_hue,
 }
+op_names = {registered_ops[k]: k for k in registered_ops}
 
 if __name__ == '__main__':
 #     raise NotImplementedError

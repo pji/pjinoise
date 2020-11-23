@@ -483,3 +483,92 @@ That last requirement may mean I need two types of layer groups:
 *   Grayscale
 *   Colorized
 
+So, what needs to happen to allow for this?
+
+Honestly, at this point, am I going beyond where the images should be 
+stored as data? Probably not. This isn't really more than a PSD file 
+can do, and that's just data. It's just that this is getting a little 
+awkward to model as an input file, and it might be easier to just do 
+it as code. I guess I'll keep it as data for now, but I'll keep this 
+question in mind for the future.
+
+To simplify this a bit, let's limit the creation of masks to a single 
+generator. I'll likely want more complex masks in the future, so I'll 
+try not to make it difficult to do that. However, at this point, let's 
+just keep the mask simple. After all, it likely involves a change to 
+each of the blending operations to allow for masking at all. No need 
+to complicate things.
+
+OK, what does the image creation loop need to look like with the new 
+requirements?
+
+    ```
+    size = get_image_size()
+    loc = get_image_location()
+    image = get_black(size)
+    for group in groups:
+        size_g = filters.preprocess(group.filters, size)
+        image_g = get_black(size_g)
+        
+        for layer in group.layers:
+            size_la = filters.preprocess(layer.filters, size_g)
+            a = layer.generator.fill(size_la, loc)
+            a = filters.process(a, layer.filters)
+            a = filters.postprocess(a, layer.filters)
+            
+            size_lm = filters.preprocess(layer.mfilters, size_g)
+            m = layer.mask.fill(size_lm, loc)
+            m = filters.process(m, layer.mfilters)
+            m = filters.postprocess(m, layer.mfilters)
+            
+            image_g = layer.blend(a, image_g, m)
+        
+        image_g = filters.process(image_g, group.filters)
+        image_g = filters.process(image_g, group.filters)
+        
+        size_gm = filters.preprocess(group.mfilters, size)
+        m = group.mask.fill(size_gm, loc)
+        m = filters.process(m, group.mfilters)
+        m = filters.postprocess(m, group.mfilters)
+        
+        image = group.blend(image_g, image, m)
+    ```
+
+That would imply the following objects for the data model:
+
+*   Layer
+    *   generator: generators.ValueGenerator
+    *   filters: Sequence[filters.ForLayer]
+    *   mask: generators.ValueGenerator
+    *   mfilters: Sequence[filters.ForLayer]
+    *   blend: Callable
+    *   blend_amount: float
+*   Group
+    *   layers: Sequence[Layer]
+    *   filters: Sequence[filters.ForLayer]
+    *   mask: generators.ValueGenerator
+    *   mfilters: Sequence[filters.ForLayer]
+    *   blend: Callable
+    *   blend_amount: float
+
+Based on that, it looks like Group is probably a subclass of Layer. 
+That would probably help out the control flow, since I might want to 
+have layers at the same level as groups, rather than forcing every 
+layer to be in a group. In that case, there really isn't a difference 
+between Layer and Group. Layer can just have either a ValueGenerator 
+or a sequence of Layers for the generator attribute. That probably 
+means I should have a different name for that attribute, though. 
+Maybe "source"?
+
+Serialization, then, would go back to using dictionaries rather than 
+argument sequences. This may all end up being just one object it the 
+model contains an Image object:
+
+*   Image
+    *   source: Layer
+    *   filename: str
+    *   format: str
+    *   mode: str
+    *   framerate: Union[None, float]
+
+That would then replace the SaveConfig object from v0.1.0. 

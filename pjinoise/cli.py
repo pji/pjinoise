@@ -5,7 +5,9 @@ cli
 Run the command line for the pjinoise module.
 """
 import argparse
+from typing import Callable, List
 
+from pjinoise import filters as f
 from pjinoise import model as m
 from pjinoise import operations as op
 from pjinoise import sources as s
@@ -63,26 +65,48 @@ def parse_cli_args() -> None:
     return p.parse_args()
 
 
+def _build_source(name: str, args: str) -> s.ValueSource:
+    cls = s.registered_sources[name]
+    args = args.split(':')
+    return cls(*args)
+
+
+def _build_location(loc: str) -> List[int]:
+    return [int(n) for n in loc.split(':')[::-1]]
+
+
+def _build_blend(blend: str) -> Callable:
+    blend, _ = blend.split(':')
+    return op.registered_ops[blend]
+
+
+def _build_blend_amount(blend: str) -> float:
+    if ':' not in blend:
+        return 1.0
+    _, amount = blend.split(':')
+    return float(amount)
+
+
+def _build_filters(filters: str) -> List[f.ForLayer]:
+    def _build_filter(filter: str) -> f.ForLayer:
+        name, *args = filter.split(':')
+        cls = f.REGISTERED_FILTERS[name]
+        return cls(*args)
+    
+    return [_build_filter(filter) for filter in filters.split('+')]
+
+
 def build_config(args: argparse.Namespace) -> m.Image:
     """Turn CLI arguments into a configuration argument."""
     layers = []
     for noise in args.noise:
-        parts = noise.split('_')
-        cls = s.registered_sources[parts[0]]
-        args_ = parts[1].split(':')
-        
-        location = parts[2].split(':')[::-1]
-        
-        blend, *blend_amount = parts[-1].split(':')
-        if blend_amount:
-            blend_amount = float(blend_amount[0])
-        
+        name, args_, loc, filters, blend = noise.split('_')
         layer = m.Layer(**{
-            'source': cls(*args_),
-            'blend': op.registered_ops[blend],
-            'blend_amount': blend_amount,
-            'location': [int(n) for n in location],
-            'filters': [],
+            'source': _build_source(name, args_),
+            'blend': _build_blend(blend),
+            'blend_amount': _build_blend_amount(blend),
+            'location': _build_location(loc),
+            'filters': _build_filters(filters),
             'mask': None,
             'mask_filters': [],
         })

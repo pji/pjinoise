@@ -9,6 +9,7 @@ import unittest as ut
 from typing import Mapping
 
 from pjinoise import cli
+from pjinoise import filters as f
 from pjinoise import model as m
 from pjinoise import operations as op
 from pjinoise import sources as s
@@ -41,7 +42,10 @@ class CLITestCase(ut.TestCase):
                         'ease': 'l',
                     }),
                     'location': location,
-                    'filters': [],
+                    'filters': [
+                        f.BoxBlur(5),
+                        f.Skew(.1),
+                    ],
                     'mask': None,
                     'mask_filters': [],
                     'blend': op.difference,
@@ -58,7 +62,7 @@ class CLITestCase(ut.TestCase):
             sys.argv = [
                 'python3.8 -m pjinoise.core',
                 '-s', str(size[-1]), str(size[-2]), str(size[-3]),
-                '-n', 'spot_128:l_0:0:5__difference:.5',
+                '-n', 'spot_128:l_0:0:5_boxblur:5+skew:.1_difference:.5',
                 '-o', imagefile,
                 '-m', mode,
             ]

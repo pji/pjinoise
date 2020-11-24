@@ -1001,7 +1001,7 @@ class OctavePerlin(OctaveMixin, Perlin):
 
 
 # Registration.
-registered_generators = {
+registered_sources = {
     'gradient': Gradient,
     'lines': Lines,
     'rays': Rays,
@@ -1025,13 +1025,13 @@ registered_generators = {
 
 # Registration utility functions.
 def deserialize_source(attrs: Mapping) -> ValueSource:
-    cls = registered_generators[attrs['type']]
+    cls = registered_sources[attrs['type']]
     del attrs['type']
     return cls(**attrs)
 
 
 def get_regname_for_class(obj:object) -> str:
-    regnames = {registered_generators[k]: k for k in registered_generators}
+    regnames = {registered_sources[k]: k for k in registered_sources}
     clsname = obj.__class__
     return regnames[clsname]
 

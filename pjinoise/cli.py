@@ -70,13 +70,21 @@ def build_config(args: argparse.Namespace) -> m.Image:
         parts = noise.split('_')
         cls = s.registered_sources[parts[0]]
         args_ = parts[1].split(':')
+        
+        location = parts[2].split(':')[::-1]
+        
+        blend, *blend_amount = parts[-1].split(':')
+        if blend_amount:
+            blend_amount = float(blend_amount[0])
+        
         layer = m.Layer(**{
             'source': cls(*args_),
+            'blend': op.registered_ops[blend],
+            'blend_amount': blend_amount,
+            'location': [int(n) for n in location],
             'filters': [],
             'mask': None,
             'mask_filters': [],
-            'blend': op.registered_ops[parts[-2]],
-            'blend_amount': float(parts[-1])
         })
         layers.append(layer)
     if len(layers) == 1:

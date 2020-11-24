@@ -16,29 +16,29 @@ _SerializedSource = t.Union[t.Mapping, t.Sequence[t.Mapping]]
 
 
 class Layer():
-    @classmethod
-    def fromdict(cls, value: t.Union['Layer', t.Mapping]) -> 'Layer':
-        if isinstance(value, cls):
-            return value
-        return cls(**value)
-    
     def __init__(self, 
                  source: t.Union[_Source, 
                                  t.Sequence[_Source],
                                  _SerializedSource],
-                 filters: t.Sequence[f.ForLayer],
-                 mask: t.Union[None, s.ValueSource],
-                 mask_filters: t.Sequence[f.ForLayer],
                  blend: t.Union[str, t.Callable],
-                 blend_amount: float = 1) -> None:
+                 blend_amount: float = 1,
+                 location: t.Sequence[int] = (0, 0, 0),
+                 filters: t.Sequence[f.ForLayer] = None,
+                 mask: t.Union[None, s.ValueSource] = None,
+                 mask_filters: t.Sequence[f.ForLayer] = None) -> None:
         self.source = source
-        self.filters = filters
-        self.mask = mask
-        self.mask_filters = mask_filters
         if isinstance(blend, str):
             blend = op.registered_ops[blend]
         self.blend = blend
         self.blend_amount = blend_amount
+        self.location = location
+        if filters is None:
+            filters = []
+        self.filters = filters
+        self.mask = mask
+        if mask_filters is None:
+            mask_filters = []
+        self.mask_filters = mask_filters
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -115,10 +115,7 @@ class Image():
     
     @source.setter
     def source(self, value) -> None:
-        if isinstance(value, t.Sequence):
-            self._source = [Layer.fromdict(item) for item in value]
-        else:
-            self._source = Layer.fromdict(value)
+        self._source = self._process_source(value)
     
     # Public methods.
     def asdict(self) -> dict:
@@ -130,3 +127,16 @@ class Image():
             attrs['source'] = [item.asdict() for item in attrs['_source']]
         del attrs['_source']
         return attrs
+    
+    # Private methods.
+    def _process_source(self, value) -> t.Union[Layer, t.Sequence[Layer]]:
+        # If passed a sequence, process recursively.
+        if isinstance(value, t.Sequence):
+            return tuple(self._process_source(item) for item in value)
+        
+        # If passed a valid object, return it.
+        if isinstance(value, Layer):
+            return value
+        
+        # Otherwise, assume it's a serialized Layer, deserialize, and return.
+        return Layer(**value)

@@ -25,6 +25,7 @@ class IOTestCase(ut.TestCase):
         filename = 'spam.json'
         framerate = None
         imagefile = 'spam.jpeg'
+        location = [0, 0, 0]
         mode = 'RGB'
         size = [1, 1280, 720]
         
@@ -35,6 +36,7 @@ class IOTestCase(ut.TestCase):
                     'radius': 128,
                     'ease': 'l',
                 }),
+                'location': location,
                 'filters': [],
                 'mask': None,
                 'mask_filters': [],
@@ -75,6 +77,7 @@ class IOTestCase(ut.TestCase):
         filename = 'spam.json'
         framerate = None
         imagefile = 'spam.jpeg'
+        location = [0, 0, 0]
         mode = 'RGB'
         size = [1, 1280, 720]
         conf = m.Image(**{
@@ -83,6 +86,7 @@ class IOTestCase(ut.TestCase):
                     'radius': 128,
                     'ease': 'l',
                 }),
+                'location': location,
                 'filters': [],
                 'mask': None,
                 'mask_filters': [],

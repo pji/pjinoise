@@ -6,11 +6,13 @@ Unit tests for the CLI for the pjinoise module.
 """
 import sys
 import unittest as ut
+from typing import Mapping
 
 from pjinoise import cli
 from pjinoise import model as m
 from pjinoise import operations as op
 from pjinoise import sources as s
+from tests.common import map_compare
 
 
 class CLITestCase(ut.TestCase):
@@ -27,6 +29,7 @@ class CLITestCase(ut.TestCase):
             filename = 'spam.json'
             framerate = None
             imagefile = 'spam.jpeg'
+            location = [5, 0, 0]
             mode = 'L'
             size = [1, 1280, 720]
             
@@ -37,11 +40,12 @@ class CLITestCase(ut.TestCase):
                         'radius': 128,
                         'ease': 'l',
                     }),
+                    'location': location,
                     'filters': [],
                     'mask': None,
                     'mask_filters': [],
                     'blend': op.difference,
-                    'blend_amount': 1.0,
+                    'blend_amount': .5,
                 }),
                 'size': size,
                 'filename': imagefile,
@@ -54,7 +58,7 @@ class CLITestCase(ut.TestCase):
             sys.argv = [
                 'python3.8 -m pjinoise.core',
                 '-s', str(size[-1]), str(size[-2]), str(size[-3]),
-                '-n', 'spot_128:l___difference_1',
+                '-n', 'spot_128:l_0:0:5__difference:.5',
                 '-o', imagefile,
                 '-m', mode,
             ]
@@ -64,7 +68,17 @@ class CLITestCase(ut.TestCase):
             act = cli.build_config(args)
             
             # Determine if test passed.
-            self.assertEqual(exp, act)
+            try:
+                self.assertEqual(exp, act)
+            except AssertionError as e:
+                exp = exp.asdict()
+                act = act.asdict()
+                result = map_compare(exp, act)
+                if result is not True:
+                    msg = f'Path to bad key(s): {result}'
+                    raise ValueError(msg)
+                else:
+                    raise e
         
         # Restore initial state.
         finally:

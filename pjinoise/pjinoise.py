@@ -36,6 +36,7 @@ def _convert_color_space(a: np.ndarray,
     # pillow to be able to convert the color space.
     if src_space == '':
         a = (a * 0xff).astype(np.uint8)
+        src_space = 'L'
     
     # PIL.image.convert can only convert two-dimensional (or three, 
     # with color channel being the third) images. So, for animations 

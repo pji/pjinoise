@@ -6,7 +6,10 @@ Unit tests for the pjinoise.io module.
 """
 import json
 import unittest as ut
-from unittest.mock import mock_open, patch
+from unittest.mock import call, mock_open, patch
+
+import cv2
+import numpy as np
 
 from pjinoise import io
 from pjinoise import model as m
@@ -68,6 +71,123 @@ class IOTestCase(ut.TestCase):
         self.assertEqual(exp_conf, act_conf)
         open_mock.assert_called_with(*exp_args)
     
+    @patch('PIL.Image.Image.save')
+    def test_save_grayscale_image(self, mock_save):
+        """Given image configuration and image data, save the image 
+        data as a TIFF file.
+        """
+        # Set up data for expected values.
+        filename = 'spam.tiff'
+        format = 'TIFF'
+
+        # Expected value.
+        exp = call(filename, format)
+        
+        # Set up test data and state.
+        a = np.array([[
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+        ],]).astype(float)
+        a = a / 0xff
+        mode = 'L'
+        
+        # Run test.
+        io.save_image(a, filename, format, mode)
+        
+        # Extract actual result.
+        act = mock_save.call_args
+        
+        # Determine if test passed.
+        self.assertTupleEqual(exp, act)
+    
+    
+    @patch('PIL.Image.Image.save')
+    def test_save_color_image(self, mock_save):
+        """Given image configuration and image data, save the image 
+        data as a TIFF file.
+        """
+        # Set up data for expected values.
+        filename = 'spam.tiff'
+        format = 'TIFF'
+
+        # Expected value.
+        exp = call(filename, format)
+        
+        # Set up test data and state.
+        a = np.array([[
+            [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+            [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+            [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+        ],]).astype(np.float32)
+        mode = 'RGB'
+        
+        # Run test.
+        io.save_image(a, filename, format, mode)
+        
+        # Extract actual result.
+        act = mock_save.call_args
+        
+        # Determine if test passed.
+        self.assertTupleEqual(exp, act)
+    
+    
+    @patch('cv2.VideoWriter')
+    def test_save_video(self, mock_write):
+        """Given an image and save configuration, save the image as a 
+        MP4 file.
+        """
+        # Set up data for actual values.
+        filename = 'spam.mp4'
+        codec = 'mp4v'
+        fourcc = cv2.VideoWriter_fourcc(*codec)
+        framerate = 12
+        a = np.array([
+            [
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            ],
+            [
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            ],
+        ]).astype(np.uint8)
+        size = (a.shape[-1], a.shape[-2])
+        
+        # Expected value.
+        a_exp = np.flip(a, -1)
+        exp = [
+            call(filename, fourcc, framerate, size, True),
+            ['().write', (a_exp[0].tolist()),],
+            ['().write', (a_exp[1].tolist()),],
+            call().release()
+        ]
+        
+        # Set up test data and state.
+        a = a.astype(float) / 0xff
+        format = 'MP4'
+        mode = 'L'
+        
+        # Run test.
+        io.save_image(a, filename, format, mode, framerate)
+        
+        # Extract actual result.
+        act = mock_write.mock_calls
+        act[1] = [act[1][0], act[1][1][0].tolist()]
+        act[2] = [act[2][0], act[2][1][0].tolist()]
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)    
+
+
     def test_serialize_config_to_json_file(self):
         """Given a configuration object, serialize that object to 
         file as JSON.

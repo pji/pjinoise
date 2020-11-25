@@ -14,7 +14,7 @@ import numpy as np
 from skimage.transform import swirl
 
 from pjinoise.common import deserialize_sequence
-from pjinoise.constants import X, Y, Z
+from pjinoise.constants import COLOR, X, Y, Z
 from pjinoise import ease as e
 from pjinoise import generators as g
 from pjinoise import operations as op
@@ -71,6 +71,34 @@ class BoxBlur(ForLayer):
             blur = cv2.filter2D(blur, -1, kernel)
             a[i] = blur
         return a
+
+
+class Color(ForLayer):
+    def __init__(self, 
+                 colorkey: str = '', 
+                 white: str = '', 
+                 black: str = '',
+                 invert: bool = False) -> None:
+        if colorkey:
+            white, black = COLOR[colorkey]
+        if invert:
+            white, black = black, white
+        self.white = white
+        self.black = black
+    
+    # Public methods.
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
+        out = None
+        a = (a * 0xff).astype(np.uint8)
+        for i in range(a.shape[Z]):
+            img = Image.fromarray(a[i], mode='L')
+            img = ImageOps.colorize(img, self.black, self.white)
+            img = img.convert('RGB')
+            a_img = np.array(img, dtype=float)
+            if out is None:
+                out = np.zeros((a.shape[Z], *a_img.shape), dtype=np.uint8)
+            out[i] = a_img
+        return out
 
 
 class Contrast(ForLayer):
@@ -765,6 +793,7 @@ def process_image(img:Image.Image,
 REGISTERED_FILTERS = {
     'autocontrast': Autocontrast,
     'boxblur': BoxBlur,
+    'color': Color,
     'contrast': Contrast,
     'cutshadow': CutShadow,
     'cutlight': CutLight,

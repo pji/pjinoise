@@ -177,6 +177,70 @@ class LayerTestCase(ut.TestCase):
         # Determine whether test passed.
         self.assertListEqual(exp, act)
     
+    def test_blend_data_with_colorization(self):
+        """Given nested Layers with the colorization filter, ensure 
+        the layer output is converted to a color space that conserves 
+        the colors before blending.
+        """
+        # Expected values.
+        exp = [
+            [
+                [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+                [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+                [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+            ],
+            [
+                [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+                [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+                [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
+            ],
+        ]
+        
+        # Set up test data and state.
+        src = Source()
+        size = (2, 3, 3)
+        layers = [
+            m.Layer(**{
+                'source': Source(),
+                'blend': op.replace,
+                'blend_amount': 1,
+                'location': [0, 0, 0],
+                'filters': [],
+                'mask': None,
+                'mask_filters': []
+            }),
+            m.Layer(**{
+                'source': Source(),
+                'blend': op.difference,
+                'blend_amount': 1,
+                'location': [0, 0, 0],
+                'filters': [
+                    f.Color('W'),
+                ],
+                'mask': None,
+                'mask_filters': []
+            }),
+            m.Layer(**{
+                'source': Source(),
+                'blend': op.difference,
+                'blend_amount': 1,
+                'location': [0, 0, 0],
+                'filters': [],
+                'mask': None,
+                'mask_filters': []
+            }),
+        ]
+        
+        # Run test.
+        result = pn.process_layers(size, layers)
+        
+        # Extract actual values.
+        a = np.around(result).astype(int)
+        act = a.tolist()            
+        
+        # Determine whether test passed.
+        self.assertListEqual(exp, act)
+    
     def test_create_image_data_from_valuesource(self):
         """Given a ValueSource and a size, produce an amount of image 
         data equal to size from the given location within the source.

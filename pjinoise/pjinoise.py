@@ -4,16 +4,71 @@ pjinoise
 
 Core image generation and mainline for the pjinoise module.
 """
-from typing import Sequence, Union
+from typing import Sequence, Tuple, Union
 
 import numpy as np
+from PIL import Image
 
 from pjinoise import filters as f
 from pjinoise.model import Layer
 from pjinoise.sources import ValueSource
 
 
+# Constants.
+X, Y, Z = 2, 1, 0
+
+
 # Image generation functions.
+def _convert_color_space(a: np.ndarray, 
+                         src_space: str = '',
+                         dst_space: str = 'RGB') -> np.ndarray:
+    """Convert an array to the given color space."""
+    # The shape of the output is based on the space, so we can't 
+    # build out until we do the first conversion. However, setting 
+    # it to None here makes the process of detecting whether we've 
+    # set up the output array a little smoother later.
+    out = None
+    
+    # Most of pjinoise tries to work with grayscale color values 
+    # that go from zero to one. However, pillow's grayscale mode 
+    # is 'L', which represents the color as an unsigned 8 bit 
+    # integer. The data will need to at least be in mode 'L' for 
+    # pillow to be able to convert the color space.
+    if src_space == '':
+        a = (a * 0xff).astype(np.uint8)
+    
+    # PIL.image.convert can only convert two-dimensional (or three, 
+    # with color channel being the third) images. So, for animations 
+    # we have to iterate through the Z axis, coverting one frame at 
+    # a time. Since pjinoise thinks of still images as single frame 
+    # animations, this means we're always going to have to handle 
+    # the Z axis like this.
+    for i in range(a.shape[Z]):
+        img = Image.fromarray(a[i], mode=src_space)
+        img = img.convert(dst_space)
+        a_img = np.array(img)
+        if out is None:
+            out = np.zeros((a.shape[Z], *a_img.shape), dtype=a.dtype)
+        out[i] = a_img
+    return out
+
+
+def _normalize_color_space(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray]:
+    """If one of the arrays is in RGB, convert both to RGB."""
+    # Assuming the working spaces are either grayscale or RGB, if the 
+    # two arrays are the same shape, they should be in the same space. 
+    if len(a.shape) == len(b.shape):
+        return a, b
+    
+    # Grayscale has three dimensions. RGB has four. To preserve color 
+    # in blending operations, grayscale has to be converted to RGB.
+    if len(a.shape) == 3:
+        a = _convert_color_space(a)
+    if len(b.shape) == 3:
+        b = _convert_color_space(b)
+    return a, b
+
+
 def process_layers(size: Sequence[int], 
                    layers: Union[ValueSource, Layer, Sequence[Layer]],
                    a: Union[None, np.ndarray] = None) -> np.ndarray: 
@@ -35,7 +90,7 @@ def process_layers(size: Sequence[int],
             a = process_layers(size, layer, a)
         return a
     
-    # If we got a source layer, return it.
+    # If we got a source layer, process it.
     if isinstance(layers.source, ValueSource):
         kwargs = {
             "source": layers.source, 
@@ -44,12 +99,13 @@ def process_layers(size: Sequence[int],
             "filters": layers.filters,
         }
         b = render_source(**kwargs)
-        a = layers.blend(a, b, layers.blend_amount)
-        return a
     
-    # Otherwise we got a container layer, process its source and 
-    # blend the result with the destination array.
-    b = process_layers(size, layers.source)
+    # Otherwise we got a container layer, process its source.
+    else:
+        b = process_layers(size, layers.source)
+    
+    # Blend the image data and return.
+    a, b = _normalize_color_space(a, b)
     return layers.blend(a, b, layers.blend_amount)
 
 

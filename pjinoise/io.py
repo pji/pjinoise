@@ -20,7 +20,7 @@ from pjinoise.constants import VIDEO_FORMATS
 X, Y, Z = 2, 1, 0
 
 
-def load_conf(filename: str) -> m.Image:
+def load_conf(filename: str, *args) -> m.Image:
     """Load a configuration file."""
     # Get the configuration from the file.
     with open(filename, 'r') as fh:

@@ -4,7 +4,7 @@ pjinoise
 
 Generate noise.
 """
-from pjinoise import core
+from pjinoise import pjinoise as pn
 
 
-core.main(False)
+pn.main(False)

@@ -60,7 +60,7 @@ class CLITestCase(ut.TestCase):
             
             # Set up test data and state.
             sys.argv = [
-                'python3.8 -m pjinoise.core',
+                'python3.8 -m pjinoise.pjinoise',
                 '-s', str(size[-1]), str(size[-2]), str(size[-3]),
                 '-n', 'spot_128:l_0:0:5_boxblur:5+skew:.1_difference:.5',
                 '-o', imagefile,

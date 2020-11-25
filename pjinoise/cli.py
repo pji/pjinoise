@@ -26,6 +26,15 @@ def parse_cli_args() -> None:
                 'help': 'The name for the output file.'
             },
         },
+        'load_config': {
+            'args': ('-c', '--load_config',),
+            'kwargs': {
+                'type': str,
+                'action': 'store',
+                'default': '',
+                'help': 'Load configuration from the given file.'
+            },
+        },
         'mode': {
             'args': ('-m', '--mode',),
             'kwargs': {
@@ -72,11 +81,13 @@ def _build_source(name: str, args: str) -> s.ValueSource:
 
 
 def _build_location(loc: str) -> List[int]:
+    if not loc:
+        return [0, 0, 0]
     return [int(n) for n in loc.split(':')[::-1]]
 
 
 def _build_blend(blend: str) -> Callable:
-    blend, _ = blend.split(':')
+    blend, *_ = blend.split(':')
     return op.registered_ops[blend]
 
 
@@ -90,9 +101,11 @@ def _build_blend_amount(blend: str) -> float:
 def _build_filters(filters: str) -> List[f.ForLayer]:
     def _build_filter(filter: str) -> f.ForLayer:
         name, *args = filter.split(':')
-        cls = f.REGISTERED_FILTERS[name]
+        cls = f.registered_filters[name]
         return cls(*args)
     
+    if not filters:
+        return []
     return [_build_filter(filter) for filter in filters.split('+')]
 
 

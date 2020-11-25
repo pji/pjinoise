@@ -711,15 +711,8 @@ class ProcessTestCase(ut.TestCase):
         
         size = (6, 128, 5, 5)
         fs = [
-            [],
-            [
-                filters.Skew(1),
-                filters.Rotate90('r'),
-            ],
-            [
-                filters.Skew(-1),
-                filters.Rotate90('l'),
-            ],
+            filters.Skew(1),
+            filters.Rotate90('r'),
         ]
         act = filters.preprocess(size, fs)
         

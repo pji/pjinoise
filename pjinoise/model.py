@@ -32,8 +32,10 @@ class Layer():
         self.blend = blend
         self.blend_amount = blend_amount
         self.location = location
-        if filters is None:
+        if not filters:
             filters = []
+        elif isinstance(filters[0], t.Mapping):
+            filters = [f.deserialize_filter(filter) for filter in filters]
         self.filters = filters
         self.mask = mask
         if mask_filters is None:

@@ -4,12 +4,17 @@ pjinoise
 
 Core image generation and mainline for the pjinoise module.
 """
+from queue import Queue
+from threading import Thread
 from typing import Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image
 
+from pjinoise import cli
 from pjinoise import filters as f
+from pjinoise import io
+from pjinoise import ui
 from pjinoise.model import Layer
 from pjinoise.sources import ValueSource
 
@@ -101,9 +106,13 @@ def process_layers(size: Sequence[int],
         }
         b = render_source(**kwargs)
     
-    # Otherwise we got a container layer, process its source.
+    # Otherwise we got a container layer, process its source and run 
+    # any filters that are set on the layer.
     else:
+        new_size = f.preprocess(size, layers.filters)
         b = process_layers(size, layers.source)
+        b = f.process(b, layers.filters)
+        b = f.postprocess(b, layers.filters)
     
     # Blend the image data and return.
     a, b = _normalize_color_space(a, b)
@@ -141,3 +150,50 @@ def render_source(source: 'pjinoise.sources.ValueSource',
     a = f.process(a, filters)
     a = f.postprocess(a, filters)
     return a
+
+
+# Mainline.
+def main(silent=True):
+    """Mainline."""
+    try:
+        status = None
+        args = cli.parse_cli_args()
+        if args.load_config:
+            conf = io.load_conf(args.load_config, args)
+        else:
+            conf = cli.build_config(args)
+        if not silent:
+            stages = 3
+            status = Queue()
+            t = Thread(target=ui.status_writer, args=(status, stages))
+            t.start()
+            status.put((ui.INIT,))
+    
+        if not silent:
+            status.put((ui.STATUS, 'Generating image...'))
+        a = process_layers(conf.size, conf.source)
+        if not silent:
+            status.put((ui.PROG, 'Image generated.'))
+    
+        if not silent:
+            status.put((ui.STATUS, 'Saving...'))
+        io.save_image(a, conf.filename, conf.format, conf.mode, conf.framerate)
+        io.save_conf(conf)
+        if not silent:
+            status.put((ui.PROG, f'Saved as {conf.filename}.'))
+            status.put((ui.END, 'Good-bye.'))
+    
+    # Since the status updates run in an independent thread, letting 
+    # exceptions bubble up from this thread clobbers causes the last 
+    # status updates to clobber the last few lines of the exception. 
+    # To avoid that, send the exception through the status update 
+    # thread. This also ensures the status update thread is terminated. 
+    except Exception as e:
+        if status:
+            status.put((ui.KILL, e))
+        else:
+            raise e
+
+
+if __name__ == '__main__':
+    main(False)

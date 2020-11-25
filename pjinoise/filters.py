@@ -6,7 +6,7 @@ Postprocessing filters to use on noise images.
 """
 from abc import ABC, abstractmethod
 from itertools import chain
-from typing import Sequence, Tuple, Union
+from typing import Mapping, Sequence, Tuple, Union
 
 import cv2
 from PIL import Image, ImageChops, ImageFilter, ImageOps
@@ -34,7 +34,7 @@ class ForLayer(ABC):
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
         attrs = self.__dict__.copy()
-        attrs['type'] = self.__class__.__name__
+        attrs['type'] = get_regname_for_class(self)
         return attrs
     
     def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
@@ -704,25 +704,20 @@ def pixelate(matrix:list, size:int = 32) -> list:
     return matrix
 
 
-# Factories.
-def make_filter(name:str, args:Sequence = ()) -> ForLayer:
-    name = name.casefold()
-    cls = REGISTERED_FILTERS[name]
-    return cls(*args)
-
-
 # Layer filter processing functions.
 def preprocess(size:Sequence[int], 
                filters:Sequence[Sequence[ForLayer]]) -> Tuple[int]:
     if not filters:
         return size
     new_size = size[:]
-    try:
-        for layer in filters:
-            new_size = preprocess(new_size, layer)
-    except TypeError:
-        for filter in filters:
-            new_size = filter.preprocess(new_size, size)
+    for filter in filters:
+        new_size = filter.preprocess(new_size, size)
+#     try:
+#         for layer in filters:
+#             new_size = preprocess(new_size, layer)
+#     except TypeError:
+#         for filter in filters:
+#             new_size = filter.preprocess(new_size, size)
     return new_size
 
 
@@ -790,7 +785,7 @@ def process_image(img:Image.Image,
 
 
 # Registrations.
-REGISTERED_FILTERS = {
+registered_filters = {
     'autocontrast': Autocontrast,
     'boxblur': BoxBlur,
     'color': Color,
@@ -817,6 +812,25 @@ REGISTERED_IMAGE_FILTERS = {
     'grain': Grain,
     'overlay': Overlay,
 }
+
+
+# Registration and deserialization utility functions.
+def make_filter(name:str, args:Sequence = ()) -> ForLayer:
+    name = name.casefold()
+    cls = registered_filters[name]
+    return cls(*args)
+
+
+def deserialize_filter(attrs: Mapping) -> ForLayer:
+    cls = registered_filters[attrs['type']]
+    del attrs['type']
+    return cls(**attrs)
+
+
+def get_regname_for_class(obj:object) -> str:
+    regnames = {registered_filters[k]: k for k in registered_filters}
+    clsname = obj.__class__
+    return regnames[clsname]
 
 
 if __name__ == '__main__':

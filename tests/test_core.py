@@ -43,6 +43,7 @@ class Gen(g.ValueGenerator):
 
 
 # Test cases.
+@ut.skip
 class ImageTestCase(ut.TestCase):
     def test_bake_image(self):
         """Given an array, a scale, and an image mode, return an array 
@@ -202,6 +203,7 @@ class ImageTestCase(ut.TestCase):
         self.assertListEqual(exp, act)    
 
 
+@ut.skip
 class InterfaceTestCase(ut.TestCase):
     def test_load_config_v0_0_1(self):
         """Given the name of a file containing serialized 
@@ -689,6 +691,7 @@ class InterfaceTestCase(ut.TestCase):
             sys.argv = argv_bkp
 
 
+@ut.skip
 class LayerTestCase(ut.TestCase):
     def test_make_layers(self):
         """Given layer configuration, return a list of Layer objects 

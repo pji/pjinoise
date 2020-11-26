@@ -10,8 +10,55 @@ from unittest.mock import call, patch
 
 import numpy as np
 
-from pjinoise.constants import P
 from pjinoise import sources as s
+from pjinoise.common import grayscale_to_ints_list
+from pjinoise.constants import P
+
+
+class CachingTestCase(ut.TestCase):
+    def test_cache_fill(self):
+        """The first time a fill is generated from a caching source, 
+        that fill should be cached and returned every time an instance 
+        of that class with the same key generates a fill of the same 
+        size.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0x40, 0x40, 0x40,],
+                [0x40, 0x40, 0x40,],
+                [0x40, 0x40, 0x40,],
+            ],
+            [
+                [0x40, 0x40, 0x40,],
+                [0x40, 0x40, 0x40,],
+                [0x40, 0x40, 0x40,],
+            ],
+        ]
+        
+        # Set up test data and state.
+        class Source(s.ValueSource):
+            def __init__(self, value):
+                self.value = value
+            def fill(self, size, _):
+                a = np.zeros(size, dtype=float)
+                a.fill(self.value)
+                return a
+        class CachingSource(s.CachingMixin, Source):
+            srccls = Source
+        src1 = CachingSource('spam', 0.25)
+        src2 = CachingSource('spam', 0.75)
+        size = (2, 3, 3)
+        _ = src1.fill(size)
+        
+        # Run test.
+        result = src2.fill(size)
+        
+        # Extract actual result from test.
+        act = grayscale_to_ints_list(result)
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
 
 
 class OctaveTestCases(ut.TestCase):
@@ -470,7 +517,3 @@ class RandomTestCase(ut.TestCase):
         
         # Determine if test passed.
         self.assertListEqual(exp, act)
-
-
-if __name__ == '__main__':
-    raise NotImplementedError

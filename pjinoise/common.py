@@ -4,9 +4,23 @@ common
 
 Utilities and other commonly reused functions for pjinoise.
 """
-from typing import Sequence, Tuple, Union
+from typing import List, Sequence, Tuple, Union
+
+import numpy as np
 
 from pjinoise.constants import SUPPORTED_FORMATS
+
+
+def grayscale_to_ints_list(a: np.ndarray) -> List[int]:
+    """pjinoise grayscale stores color values as floats between 
+    zero and one. This is a pain to read on a screen or type 
+    expected values for. This function converts that to lists 
+    of integers for easier test comparison and printing.
+    """
+    a = a.copy()
+    a = np.around(a * 0xff)
+    a = a.astype(np.uint8)
+    return a.tolist()
 
 
 def deserialize_sequence(value:Union[Sequence[float], str]) -> Tuple[float]:

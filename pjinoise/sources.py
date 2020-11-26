@@ -1000,6 +1000,23 @@ class OctavePerlin(OctaveMixin, Perlin):
     genclass = Perlin
 
 
+# Sources that cache fill data.
+class CachingMixin():
+    srcclass = None
+    _cache = {}
+    
+    def __init__(self, key: str = '_default', *args, **kwargs) -> None:
+        self.key = key
+        super().__init__(*args, **kwargs)
+    
+    # Public methods.
+    def fill(self, size: Sequence[int], 
+             location: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        if self.key not in self._cache:
+            self._cache[self.key] = super().fill(size, location)
+        return self._cache[self.key]
+
+
 # Registration.
 registered_sources = {
     'gradient': Gradient,

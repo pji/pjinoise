@@ -8,6 +8,7 @@ import argparse
 import json
 import unittest as ut
 from unittest.mock import call, mock_open, patch
+from typing import Sequence
 
 import cv2
 import numpy as np
@@ -123,6 +124,141 @@ class IOTestCase(ut.TestCase):
         # Determine if test passed.
         self.assertEqual(exp, act)
         self.assertEqual(exp_format, act_format)
+    
+    def test_load_config_cli_override_location(self):
+        """If an image location was passed to the CLI, offset the 
+        locations in the loaded config with that location.
+        """
+        # Expected value.
+        exp = [10, 10, 10]
+        
+        # Build test data and state.
+        filename = 'spam.conf'
+        location = [4, 5, 6]
+        offset = ['6', '5', '4']
+        p = argparse.ArgumentParser()
+        p.add_argument('--location', nargs='*', type=int, action='store')
+        p.add_argument('--load_config')
+        args = p.parse_args(['--location', *offset, '--load_config', filename])
+        image = m.Image(**{
+            'source': m.Layer(**{
+                'source': [
+                    m.Layer(**{
+                        'source': s.Spot(**{
+                            'radius': 128,
+                            'ease': 'l',
+                        }),
+                        'location': location,
+                        'filters': [],
+                        'mask': None,
+                        'mask_filters': [],
+                        'blend': op.replace,
+                        'blend_amount': 1.0,
+                    }),
+                    m.Layer(**{
+                        'source': s.Spot(**{
+                            'radius': 128,
+                            'ease': 'l',
+                        }),
+                        'location': location,
+                        'filters': [],
+                        'mask': None,
+                        'mask_filters': [],
+                        'blend': op.difference,
+                        'blend_amount': 1.0,
+                    }),
+                ],
+                'location': location,
+                'filters': [],
+                'mask': None,
+                'mask_filters': [],
+                'blend': op.replace,
+                'blend_amount': 1.0,
+            }),
+            'size': [1, 1280, 720],
+            'filename': 'spam.jpeg',
+            'format': 'JPEG',
+            'mode': 'RGB',
+            'framerate': None
+        })
+        conf = json.dumps({
+            'Version': __version__,
+            'Image': image.asdict()
+        })
+        open_mock = mock_open()
+        with patch('pjinoise.io.open', open_mock, create=True):
+            open_mock.return_value.read.return_value = conf
+        
+            # Run test.
+            result = io.load_conf(filename, args)
+        
+        # Extract actual values from result.
+        def find_location(item):
+            result = []
+            if 'location' in vars(item):
+                result.append(item.location)
+            if '_source' in vars(item):
+                if isinstance(item._source, Sequence):
+                    for obj in item._source:
+                        result.extend(find_location(obj))
+                else:
+                    result.extend(find_location(item._source))
+            return result
+        acts = find_location(result)
+        for act in acts:
+        
+            # Determine if test passed.
+            self.assertListEqual(exp, act)
+    
+    def test_load_config_cli_override_size(self):
+        """If an image size was passed to the CLI, override the size 
+        in the loaded config with that size.
+        """
+        # Expected value.
+        exp = [2, 8, 8]
+        
+        # Build test data and state.
+        filename = 'spam.conf'
+        size = [str(n) for n in exp]
+        p = argparse.ArgumentParser()
+        p.add_argument('--size', nargs='*', type=int, action='store')
+        p.add_argument('--load_config')
+        args = p.parse_args(['--size', *size, '--load_config', filename])
+        image = m.Image(**{
+            'source': m.Layer(**{
+                'source': s.Spot(**{
+                    'radius': 128,
+                    'ease': 'l',
+                }),
+                'location': [0, 0, 0],
+                'filters': [],
+                'mask': None,
+                'mask_filters': [],
+                'blend': op.difference,
+                'blend_amount': 1.0,
+            }),
+            'size': [1, 1280, 720],
+            'filename': 'spam.jpeg',
+            'format': 'JPEG',
+            'mode': 'RGB',
+            'framerate': None
+        })
+        conf = json.dumps({
+            'Version': __version__,
+            'Image': image.asdict()
+        })
+        open_mock = mock_open()
+        with patch('pjinoise.io.open', open_mock, create=True):
+            open_mock.return_value.read.return_value = conf
+        
+            # Run test.
+            result = io.load_conf(filename, args)
+        
+        # Extract actual values from result.
+        act = result.size
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
     
     @patch('PIL.Image.Image.save')
     def test_save_grayscale_image(self, mock_save):

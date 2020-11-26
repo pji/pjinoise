@@ -5,7 +5,7 @@ io
 Input/output for the pjinoise module.
 """
 import json
-from typing import Mapping, Union
+from typing import Mapping, MutableMapping, Sequence, Union
 
 import cv2
 import numpy as np
@@ -21,6 +21,20 @@ from pjinoise.constants import VIDEO_FORMATS
 X, Y, Z = 2, 1, 0
 
 
+def _update_location(map: MutableMapping, loc: Sequence) -> None:
+    """Offset the location of the image generation for a given 
+    amount across every layer used to make the image. This only 
+    works on mutable mappings because it changes the data in place.
+    """
+    if 'location' in map:
+        map['location'] = [n + m for n, m in zip(map['location'], loc)]
+    if 'source' in map:
+        if isinstance(map['source'], Sequence):
+            for item in map['source']:
+                _update_location(item, loc)
+        else:
+            _update_location(map['source'], loc)
+
 def load_conf(filename: str, 
               args: Union[None, 'argparse.Namespace'] = None) -> m.Image:
     """Load a configuration file."""
@@ -31,10 +45,17 @@ def load_conf(filename: str,
     
     # Deserialize configuration based on the given version.
     if conf['Version'] == '0.2.0':
-        if args and args.filename:
+        # Allow CLI arguments to change or override values in the 
+        # loaded config.
+        if args and 'filename' in vars(args):
             conf['Image']['filename'] = args.filename
             conf['Image']['format'] = get_format(args.filename)
+        if args and 'size' in vars(args):
+            conf['Image']['size'] = args.size
+        if args and 'location' in vars(args):
+            _update_location(conf['Image'], args.location)
         
+        # Deserialize and return the configuration object.
         return m.Image(**conf['Image'])
     
     # Otherwise, the version isn't recognized, so throw an error.

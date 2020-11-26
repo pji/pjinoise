@@ -47,13 +47,13 @@ def load_conf(filename: str,
     if conf['Version'] == '0.2.0':
         # Allow CLI arguments to change or override values in the 
         # loaded config.
-        if args and 'filename' in vars(args):
+        if args and args.filename:
             conf['Image']['filename'] = args.filename
             conf['Image']['format'] = get_format(args.filename)
-        if args and 'size' in vars(args):
-            conf['Image']['size'] = args.size
-        if args and 'location' in vars(args):
-            _update_location(conf['Image'], args.location)
+        if args and args.size:
+            conf['Image']['size'] = args.size[::-1]
+        if args and args.location:
+            _update_location(conf['Image'], args.location[::-1])
         
         # Deserialize and return the configuration object.
         return m.Image(**conf['Image'])

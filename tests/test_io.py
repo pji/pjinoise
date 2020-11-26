@@ -7,7 +7,7 @@ Unit tests for the pjinoise.io module.
 import argparse
 import json
 import unittest as ut
-from unittest.mock import call, mock_open, patch
+from unittest.mock import call, MagicMock, mock_open, patch, PropertyMock
 from typing import Sequence
 
 import cv2
@@ -20,6 +20,18 @@ from pjinoise import sources as s
 from pjinoise.__version__ import __version__
 
 
+# Utility functions.
+def _get_cli_args_mock() -> MagicMock:
+    """Get a mock object that represents command line arguments."""
+    args = MagicMock()
+    type(args).filename = PropertyMock(return_value=None)
+    type(args).load_config = PropertyMock(return_value=None)
+    type(args).size = PropertyMock(return_value=None)
+    type(args).location = PropertyMock(return_value=None)
+    return args
+
+
+# Test cases.
 class IOTestCase(ut.TestCase):
     def test_load_config_from_json_file(self):
         """Given the path of a configuration serialized as JSON, 
@@ -83,10 +95,9 @@ class IOTestCase(ut.TestCase):
         
         # Build test data and state.
         filename = 'spam.conf'
-        p = argparse.ArgumentParser()
-        p.add_argument('--filename')
-        p.add_argument('--load_config')
-        args = p.parse_args(['--filename', exp, '--load_config', filename])
+        args = _get_cli_args_mock()
+        type(args).filename = PropertyMock(return_value=exp)
+        type(args).load_config = PropertyMock(return_value=filename)
         image = m.Image(**{
             'source': m.Layer(**{
                 'source': s.Spot(**{
@@ -135,11 +146,10 @@ class IOTestCase(ut.TestCase):
         # Build test data and state.
         filename = 'spam.conf'
         location = [4, 5, 6]
-        offset = ['6', '5', '4']
-        p = argparse.ArgumentParser()
-        p.add_argument('--location', nargs='*', type=int, action='store')
-        p.add_argument('--load_config')
-        args = p.parse_args(['--location', *offset, '--load_config', filename])
+        offset = [6, 5, 4]
+        args = _get_cli_args_mock()
+        type(args).location = PropertyMock(return_value=offset[::-1])
+        type(args).load_config = PropertyMock(return_value=filename)
         image = m.Image(**{
             'source': m.Layer(**{
                 'source': [
@@ -219,11 +229,9 @@ class IOTestCase(ut.TestCase):
         
         # Build test data and state.
         filename = 'spam.conf'
-        size = [str(n) for n in exp]
-        p = argparse.ArgumentParser()
-        p.add_argument('--size', nargs='*', type=int, action='store')
-        p.add_argument('--load_config')
-        args = p.parse_args(['--size', *size, '--load_config', filename])
+        args = _get_cli_args_mock()
+        type(args).size = PropertyMock(return_value=exp[::-1])
+        type(args).load_config = PropertyMock(return_value=filename)
         image = m.Image(**{
             'source': m.Layer(**{
                 'source': s.Spot(**{

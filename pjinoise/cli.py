@@ -26,6 +26,15 @@ def parse_cli_args() -> None:
                 'help': 'The name for the output file.'
             },
         },
+        'location': {
+            'args': ('-l', '--location',),
+            'kwargs': {
+                'type': int,
+                'nargs': '*',
+                'action': 'store',
+                'help': 'The distance to offset image generation.'
+            },
+        },
         'load_config': {
             'args': ('-c', '--load_config',),
             'kwargs': {

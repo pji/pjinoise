@@ -163,7 +163,7 @@ def main(silent=True):
         else:
             conf = cli.build_config(args)
         if not silent:
-            stages = 3
+            stages = 2
             status = Queue()
             t = Thread(target=ui.status_writer, args=(status, stages))
             t.start()

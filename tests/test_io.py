@@ -4,6 +4,7 @@ test_io
 
 Unit tests for the pjinoise.io module.
 """
+import argparse
 import json
 import unittest as ut
 from unittest.mock import call, mock_open, patch
@@ -70,6 +71,58 @@ class IOTestCase(ut.TestCase):
         # Determine if test passed.
         self.assertEqual(exp_conf, act_conf)
         open_mock.assert_called_with(*exp_args)
+    
+    def test_load_config_cli_override_filename(self):
+        """If a filename was passed to the CLI, override the filename 
+        in the loaded config with that filename.
+        """
+        # Expected value.
+        exp = 'eggs.tiff'
+        exp_format = 'TIFF'
+        
+        # Build test data and state.
+        filename = 'spam.conf'
+        p = argparse.ArgumentParser()
+        p.add_argument('--filename')
+        p.add_argument('--load_config')
+        args = p.parse_args(['--filename', exp, '--load_config', filename])
+        image = m.Image(**{
+            'source': m.Layer(**{
+                'source': s.Spot(**{
+                    'radius': 128,
+                    'ease': 'l',
+                }),
+                'location': [0, 0, 0],
+                'filters': [],
+                'mask': None,
+                'mask_filters': [],
+                'blend': op.difference,
+                'blend_amount': 1.0,
+            }),
+            'size': [1, 1280, 720],
+            'filename': 'spam.jpeg',
+            'format': 'JPEG',
+            'mode': 'RGB',
+            'framerate': None
+        })
+        conf = json.dumps({
+            'Version': __version__,
+            'Image': image.asdict()
+        })
+        open_mock = mock_open()
+        with patch('pjinoise.io.open', open_mock, create=True):
+            open_mock.return_value.read.return_value = conf
+        
+            # Run test.
+            result = io.load_conf(filename, args)
+        
+        # Extract actual values from result.
+        act = result.filename
+        act_format = result.format
+        
+        # Determine if test passed.
+        self.assertEqual(exp, act)
+        self.assertEqual(exp_format, act_format)
     
     @patch('PIL.Image.Image.save')
     def test_save_grayscale_image(self, mock_save):

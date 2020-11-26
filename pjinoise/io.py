@@ -13,6 +13,7 @@ from PIL import Image
 
 from pjinoise import model as m
 from pjinoise.__version__ import __version__
+from pjinoise.common import get_format
 from pjinoise.constants import VIDEO_FORMATS
 
 
@@ -20,7 +21,8 @@ from pjinoise.constants import VIDEO_FORMATS
 X, Y, Z = 2, 1, 0
 
 
-def load_conf(filename: str, *args) -> m.Image:
+def load_conf(filename: str, 
+              args: Union[None, 'argparse.Namespace'] = None) -> m.Image:
     """Load a configuration file."""
     # Get the configuration from the file.
     with open(filename, 'r') as fh:
@@ -29,6 +31,10 @@ def load_conf(filename: str, *args) -> m.Image:
     
     # Deserialize configuration based on the given version.
     if conf['Version'] == '0.2.0':
+        if args and args.filename:
+            conf['Image']['filename'] = args.filename
+            conf['Image']['format'] = get_format(args.filename)
+        
         return m.Image(**conf['Image'])
     
     # Otherwise, the version isn't recognized, so throw an error.

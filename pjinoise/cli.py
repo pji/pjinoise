@@ -11,7 +11,7 @@ from pjinoise import filters as f
 from pjinoise import model as m
 from pjinoise import operations as op
 from pjinoise import sources as s
-from pjinoise.constants import SUPPORTED_FORMATS
+from pjinoise.common import get_format
 
 
 def parse_cli_args() -> None:
@@ -135,16 +135,3 @@ def build_config(args: argparse.Namespace) -> m.Image:
         'mode': args.mode,
 #         'framerate': args.framerate,
     })
-
-
-def get_format(filename:str) -> str:
-    """Determine the image type based on the filename."""
-    name_part = filename.split('.')[-1]
-    extension = name_part.casefold()
-    try:
-        return SUPPORTED_FORMATS[extension]
-    except KeyError:
-        print(f'The file type {name_part} is not supported.')
-        supported = ', '.join(SUPPORTED_FORMATS)
-        print(f'The supported formats are: {supported}.')
-        raise SystemExit

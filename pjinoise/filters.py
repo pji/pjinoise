@@ -16,8 +16,8 @@ from skimage.transform import swirl
 from pjinoise.common import deserialize_sequence
 from pjinoise.constants import COLOR, X, Y, Z
 from pjinoise import ease as e
-from pjinoise import generators as g
 from pjinoise import operations as op
+from pjinoise import sources as s
 
 
 # Layer filter classes.
@@ -668,7 +668,7 @@ class Grain(ForImage, ForLayer):
         # Handle as an ndarray for the ForLayer interface.
         if not self._grain:
             size = img.shape
-            self._noise = g.Random(.5, self.scale)
+            self._noise = s.Random(.5, self.scale)
             grain = self._noise.fill(size)
             self._grain = grain
         return op.overlay(img, self._grain)
@@ -712,12 +712,6 @@ def preprocess(size:Sequence[int],
     new_size = size[:]
     for filter in filters:
         new_size = filter.preprocess(new_size, size)
-#     try:
-#         for layer in filters:
-#             new_size = preprocess(new_size, layer)
-#     except TypeError:
-#         for filter in filters:
-#             new_size = filter.preprocess(new_size, size)
     return new_size
 
 

@@ -6,7 +6,7 @@ Array operations for use when combining two layers of an image or
 animation.
 """
 from functools import wraps
-from typing import Callable
+from typing import Callable, Union
 
 import cv2
 import numpy as np
@@ -31,6 +31,21 @@ def clipped(fn: Callable) -> Callable:
         ab[ab < 0] = 0
         ab[ab > scale] = scale
         return ab
+    return wrapper
+
+
+def masked(fn: Callable) -> Callable:
+    """Apply a blending mask to the operation."""
+    @wraps(fn)
+    def wrapper(a: np.ndarray, 
+                b: np.ndarray, 
+                amount: float = 1, 
+                mask: Union[None, np.ndarray] = None) -> np.ndarray:
+        ab = fn(a, b, amount)
+        if mask is None:
+            return ab
+        diff = ab - a
+        return a + diff * mask
     return wrapper
 
 
@@ -61,6 +76,7 @@ def scaled(fn: Callable) -> Callable:
 
 
 # Non-blends.
+@masked
 def replace(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """Simple replacement filter. Can double as an opacity filter
     if passed an amount, but otherwise this will just replace the

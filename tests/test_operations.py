@@ -37,6 +37,62 @@ def run_test(operation:Callable) -> List[int]:
 
 
 # Test classes.
+class MaskedTestCase(ut.TestCase):
+    def test_masked_replace(self):
+        """Given two arrays, an amount, and a mask, the replace 
+        operation should blend the two arrays. Values that are 
+        white in the mask should be the second array. Values that 
+        are black in the mask should be first array. The lighter 
+        the gray, the more the result should be the second array 
+        than the first.
+        """
+        # Expected values.
+        exp = [
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x80, 0x80, 0x80, 0x80, 0x7f,],
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+        ]
+        
+        # Set up test data and state.
+        a = np.array([
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+        ], dtype=float)
+        b = np.array([
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+        ], dtype=float)
+        mask = np.array([
+            [0x00, 0x00, 0x00, 0x00, 0x00,],
+            [0x00, 0x00, 0x00, 0x00, 0x00,],
+            [0x80, 0x80, 0x80, 0x80, 0x80,],
+            [0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff,],
+        ], dtype=float)
+        a = a / 0xff
+        b = b / 0xff
+        mask = mask / 0xff
+        amount = 1
+        
+        # Run test.
+        result = op.replace(a, b, amount, mask)
+        
+        # Extract actual values from result.
+        result = np.around(result * 0xff).astype(int)
+        act = result.tolist()
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+
+
 class OperationsTestCase(ut.TestCase):
     def test_difference(self):
         """Given two arrays, operations.difference should return the 

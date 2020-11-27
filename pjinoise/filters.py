@@ -22,7 +22,7 @@ from pjinoise import sources as s
 
 
 # Decorators
-def scaled(fn:Callable) -> Callable:
+def scaled(fn: Callable) -> Callable:
     """Operations with multiplication rely on values being scaled to
     0 ≤ x ≤ 1 to keep the result from overflowing. Operations that add
     or subtract by one rely on that same scaling. Many color spaces
@@ -31,7 +31,7 @@ def scaled(fn:Callable) -> Callable:
     back to 0xff after the operation.
     """
     @wraps(fn)
-    def wrapper(obj, a:np.ndarray, *args, **kwargs) -> np.ndarray:
+    def wrapper(obj, a: np.ndarray, *args, **kwargs) -> np.ndarray:
         rescaled = False
         if len(a.shape) == 4:
             try:
@@ -45,7 +45,6 @@ def scaled(fn:Callable) -> Callable:
             a = np.around(a * 0xff).astype(np.uint8)
         return a
     return wrapper
-
 
 
 # Layer filter classes.
@@ -67,21 +66,21 @@ class ForLayer(ABC):
             attrs['ease'] = e.get_regname_for_func(attrs['ease'])
         return attrs
 
-    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
         return size
 
     @abstractmethod
-    def process(self, values:np.array) -> np.array:
+    def process(self, values: np.array) -> np.array:
         """Run the filter over the image."""
 
-    def postprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+    def postprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Return the original size of the image."""
         if self.padding is None:
             return size
-        return tuple(n - pad for n, pad in zip (size, self.padding))
+        return tuple(n - pad for n, pad in zip(size, self.padding))
 
 
 class BoxBlur(ForLayer):
@@ -94,7 +93,7 @@ class BoxBlur(ForLayer):
         https://docs.opencv.org/master/d4/d13/tutorial_py_filtering.html
         """
         size = self.box_size
-        kernel = np.ones((size, size), float)/size ** 2
+        kernel = np.ones((size, size), float) / size ** 2
         for i in range(a.shape[Z]):
             blur = np.zeros(a.shape[Y:], dtype=a.dtype)
             blur = a[i]
@@ -136,7 +135,7 @@ class Contrast(ForLayer):
     to 0% and the brightest value to 100%.
     """
     @scaled
-    def process(self, a:np.ndarray, *args) -> np.ndarray:
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
         a_min = np.min(a)
         a_max = np.max(a)
         scale = a_max - a_min
@@ -147,7 +146,7 @@ class Contrast(ForLayer):
 
 class Curve(ForLayer):
     """Apply an easing curve to the given image."""
-    def __init__(self, ease:str) -> None:
+    def __init__(self, ease: str) -> None:
         self.ease = e.registered_functions[ease]
 
     def process(self, a: np.ndarray) -> np.ndarray:
@@ -155,15 +154,15 @@ class Curve(ForLayer):
 
 
 class CutLight(ForLayer):
-    def __init__(self, threshold:float,
-                 ease:str = '',
-                 scale:float = 1.0) -> None:
+    def __init__(self, threshold: float,
+                 ease: str = '',
+                 scale: float = 1.0) -> None:
         self.scale = float(scale)
         self.threshold = threshold
         self.ease = e.registered_functions[ease]
 
     # Public methods.
-    def process(self, a:np.array, *args) -> np.array:
+    def process(self, a: np.array, *args) -> np.array:
         a[a > self.threshold] = self.threshold
         a = a / self.threshold
         return self.ease(a)
@@ -171,7 +170,7 @@ class CutLight(ForLayer):
 
 class CutShadow(CutLight):
     # Public methods.
-    def process(self, a:np.array, *args) -> np.array:
+    def process(self, a: np.array, *args) -> np.array:
         a = 1 - a
         threshold = 1 - self.threshold
         a[a > self.threshold] = self.threshold
@@ -181,16 +180,16 @@ class CutShadow(CutLight):
 
 
 class Inverse(ForLayer):
-    def __init__(self, ease:str = '') -> None:
+    def __init__(self, ease: str = '') -> None:
         self.ease = e.registered_functions[ease]
 
     # Public methods.
-    def process(self, a:np.ndarray, *args) -> np.ndarray:
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
         return self.ease(1 - a)
 
 
 class Grain(ForLayer):
-    def __init__(self, scale:float, *args, **kwargs):
+    def __init__(self, scale: float, *args, **kwargs):
         self.scale = float(scale)
         self._grain = None
         self._noise = s.Random(.5, self.scale)
@@ -208,7 +207,7 @@ class Grain(ForLayer):
 
 class LinearToPolar(ForLayer):
     # Filter protocol.
-    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
@@ -220,7 +219,7 @@ class LinearToPolar(ForLayer):
         self.padding = tuple([new - old for new, old in zip(new_size, size)])
         return tuple(new_size)
 
-    def process(self, a:np.ndarray) -> np.ndarray:
+    def process(self, a: np.ndarray) -> np.ndarray:
         """ Based on code taken from:
         https://stackoverflow.com/questions/51675940/converting-an-image-from-cartesian-to-polar-limb-darkening
         """
@@ -240,10 +239,10 @@ class LinearToPolar(ForLayer):
 
 
 class Pinch(ForLayer):
-    def __init__(self, amount:Union[float, str],
-                 radius:Union[float, str],
-                 scale:Union[Tuple[float], str],
-                 offset:Union[Tuple[float], str] = (0, 0, 0)):
+    def __init__(self, amount: Union[float, str],
+                 radius: Union[float, str],
+                 scale: Union[Tuple[float], str],
+                 offset: Union[Tuple[float], str] = (0, 0, 0)):
         self.amount = np.float32(amount)
         self.radius = np.float32(radius)
         if isinstance(scale, str):
@@ -254,7 +253,7 @@ class Pinch(ForLayer):
         self.offset = tuple(np.float32(n) for n in offset)
 
     # Public methods.
-    def process(self, a:np.ndarray, *args) -> np.ndarray:
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
         """Based on logic found here:
         https://stackoverflow.com/questions/64067196/pinch-bulge-distortion-using-python-opencv
         """
@@ -285,11 +284,11 @@ class Pinch(ForLayer):
         factor = np.sin(np.pi * np.sqrt(distance) / radius / 2)
         factor[factor > 0] = factor[factor > 0] ** -amount
         factor[factor < 0] = -((-factor[factor < 0]) ** -amount)
-        flex_x[pmask] = factor[pmask] * delta_x[pmask] /scale[X] + center[X]
-        flex_y[pmask] = factor[pmask] * delta_y[pmask] /scale[Y] + center[Y]
+        flex_x[pmask] = factor[pmask] * delta_x[pmask] / scale[X] + center[X]
+        flex_y[pmask] = factor[pmask] * delta_y[pmask] / scale[Y] + center[Y]
 
-        flex_x[~pmask] = 1.0 * delta_x[~pmask] /scale[X] + center[X]
-        flex_y[~pmask] = 1.0 * delta_y[~pmask] /scale[Y] + center[Y]
+        flex_x[~pmask] = 1.0 * delta_x[~pmask] / scale[X] + center[X]
+        flex_y[~pmask] = 1.0 * delta_y[~pmask] / scale[Y] + center[Y]
 
         for i in range(a.shape[Z]):
             a[i] = cv2.remap(a[i], flex_x, flex_y, cv2.INTER_LINEAR)
@@ -298,7 +297,7 @@ class Pinch(ForLayer):
 
 class PolarToLinear(ForLayer):
     # Filter Protocol.
-    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
@@ -310,7 +309,7 @@ class PolarToLinear(ForLayer):
         self.padding = tuple([new - old for new, old in zip(new_size, size)])
         return tuple(new_size)
 
-    def process(self, a:np.ndarray) -> np.ndarray:
+    def process(self, a: np.ndarray) -> np.ndarray:
         """ Based on code taken from:
         https://stackoverflow.com/questions/51675940/converting-an-image-from-cartesian-to-polar-limb-darkening
         """
@@ -335,7 +334,7 @@ class Resize(ForLayer):
     size. This can be used to reduce the generation time of expensive
     generators or crop out awkward edges of generated images.
     """
-    def __init__(self, new_size:Sequence[int], crop:bool = False) -> None:
+    def __init__(self, new_size: Sequence[int], crop: bool = False) -> None:
         if crop == 'false':
             crop = False
         self.crop = crop
@@ -345,7 +344,7 @@ class Resize(ForLayer):
         self.new_size = new_size
 
     # Public methods.
-    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
@@ -364,7 +363,7 @@ class Resize(ForLayer):
 
         return self.new_size
 
-    def process(self, a:np.ndarray) -> np.ndarray:
+    def process(self, a: np.ndarray) -> np.ndarray:
         """If the filter isn't cropping, resize the image. Otherwise,
         return the image unchanged.
         """
@@ -383,10 +382,10 @@ class Resize(ForLayer):
 
 
 class Ripple(ForLayer):
-    def __init__(self, wavelength:Union[Sequence[float], str],
-                 amplitude:Union[Sequence[float], str],
-                 distort_axis:str = 'cross',
-                 offset:Union[Sequence[float], str] = (0, 0, 0)) -> None:
+    def __init__(self, wavelength: Union[Sequence[float], str],
+                 amplitude: Union[Sequence[float], str],
+                 distort_axis: str = 'cross',
+                 offset: Union[Sequence[float], str] = (0, 0, 0)) -> None:
         """Initialize an instance of the Ripple filter.
 
         :param wavelength: The distance between peaks in the distortion.
@@ -421,7 +420,7 @@ class Ripple(ForLayer):
             self.distort_axis = (Y, X)
 
     # Public methods.
-    def process(self, a:np.ndarray) -> np.ndarray:
+    def process(self, a: np.ndarray) -> np.ndarray:
         """Adapted from the example by jpmutant here:
         https://stackoverflow.com/questions/42732873
         """
@@ -464,8 +463,8 @@ class Ripple(ForLayer):
         # Create the ripples.
         for y in range(h):
             for x in range(w):
-                flex_x[y,x] = x + math.cos(x/15) * 15
-                flex_y[y,x] = y + math.cos(y/30) * 25
+                flex_x[y, x] = x + math.cos(x / 15) * 15
+                flex_y[y, x] = y + math.cos(y / 30) * 25
 
         # Remap the image.
         dst = cv2.remap(a[0], flex_x, flex_y, cv2.INTER_LINEAR)

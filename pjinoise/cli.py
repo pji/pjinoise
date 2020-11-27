@@ -73,7 +73,7 @@ def build_config(args: argparse.Namespace) -> m.Image:
         'filename': args.filename,
         'format': get_format(args.filename),
         'mode': args.mode,
-#         'framerate': args.framerate,
+        'framerate': args.framerate,
     })
 
 
@@ -87,6 +87,14 @@ def parse_cli_args() -> None:
                 'type': str,
                 'action': 'store',
                 'help': 'The name for the output file.'
+            },
+        },
+        'framerate': {
+            'args': ('-r', '--framerate',),
+            'kwargs': {
+                'type': float,
+                'action': 'store',
+                'help': 'The framerate for animations.'
             },
         },
         'location': {

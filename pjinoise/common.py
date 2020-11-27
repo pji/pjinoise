@@ -11,7 +11,7 @@ import numpy as np
 from pjinoise.constants import SUPPORTED_FORMATS
 
 
-def deserialize_sequence(value:Union[Sequence[float], str]) -> Tuple[float]:
+def deserialize_sequence(value: Union[Sequence[float], str]) -> Tuple[float]:
     """Deserialize a set of coordinates that could have come from
     command line input.
     """
@@ -34,7 +34,7 @@ def grayscale_to_ints_list(a: np.ndarray) -> List[int]:
     return a.tolist()
 
 
-def get_format(filename:str) -> str:
+def get_format(filename: str) -> str:
     """Determine the image type based on the filename."""
     name_part = filename.split('.')[-1]
     extension = name_part.casefold()

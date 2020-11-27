@@ -35,6 +35,7 @@ def _update_location(map: MutableMapping, loc: Sequence) -> None:
         else:
             _update_location(map['source'], loc)
 
+
 def load_conf(filename: str,
               args: Union[None, 'argparse.Namespace'] = None) -> m.Image:
     """Load a configuration file."""

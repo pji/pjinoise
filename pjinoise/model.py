@@ -55,7 +55,6 @@ class Layer():
     def source(self, value) -> None:
         self._source = self._process_source(value)
 
-
     # Public methods.
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""

@@ -461,28 +461,24 @@ class Ripple(ForLayer):
         flex_x = np.zeros((h,w),np.float32)
         flex_y = np.zeros((h,w),np.float32)
 
-        # create simple maps with a modified assignment
-        # the math modifier creates ripples.  increase the divisor for less waves,
-        # increase the multiplier for greater movement
-        # this is where the magic is assembled
+        # Create the ripples.
         for y in range(h):
             for x in range(w):
                 flex_x[y,x] = x + math.cos(x/15) * 15
                 flex_y[y,x] = y + math.cos(y/30) * 25
 
-
-        # do the remap  this is where the magic happens
-        dst = cv2.remap(a[0],flex_x,flex_y,cv2.INTER_LINEAR)
+        # Remap the image.
+        dst = cv2.remap(a[0], flex_x, flex_y, cv2.INTER_LINEAR)
         return dst
 
 
 class Rotate90(ForLayer):
     """Rotate the image ninety degrees in the given direction."""
-    def __init__(self, direction:str) -> None:
+    def __init__(self, direction: str) -> None:
         self.direction = direction
 
     # Filter protocol.
-    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
@@ -494,7 +490,7 @@ class Rotate90(ForLayer):
         self.padding = tuple([new - old for new, old in zip(new_size, size)])
         return tuple(new_size)
 
-    def process(self, values:np.ndarray) -> np.ndarray:
+    def process(self, values: np.ndarray) -> np.ndarray:
         """Run the filter over the image."""
         direction = 1
         if self.direction == 'r':
@@ -504,12 +500,12 @@ class Rotate90(ForLayer):
 
 class Skew(ForLayer):
     """Skew the image."""
-    def __init__(self, slope:Union[float, str]) -> None:
+    def __init__(self, slope: Union[float, str]) -> None:
         self.slope = float(slope)
 
     # Public methods.
-    def preprocess(self, size:Sequence[int],
-                   original_size:Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int],
+                   original_size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
@@ -531,7 +527,7 @@ class Skew(ForLayer):
         self.padding = tuple(int(n) for n in self.padding)
         return tuple(int(n) for n in new_size)
 
-    def process(self, values:np.ndarray) -> np.ndarray:
+    def process(self, values: np.ndarray) -> np.ndarray:
         """Run the filter over the image."""
         # The affine transform is only two dimensional, so if we're
         # given three dimensions, call this recursively for every Z.
@@ -580,7 +576,7 @@ class Twirl(ForLayer):
         self.offset = deserialize_sequence(offset)
 
     # Filter protocol.
-    def preprocess(self, size:Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
@@ -592,7 +588,7 @@ class Twirl(ForLayer):
         self.padding = tuple([new - old for new, old in zip(new_size, size)])
         return tuple(new_size)
 
-    def process(self, a:np.ndarray) -> np.ndarray:
+    def process(self, a: np.ndarray) -> np.ndarray:
         """ Based on code taken from:
         https://stackoverflow.com/questions/30448045
         """
@@ -668,7 +664,7 @@ registered_filters = {
 
 
 # Registration and deserialization utility functions.
-def make_filter(name:str, args:Sequence = ()) -> ForLayer:
+def make_filter(name: str, args: Sequence = ()) -> ForLayer:
     name = name.casefold()
     cls = registered_filters[name]
     return cls(*args)
@@ -680,39 +676,13 @@ def deserialize_filter(attrs: Mapping) -> ForLayer:
     return cls(**attrs)
 
 
-def get_regname_for_class(obj:object) -> str:
+def get_regname_for_class(obj: object) -> str:
     regnames = {registered_filters[k]: k for k in registered_filters}
     clsname = obj.__class__
     return regnames[clsname]
 
 
 if __name__ == '__main__':
-#     raise NotImplemented
-
-#     a = [
-#         [
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#         ],
-#         [
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
-#         ],
-#     ]
     a = [
         [
             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
@@ -739,40 +709,6 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=float)
     a = a / 0xff
-
-#     srctri = np.array([[0, 0], [a.shape[X] - 1, 0], [0, a.shape[Y] - 1]])
-#     srctri = srctri.astype(np.float32)
-#     dsttri = np.array([
-#         [0, a.shape[X] * .33],
-#         [a.shape[X] * .85, a.shape[Y] * .25],
-#         [a.shape[X] * .15, a.shape[Y] * 0.7]
-#     ]).astype(np.float32)
-
-#     srcpts = np.array([
-#         [0, 0],
-#         [4, 0],
-#         [0, 4],
-#     ]).astype(np.float32)
-#     dstpts = np.array([
-#         [0, 0],
-#         [4, 0],
-#         [4, 4],
-#     ]).astype(np.float32)
-#     warp_mat = cv2.getAffineTransform(srcpts, dstpts)
-#     res = cv2.warpAffine(a, warp_mat, (a.shape[X], a.shape[Y]), borderMode=cv2.BORDER_WRAP)
-
-#     skew = Skew(1)
-#     res = skew.process(a)
-
-#     obj = PolarToLinear()
-#     obj = Inverse()
-#     obj = Pinch('.75', '16', '5,5,5')
-#     obj = Ripple('0,8,8','0,3.0,3.0', 'cross', '0,1,1')
-#     size = (2, 13, 10)
-#     obj = Resize((2, 9, 9))
-
-#     obj = LinearToPolar()
-#     obj = Twirl(3, 10)
     obj = BoxBlur(5)
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)

@@ -14,7 +14,7 @@ from PIL import Image
 
 
 # Decorators.
-def clipped(fn:Callable) -> Callable:
+def clipped(fn: Callable) -> Callable:
     """Operations that use division or unbounded addition or
     subtraction can overflow the scale of the image. This will
     detect whether the scale is one or 0xff, then clip the
@@ -23,7 +23,7 @@ def clipped(fn:Callable) -> Callable:
     image.
     """
     @wraps(fn)
-    def wrapper(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+    def wrapper(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
         scale = 1
         if len(a.shape) == 4:
             scale = 0xff
@@ -34,7 +34,7 @@ def clipped(fn:Callable) -> Callable:
     return wrapper
 
 
-def scaled(fn:Callable) -> Callable:
+def scaled(fn: Callable) -> Callable:
     """Operations with multiplication rely on values being scaled to
     0 ≤ x ≤ 1 to keep the result from overflowing. Operations that add
     or subtract by one rely on that same scaling. Many color spaces
@@ -43,7 +43,7 @@ def scaled(fn:Callable) -> Callable:
     back to 0xff after the operation.
     """
     @wraps(fn)
-    def wrapper(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+    def wrapper(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
         rescaled = False
         if len(a.shape) == 4:
             try:
@@ -61,7 +61,7 @@ def scaled(fn:Callable) -> Callable:
 
 
 # Non-blends.
-def replace(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def replace(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """Simple replacement filter. Can double as an opacity filter
     if passed an amount, but otherwise this will just replace the
     values in a with the values in b.
@@ -83,7 +83,7 @@ def replace(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 # Darker/burn blends.
-def darker(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def darker(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     ab = a.copy()
     ab[b < a] = b[b < a]
     if amount == 1:
@@ -92,7 +92,7 @@ def darker(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @scaled
-def multiply(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def multiply(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     ab = a * b
     if amount == 1:
         return ab
@@ -102,7 +102,7 @@ def multiply(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 @clipped
 @scaled
-def color_burn(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def color_burn(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """Taken from:
     http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
     """
@@ -117,7 +117,7 @@ def color_burn(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 @clipped
 @scaled
-def linear_burn(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def linear_burn(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """Taken from:
     http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
     """
@@ -128,7 +128,7 @@ def linear_burn(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 # Lighter/dodge blends.
-def lighter(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def lighter(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     ab = a.copy()
     ab[b > a] = b[b > a]
     if amount == 1:
@@ -137,7 +137,7 @@ def lighter(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @scaled
-def screen(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def screen(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     rev_a = 1 - a
     rev_b = 1 - b
     ab = rev_a * rev_b
@@ -148,7 +148,7 @@ def screen(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 @clipped
 @scaled
-def color_dodge(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def color_dodge(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """Taken from:
     http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
     """
@@ -159,7 +159,9 @@ def color_dodge(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @clipped
-def linear_dodge(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def linear_dodge(a: np.ndarray,
+                 b: np.ndarray,
+                 amount: float = 1) -> np.ndarray:
     """Taken from:
     http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
     """
@@ -170,7 +172,7 @@ def linear_dodge(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 # Mixed blends.
-def difference(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def difference(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     if amount == 1:
         return np.abs(a - b)
     ab = np.abs(a - b)
@@ -179,7 +181,7 @@ def difference(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @scaled
-def exclusion(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def exclusion(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -190,7 +192,7 @@ def exclusion(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @scaled
-def hard_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def hard_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -203,7 +205,7 @@ def hard_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @scaled
-def hard_mix(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def hard_mix(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -217,7 +219,9 @@ def hard_mix(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 @clipped
 @scaled
-def linear_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def linear_light(a: np.ndarray,
+                 b: np.ndarray,
+                 amount: float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -228,7 +232,7 @@ def linear_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @scaled
-def overlay(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def overlay(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """This is based on the solution found here:
     https://stackoverflow.com/questions/52141987
     """
@@ -243,7 +247,7 @@ def overlay(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 @clipped
 @scaled
-def pin_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def pin_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -269,7 +273,7 @@ def pin_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 @scaled
-def soft_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def soft_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -277,7 +281,7 @@ def soft_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     ab = np.zeros(a.shape)
     m[a < .5] = True
     ab[m] = (2 * a[m] - 1) * (b[m] - b[m] ** 2) + b[m]
-    ab[~m] = (2 * a[~m] -1) * (np.sqrt(b[~m]) - b[~m]) + b[~m]
+    ab[~m] = (2 * a[~m] - 1) * (np.sqrt(b[~m]) - b[~m]) + b[~m]
     if amount == 1:
         return ab
     return a + (ab - a) * float(amount)
@@ -285,7 +289,7 @@ def soft_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 @clipped
 @scaled
-def vivid_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def vivid_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -308,7 +312,7 @@ def vivid_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
 
 
 # Color blending operations.
-def rgb_hue(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
+def rgb_hue(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -355,7 +359,6 @@ registered_ops = {
 op_names = {registered_ops[k]: k for k in registered_ops}
 
 if __name__ == '__main__':
-#     raise NotImplementedError
     a = [
         [
             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
@@ -423,6 +426,3 @@ if __name__ == '__main__':
             print(' ' * 8 + '[' + ', '.join(cols) + ']',)
         print(' ' * 4 + ']')
     print(']')
-
-
-

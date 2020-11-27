@@ -136,7 +136,7 @@ def render_source(source: 'pjinoise.sources.ValueSource',
     new_size = f.preprocess(size, filters)
     if new_size != size:
         padding = [n - o // 2 for n, o in zip(new_size, size)]
-        location = [l + p for l, p in zip(location, padding)]
+        location = [loc + p for loc, p in zip(location, padding)]
 
     # Generate the image data from the source.
     try:

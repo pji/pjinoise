@@ -24,7 +24,7 @@ KILL = 0xe
 END = 0xf
 
 
-def split_time(duration:float) -> Tuple[int]:
+def split_time(duration: float) -> Tuple[int]:
     s = duration % 60
     duration -= s
     m = duration % 3600
@@ -35,7 +35,7 @@ def split_time(duration:float) -> Tuple[int]:
     return h, m, s
 
 
-def update_progress(progress:str, stages_done:int, status:deque) -> None:
+def update_progress(progress: str, stages_done: int, status: deque) -> None:
     progress = list(progress)
     progress[stages_done] = '\u2588'
     progress = ''.join(progress)
@@ -47,8 +47,8 @@ def update_progress(progress:str, stages_done:int, status:deque) -> None:
     return progress
 
 
-def update_status(status:deque, newline:str,
-                  maxlines:int, roll:bool = True) -> None:
+def update_status(status: deque, newline: str,
+                  maxlines: int, roll: bool = True) -> None:
     if roll:
         for i in range(len(status))[::-1]:
             write('\r\033[A' + ' ' * len(status[i]))
@@ -63,7 +63,7 @@ def update_status(status:deque, newline:str,
         write('\r' + status[-1] + '\n')
 
 
-def status_writer(msg_queue:Queue, stages:int, maxlines:int = 4) -> None:
+def status_writer(msg_queue: Queue, stages: int, maxlines: int = 4) -> None:
     t0 = time.time()
     stages_done = 0
     title = 'PJINOISE: Pattern and Noise Generation\n'
@@ -88,23 +88,23 @@ def status_writer(msg_queue:Queue, stages:int, maxlines:int = 4) -> None:
                 update_status(status, newline, maxlines)
                 runflag = True
             elif cmd == STATUS:
-                msg=args[0]
+                msg = args[0]
                 newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
                 update_status(status, newline, maxlines)
             elif cmd == PROG:
                 stages_done += 1
                 progress = update_progress(progress, stages_done, status)
-                msg=args[0]
+                msg = args[0]
                 newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
                 update_status(status, newline, maxlines)
             elif cmd == KILL:
-                msg='Exception raised by core.'
+                msg = 'Exception raised by core.'
                 newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
                 update_status(status, newline, maxlines)
                 raise args[0]
             elif cmd == END:
                 write('\r' + ' ' * len(status) + '\r')
-                msg=args[0]
+                msg = args[0]
                 newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
                 update_status(status, newline, maxlines)
                 flush()
@@ -114,22 +114,3 @@ def status_writer(msg_queue:Queue, stages:int, maxlines:int = 4) -> None:
             newline = status_tmp.format(h=h, m=m, s=s, msg=msg)
             update_status(status, newline, maxlines, False)
         flush()
-
-
-if __name__ == '__main__':
-    from threading import Thread
-
-    msg_queue = Queue()
-    t = Thread(target=status_writer, args=(msg_queue, 3))
-    t.start()
-    msg_queue.put((INIT,))
-    time.sleep(5)
-    msg_queue.put((STATUS, 'Stage 1...'))
-    time.sleep(2)
-    msg_queue.put((PROG, 'Stage 2...'))
-    time.sleep(5)
-    msg_queue.put((PROG, 'Stage 3...'))
-    time.sleep(2)
-    msg_queue.put((PROG, 'Done.'))
-    time.sleep(1)
-    msg_queue.put((END, 'Good-bye.'))

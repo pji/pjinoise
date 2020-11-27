@@ -48,11 +48,11 @@ class ValueSource(ABC):
         return attrs
 
     @abstractmethod
-    def fill(self, size:Sequence[int],
-             location:Sequence[int] = None) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             location: Sequence[int] = None) -> np.ndarray:
         """Return a space filled with noise."""
 
-    def noise(self, coords:Sequence[float]) -> int:
+    def noise(self, coords: Sequence[float]) -> int:
         """Generate the noise value for the given coordinates."""
         size = [1 for n in range(len(coords))]
         value = self.fill(size, coords)
@@ -64,8 +64,8 @@ class ValueSource(ABC):
 class Gradient(ValueSource):
     """Generate a simple gradient."""
     def __init__(self,
-                 direction:str = 'h',
-                 ease:str = 'ioq',
+                 direction: str = 'h',
+                 ease: str = 'ioq',
                  *args) -> None:
         self.direction = direction
         self.ease = e.registered_functions[ease]
@@ -97,8 +97,8 @@ class Gradient(ValueSource):
             self.stops.append([1, self.stops[-1][1]])
 
     # Public methods.
-    def fill(self, size:Sequence[int],
-             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
         # Map out the locations of the stops within the gradient.
         if self.direction == 'h':
@@ -156,9 +156,9 @@ class Gradient(ValueSource):
 class Lines(ValueSource):
     """Generate simple lines."""
     def __init__(self,
-                 direction:str = 'h',
-                 length:Union[float, str] = 64,
-                 ease:str = 'io5',
+                 direction: str = 'h',
+                 length: Union[float, str] = 64,
+                 ease: str = 'io5',
                  *args, **kwargs) -> None:
         self.direction = direction
         self.length = float(length)
@@ -166,8 +166,8 @@ class Lines(ValueSource):
         super().__init__(*args, **kwargs)
 
     # Public methods.
-    def fill(self, size:Sequence[int],
-             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
         values = np.indices(size)
         for axis in X, Y, Z:
@@ -243,8 +243,8 @@ class Ring(ValueSource):
         self.ease = e.registered_functions[ease]
 
     # Public methods.
-    def fill(self, size:Sequence[int],
-             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
         # Map out the volume of space that will be created.
         a = np.zeros(size)
@@ -274,26 +274,26 @@ class Ring(ValueSource):
 
 
 class Solid(ValueSource):
-    def __init__(self, color:Union[str, float]) -> None:
+    def __init__(self, color: Union[str, float]) -> None:
         self.color = float(color)
 
     # Public methods.
-    def fill(self, size:Sequence[int],
-             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         a = np.zeros(size)
         a.fill(self.color)
         return a
 
 
 class Spheres(ValueSource):
-    def __init__(self, radius:float, ease:str, offset:str = None) -> None:
+    def __init__(self, radius: float, ease: str, offset: str = None) -> None:
         self.radius = float(radius)
         self.ease = e.registered_functions[ease]
         self.offset = offset
 
     # Public methods.
-    def fill(self, size:Sequence[int],
-             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
         # Map out the volume of space that will be created.
         a = np.indices(size)
@@ -347,13 +347,13 @@ class Spheres(ValueSource):
 
 
 class Spot(ValueSource):
-    def __init__(self, radius:float, ease:str) -> None:
+    def __init__(self, radius: float, ease: str) -> None:
         self.radius = float(radius)
         self.ease = e.registered_functions[ease]
 
     # Public methods.
-    def fill(self, size:Sequence[int],
-             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
         # Map out the volume of space that will be created.
         a = np.indices(size)
@@ -383,8 +383,8 @@ class Waves(ValueSource):
         self.ease = e.registered_functions[ease]
 
     # Public methods.
-    def fill(self, size:Sequence[int],
-             loc:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
         # Map out the volume of space that will be created.
         a = np.zeros(size)
@@ -430,7 +430,7 @@ class Random(ValueSource):
         super().__init__(*args, **kwargs)
 
     # Public methods.
-    def fill(self, size:Sequence[int], _:Any = None) -> np.array:
+    def fill(self, size: Sequence[int], _: Any = None) -> np.ndarray:
         random = self.rng.random(size) * self.scale * 2 - self.scale
         return random + self.mid
 
@@ -440,10 +440,10 @@ class UnitNoise(ValueSource):
     hashes = [f'{n:>03b}'[::-1] for n in range(2 ** 3)]
 
     def __init__(self,
-                 unit:Union[Sequence[int], str],
-                 ease:str = '',
-                 table:Union[Sequence[float], str, None] = None,
-                 scale:int = 0xff,
+                 unit: Union[Sequence[int], str],
+                 ease: str = '',
+                 table: Union[Sequence[float], str, None] = None,
+                 scale: int = 0xff,
                  *args, **kwargs) -> None:
         """Initialize an instance of UnitNoise.
 
@@ -480,9 +480,9 @@ class UnitNoise(ValueSource):
 
     # Private methods.
     def _build_vertices_table(self,
-                              size:Sequence[int],
-                              whole:np.ndarray,
-                              axes:Sequence[int]) -> dict:
+                              size: Sequence[int],
+                              whole: np.ndarray,
+                              axes: Sequence[int]) -> dict:
         """Build a hash table of the color values for the vertices of
         the unit cubes/squares within the noise volume.
 
@@ -519,8 +519,8 @@ class UnitNoise(ValueSource):
             hash_table[hash] = a_hash
         return hash_table
 
-    def _measure_units(self, indices:np.ndarray,
-                       axes:Sequence[int]) -> Tuple[np.ndarray]:
+    def _measure_units(self, indices: np.ndarray,
+                       axes: Sequence[int]) -> Tuple[np.ndarray]:
         """Split the noise volume into unit cubes/squares.
 
         :param indices: An array that indexes each pixel in the
@@ -540,14 +540,14 @@ class UnitNoise(ValueSource):
             parts[axis] = indices[axis] - whole[axis]
         return whole, parts
 
-    def _norm_coordinates(self, s:Union[Sequence[int], str]) -> Sequence[int]:
+    def _norm_coordinates(self, s: Union[Sequence[int], str]) -> Sequence[int]:
         if isinstance(s, str):
             result = s.split(',')
             result = [int(n) for n in result[::-1]]
             return result
         return s
 
-    def _lerp(self, a:np.ndarray, b:np.ndarray, x:np.ndarray) -> np.ndarray:
+    def _lerp(self, a: np.ndarray, b: np.ndarray, x: np.ndarray) -> np.ndarray:
         """Performs a linear interpolation."""
         return a * (1 - x) + b * x
 
@@ -561,7 +561,8 @@ class Curtains(UnitNoise):
     hashes = [f'{n:>02b}'[::-1] for n in range(2 ** 2)]
 
     # Public methods.
-    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = None) -> np.ndarray:
         """Return a space filled with noise."""
         # Start by creating the two-dimensional matrix with the X
         # and Z axis in order to save time by not running repetitive
@@ -617,7 +618,7 @@ class Curtains(UnitNoise):
 
 class CosineCurtains(Curtains):
     # Private methods.
-    def _lerp(self, a:float, b:float, x:float) -> float:
+    def _lerp(self, a: float, b: float, x: float) -> float:
         """Eased linear interpolation function to smooth the noise."""
         x = (1 - np.cos(x * np.pi)) / 2
         return super()._lerp(a, b, x)
@@ -626,7 +627,8 @@ class CosineCurtains(Curtains):
 class Perlin(UnitNoise):
     """A class to generate Perlin noise."""
     # Public classes.
-    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.array:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = None) -> np.array:
         """Return a space filled with Perlin noise."""
         # Perlin noise requires a three-dimensional space.
         while len(size) < 3:
@@ -777,10 +779,10 @@ class Perlin(UnitNoise):
 class Values(UnitNoise):
     """Produce a gradient over a multidimensional space."""
     def __init__(self,
-                 unit:Union[Sequence[int], str],
-                 ease:str,
-                 size:Union[Sequence[int], None] = (50, 720, 1280),
-                 table:Union[Sequence, None] = None,
+                 unit: Union[Sequence[int], str],
+                 ease: str,
+                 size: Union[Sequence[int], None] = (50, 720, 1280),
+                 table: Union[Sequence, None] = None,
                  *args, **kwargs) -> None:
         """Initialize an instance of GradientNoise.
 
@@ -797,8 +799,8 @@ class Values(UnitNoise):
         super().__init__(unit, ease, table)
 
     # Public methods.
-    def fill(self, size:Sequence[int],
-             location:Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             location: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
         # Map out the space.
         a = np.indices(size, float)
@@ -853,38 +855,10 @@ class Values(UnitNoise):
         # Apply the easing function and return.
         return self.ease(z)
 
-
-        # Create the space.
-        result = np.zeros(size)
-
-        # Pad missing dimensions in the size.
-        size = size[:]
-        if len(self.table.shape) < len(size):
-            raise ValueError(TEXT['vol_dim_oob'])
-        diff = len(self.table.shape) - len(size)
-        padding = [0 for i in range(diff)]
-
-        # Fill the space with noise.
-        index = [0 for i in range(len(size))]
-        while index[0] < size[0]:
-            full_index = padding[:]
-            full_index.extend(index)
-            result[tuple(index)] = self.noise(full_index)
-            index[-1] += 1
-            for i in range(1, len(size))[::-1]:
-                if index[i] == size[i]:
-                    index[i] = 0
-                    index[i - 1] += 1
-                else:
-                    break
-
-        # Return the noise-filled space.
-        return result
-
     # Private methods.
-    def _make_table(self, size:Sequence[int] = None) -> List:
+    def _make_table(self, size: Sequence[int] = None) -> List:
         """Create a color table for vertices."""
-        def fill_table(dim:Sequence[int]) -> List:
+        def fill_table(dim: Sequence[int]) -> List:
             """Recursively fill a table of the given dimensions."""
             if len(dim) > 1:
                 result = [fill_table(dim[1:]) for _ in range(dim[0])]
@@ -907,10 +881,10 @@ class Values(UnitNoise):
 class OctaveMixin():
     genclass = None
 
-    def __init__(self, octaves:int = 4,
-                 persistence:float = 8,
-                 amplitude:float = 8,
-                 frequency:float = 2,
+    def __init__(self, octaves: int = 4,
+                 persistence: float = 8,
+                 amplitude: float = 8,
+                 frequency: float = 2,
                  *args, **kwargs) -> None:
         self.octaves = int(octaves)
         self.persistence = float(persistence)
@@ -929,7 +903,8 @@ class OctaveMixin():
         args = [kwargs[key] for key in keys if key in kwargs]
         return args
 
-    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = None) -> np.ndarray:
         total = 0
         max_value = 0
         for i in range(self.octaves):
@@ -959,7 +934,8 @@ class OldOctaveCosineCurtains(OctaveMixin, CosineCurtains):
     genclass = CosineCurtains
 
     # Public methods.
-    def fill(self, size:Sequence[int], loc:Sequence[int] = None) -> np.ndarray:
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = None) -> np.ndarray:
         total = 0
         max_value = 0
         for i in range(self.octaves):
@@ -1067,81 +1043,15 @@ def deserialize_source(attrs: Mapping) -> ValueSource:
         raise TypeError(msg)
 
 
-def get_regname_for_class(obj:object) -> str:
+def get_regname_for_class(obj: object) -> str:
     regnames = {registered_sources[k]: k for k in registered_sources}
     clsname = obj.__class__
     return regnames[clsname]
 
 
 if __name__ == '__main__':
-#     raise NotImplementedError
-
-#     ring = Ring(4, 2, 'l')
-#     val = ring.fill((2, 8, 8))
-
-#     kwargs = {
-#         'unit': (8, 8, 8),
-#         'ease': '',
-#         'table': P,
-#     }
-#     obj = Perlin(**kwargs)
     obj = Rays(4)
     val = obj.fill((1, 8, 9), (4, 0, 0))
-
-
-#     spot = Spot(5, 'l')
-#     val = spot.fill((1, 15, 15), (0, 0, 0))
-#     random = Random(.5, .02)
-#     gradient = Gradient('v', 'l', 0., 0., .5, 1., 1., 0.)
-#     val = gradient.fill((2, 5, 4), (0, 0, 0))
-
-#     table = [
-#         [
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#         ],
-#         [
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#         ],
-#         [
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#             [0, 127, 255, 255],
-#         ],
-#     ]
-#     table = np.array(table) / 255
-#     table = table.tolist()
-#     tsize = (3, 4, 4)
-#     size = (1, 3, 5)
-#     unit = (2, 2, 2)
-#     obj = Values(size=tsize, ease='l', unit=unit)
-#     val = obj.fill(size)
-
-#     unit = (4, 4, 4)
-#     ease = 'l'
-#     table = P
-#     curtains = Curtains(unit, ease, table)
-#     size = (2, 8, 8)
-#     val = curtains.fill(size)
-#     val = np.around(val * 0xff).astype(int)
-
-#     octaves = 4
-#     persistence = 8
-#     amplitude = 8
-#     frequency = 2
-#     unit = (4, 4, 4)
-#     ease = 'l'
-#     table = P
-#     curtains = OctaveCosineCurtains(octaves, persistence, amplitude, frequency,
-#                                     unit, ease, table)
-#     size = (2, 8, 8)
-#     val = curtains.fill(size)
     val = np.around(val * 0xff).astype(int)
 
     # For hash_tables:
@@ -1183,13 +1093,11 @@ if __name__ == '__main__':
         elif len(val.shape) == 2:
             for row in val:
                 for column in row:
-#                     print(column, end=' ')
                     print(f'{column:02x}', end=', ')
                 print()
 
         else:
             for column in val:
-    #             print(column)
                 column = int(column * 0xff)
                 print(f'{column:02x}', end=', ')
             print()

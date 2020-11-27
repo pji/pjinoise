@@ -46,12 +46,16 @@ def scaled(fn:Callable) -> Callable:
     def wrapper(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
         rescaled = False
         if len(a.shape) == 4:
-            a /= 0xff
-            b /= 0xff
-            rescaled = True
+            try:
+                a = a.astype(float) / 0xff
+                b = b.astype(float) / 0xff
+                rescaled = True
+            except TypeError as e:
+                msg = f'max {np.max(a)}, {e}'
+                raise TypeError(msg)
         ab = fn(a, b, amount)
         if rescaled:
-            ab *= 0xff
+            ab = np.around(ab * 0xff).astype(np.uint8)
         return ab
     return wrapper
 

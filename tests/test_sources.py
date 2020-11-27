@@ -45,7 +45,7 @@ class CachingTestCase(ut.TestCase):
                 a.fill(self.value)
                 return a
         class CachingSource(s.CachingMixin, Source):
-            srccls = Source
+            _cache = {}
         src1 = CachingSource('spam', 0.25)
         src2 = CachingSource('spam', 0.75)
         size = (2, 3, 3)

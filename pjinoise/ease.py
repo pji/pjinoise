@@ -6,6 +6,8 @@ Basic easing function implementations. Easing functions taken from:
 
     https://easings.net
 """
+from typing import Callable
+
 import numpy as np
 
 
@@ -210,6 +212,12 @@ registered_functions = {
     'mbl': mid_bump_linear,
     'mbs': mid_bump_sine,
 }
+
+
+def get_regname_for_func(func:Callable) -> str:
+    regnames = {registered_functions[k]: k for k in registered_functions}
+    return regnames[func]
+
 
 if __name__ == '__main__':
     a = [

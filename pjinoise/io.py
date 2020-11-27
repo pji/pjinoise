@@ -75,6 +75,7 @@ def save_conf(conf: m.Image) -> None:
         'Version': __version__,
         'Image': conf.asdict(),
     }
+#     raise ValueError(f'{confmap}')
     confjson = json.dumps(confmap, indent=4)
     
     # Save the config.

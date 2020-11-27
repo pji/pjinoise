@@ -422,7 +422,7 @@ class Waves(ValueSource):
 # Random noise generators.
 class Random(ValueSource):
     """Create random noise with a gaussian (normal) distribution."""
-    def __init__(self, mid:float = .5, scale:float = .02, 
+    def __init__(self, mid: float = .5, scale: float = .02, 
                  *args, **kwargs) -> None:
         self.mid = mid
         self.rng = default_rng()
@@ -1002,7 +1002,12 @@ class OctavePerlin(OctaveMixin, Perlin):
 
 # Sources that cache fill data.
 class CachingMixin():
-    srcclass = None
+    """Cache fill results."""
+    # This sets up a cache in the CachingMixin class, which, if used 
+    # would cause all instances with the same key to retur the same 
+    # cached value regardless of subtype. To avoid this, classes 
+    # using the CachingMixin should override this with their own 
+    # dictionary.
     _cache = {}
     
     def __init__(self, key: str = '_default', *args, **kwargs) -> None:
@@ -1012,9 +1017,18 @@ class CachingMixin():
     # Public methods.
     def fill(self, size: Sequence[int], 
              location: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """On first call, generate and return image data, caching 
+        the data. On subsequent calls, return the cached data 
+        rather than generating the same data again.
+        """
         if self.key not in self._cache:
             self._cache[self.key] = super().fill(size, location)
         return self._cache[self.key]
+
+
+class CachingOctavePerlin(CachingMixin, OctavePerlin):
+    """A caching source for octave Perlin noise."""
+    _cache = {}
 
 
 # Registration.
@@ -1037,6 +1051,8 @@ registered_sources = {
     'oldoctavecosinecurtains': OldOctaveCosineCurtains,
     'octavecosinecurtains': OctaveCosineCurtains,
     'octaveperlin': OctavePerlin,
+    
+    'cachingoctaveperlin': CachingOctavePerlin,
 }
 
 
@@ -1044,7 +1060,11 @@ registered_sources = {
 def deserialize_source(attrs: Mapping) -> ValueSource:
     cls = registered_sources[attrs['type']]
     del attrs['type']
-    return cls(**attrs)
+    try:
+        return cls(**attrs)
+    except TypeError as e:
+        msg = f'{cls.__name__} raised following: {e}.'
+        raise TypeError(msg)
 
 
 def get_regname_for_class(obj:object) -> str:

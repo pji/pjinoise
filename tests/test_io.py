@@ -34,7 +34,7 @@ def _get_cli_args_mock() -> MagicMock:
 # Test cases.
 class IOTestCase(ut.TestCase):
     def test_load_config_from_json_file(self):
-        """Given the path of a configuration serialized as JSON, 
+        """Given the path of a configuration serialized as JSON,
         deserialize and return that configuration.
         """
         # Set up for expected data.
@@ -45,7 +45,7 @@ class IOTestCase(ut.TestCase):
         location = [0, 0, 0]
         mode = 'RGB'
         size = [1, 1280, 720]
-        
+
         # Expected data.
         exp_conf = m.Image(**{
             'source': m.Layer(**{
@@ -67,7 +67,7 @@ class IOTestCase(ut.TestCase):
             'framerate': None
         })
         exp_args = (filename, 'r')
-        
+
         # Set up test data and state.
         conf = {
             'Version': '0.2.0',
@@ -77,22 +77,22 @@ class IOTestCase(ut.TestCase):
         open_mock = mock_open()
         with patch('pjinoise.io.open', open_mock, create=True):
             open_mock.return_value.read.return_value = text
-        
+
             # Run test.
             act_conf = io.load_conf(filename)
-        
+
         # Determine if test passed.
         self.assertEqual(exp_conf, act_conf)
         open_mock.assert_called_with(*exp_args)
-    
+
     def test_load_config_cli_override_filename(self):
-        """If a filename was passed to the CLI, override the filename 
+        """If a filename was passed to the CLI, override the filename
         in the loaded config with that filename.
         """
         # Expected value.
         exp = 'eggs.tiff'
         exp_format = 'TIFF'
-        
+
         # Build test data and state.
         filename = 'spam.conf'
         args = _get_cli_args_mock()
@@ -124,25 +124,25 @@ class IOTestCase(ut.TestCase):
         open_mock = mock_open()
         with patch('pjinoise.io.open', open_mock, create=True):
             open_mock.return_value.read.return_value = conf
-        
+
             # Run test.
             result = io.load_conf(filename, args)
-        
+
         # Extract actual values from result.
         act = result.filename
         act_format = result.format
-        
+
         # Determine if test passed.
         self.assertEqual(exp, act)
         self.assertEqual(exp_format, act_format)
-    
+
     def test_load_config_cli_override_location(self):
-        """If an image location was passed to the CLI, offset the 
+        """If an image location was passed to the CLI, offset the
         locations in the loaded config with that location.
         """
         # Expected value.
         exp = [10, 10, 10]
-        
+
         # Build test data and state.
         filename = 'spam.conf'
         location = [4, 5, 6]
@@ -198,10 +198,10 @@ class IOTestCase(ut.TestCase):
         open_mock = mock_open()
         with patch('pjinoise.io.open', open_mock, create=True):
             open_mock.return_value.read.return_value = conf
-        
+
             # Run test.
             result = io.load_conf(filename, args)
-        
+
         # Extract actual values from result.
         def find_location(item):
             result = []
@@ -216,17 +216,17 @@ class IOTestCase(ut.TestCase):
             return result
         acts = find_location(result)
         for act in acts:
-        
+
             # Determine if test passed.
             self.assertListEqual(exp, act)
-    
+
     def test_load_config_cli_override_size(self):
-        """If an image size was passed to the CLI, override the size 
+        """If an image size was passed to the CLI, override the size
         in the loaded config with that size.
         """
         # Expected value.
         exp = [2, 8, 8]
-        
+
         # Build test data and state.
         filename = 'spam.conf'
         args = _get_cli_args_mock()
@@ -258,19 +258,19 @@ class IOTestCase(ut.TestCase):
         open_mock = mock_open()
         with patch('pjinoise.io.open', open_mock, create=True):
             open_mock.return_value.read.return_value = conf
-        
+
             # Run test.
             result = io.load_conf(filename, args)
-        
+
         # Extract actual values from result.
         act = result.size
-        
+
         # Determine if test passed.
         self.assertListEqual(exp, act)
-    
+
     @patch('PIL.Image.Image.save')
     def test_save_grayscale_image(self, mock_save):
-        """Given image configuration and image data, save the image 
+        """Given image configuration and image data, save the image
         data as a TIFF file.
         """
         # Set up data for expected values.
@@ -279,7 +279,7 @@ class IOTestCase(ut.TestCase):
 
         # Expected value.
         exp = call(filename, format)
-        
+
         # Set up test data and state.
         a = np.array([[
             [0x00, 0x40, 0x80, 0xc0, 0xff,],
@@ -290,20 +290,20 @@ class IOTestCase(ut.TestCase):
         ],]).astype(float)
         a = a / 0xff
         mode = 'L'
-        
+
         # Run test.
         io.save_image(a, filename, format, mode)
-        
+
         # Extract actual result.
         act = mock_save.call_args
-        
+
         # Determine if test passed.
         self.assertTupleEqual(exp, act)
-    
-    
+
+
     @patch('PIL.Image.Image.save')
     def test_save_color_image(self, mock_save):
-        """Given image configuration and image data, save the image 
+        """Given image configuration and image data, save the image
         data as a TIFF file.
         """
         # Set up data for expected values.
@@ -312,7 +312,7 @@ class IOTestCase(ut.TestCase):
 
         # Expected value.
         exp = call(filename, format)
-        
+
         # Set up test data and state.
         a = np.array([[
             [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
@@ -320,20 +320,20 @@ class IOTestCase(ut.TestCase):
             [[0xa1,0xa1,0xa1,],[0x81,0x81,0x81,],[0x61,0x61,0x61,],],
         ],]).astype(np.float32)
         mode = 'RGB'
-        
+
         # Run test.
         io.save_image(a, filename, format, mode)
-        
+
         # Extract actual result.
         act = mock_save.call_args
-        
+
         # Determine if test passed.
         self.assertTupleEqual(exp, act)
-    
-    
+
+
     @patch('cv2.VideoWriter')
     def test_save_video(self, mock_write):
-        """Given an image and save configuration, save the image as a 
+        """Given an image and save configuration, save the image as a
         MP4 file.
         """
         # Set up data for actual values.
@@ -358,7 +358,7 @@ class IOTestCase(ut.TestCase):
             ],
         ]).astype(np.uint8)
         size = (a.shape[-1], a.shape[-2])
-        
+
         # Expected value.
         a_exp = np.flip(a, -1)
         exp = [
@@ -367,26 +367,26 @@ class IOTestCase(ut.TestCase):
             ['().write', (a_exp[1].tolist()),],
             call().release()
         ]
-        
+
         # Set up test data and state.
         a = a.astype(float) / 0xff
         format = 'MP4'
         mode = 'L'
-        
+
         # Run test.
         io.save_image(a, filename, format, mode, framerate)
-        
+
         # Extract actual result.
         act = mock_write.mock_calls
         act[1] = [act[1][0], act[1][1][0].tolist()]
         act[2] = [act[2][0], act[2][1][0].tolist()]
-        
+
         # Determine if test passed.
-        self.assertListEqual(exp, act)    
+        self.assertListEqual(exp, act)
 
 
     def test_serialize_config_to_json_file(self):
-        """Given a configuration object, serialize that object to 
+        """Given a configuration object, serialize that object to
         file as JSON.
         """
         # Set up for expected data.
@@ -420,21 +420,21 @@ class IOTestCase(ut.TestCase):
             'Version': __version__,
             'Image': conf.asdict()
         }
-        
+
         # Expected values.
         exp_json = json.dumps(serialized_conf, indent=4)
         exp_args = (filename, 'w')
-        
+
         # Set up test data and state.
         open_mock = mock_open()
         with patch('pjinoise.io.open', open_mock, create=True):
-        
+
             # Run test.
             io.save_conf(conf)
-        
+
         # Extract actual values.
-        act_json = open_mock.return_value.write.call_args[0][0] 
-        
+        act_json = open_mock.return_value.write.call_args[0][0]
+
         # Determine if test passed.
         self.assertEqual(exp_json, act_json)
         open_mock.assert_called_with(*exp_args)

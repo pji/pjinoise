@@ -24,30 +24,30 @@ X, Y, Z = 2, 1, 0
 
 
 # Image generation functions.
-def _convert_color_space(a: np.ndarray, 
+def _convert_color_space(a: np.ndarray,
                          src_space: str = '',
                          dst_space: str = 'RGB') -> np.ndarray:
     """Convert an array to the given color space."""
-    # The shape of the output is based on the space, so we can't 
-    # build out until we do the first conversion. However, setting 
-    # it to None here makes the process of detecting whether we've 
+    # The shape of the output is based on the space, so we can't
+    # build out until we do the first conversion. However, setting
+    # it to None here makes the process of detecting whether we've
     # set up the output array a little smoother later.
     out = None
-    
-    # Most of pjinoise tries to work with grayscale color values 
-    # that go from zero to one. However, pillow's grayscale mode 
-    # is 'L', which represents the color as an unsigned 8 bit 
-    # integer. The data will need to at least be in mode 'L' for 
+
+    # Most of pjinoise tries to work with grayscale color values
+    # that go from zero to one. However, pillow's grayscale mode
+    # is 'L', which represents the color as an unsigned 8 bit
+    # integer. The data will need to at least be in mode 'L' for
     # pillow to be able to convert the color space.
     if src_space == '':
         a = (a * 0xff).astype(np.uint8)
         src_space = 'L'
-    
-    # PIL.image.convert can only convert two-dimensional (or three, 
-    # with color channel being the third) images. So, for animations 
-    # we have to iterate through the Z axis, coverting one frame at 
-    # a time. Since pjinoise thinks of still images as single frame 
-    # animations, this means we're always going to have to handle 
+
+    # PIL.image.convert can only convert two-dimensional (or three,
+    # with color channel being the third) images. So, for animations
+    # we have to iterate through the Z axis, coverting one frame at
+    # a time. Since pjinoise thinks of still images as single frame
+    # animations, this means we're always going to have to handle
     # the Z axis like this.
     for i in range(a.shape[Z]):
         img = Image.fromarray(a[i], mode=src_space)
@@ -61,12 +61,12 @@ def _convert_color_space(a: np.ndarray,
 
 def _normalize_color_space(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray]:
     """If one of the arrays is in RGB, convert both to RGB."""
-    # Assuming the working spaces are either grayscale or RGB, if the 
-    # two arrays are the same shape, they should be in the same space. 
+    # Assuming the working spaces are either grayscale or RGB, if the
+    # two arrays are the same shape, they should be in the same space.
     if len(a.shape) == len(b.shape):
         return a, b
-    
-    # Grayscale has three dimensions. RGB has four. To preserve color 
+
+    # Grayscale has three dimensions. RGB has four. To preserve color
     # in blending operations, grayscale has to be converted to RGB.
     if len(a.shape) == 3:
         a = _convert_color_space(a)
@@ -75,45 +75,45 @@ def _normalize_color_space(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray]:
     return a, b
 
 
-def process_layers(size: Sequence[int], 
+def process_layers(size: Sequence[int],
                    layers: Union[ValueSource, Layer, Sequence[Layer]],
-                   a: Union[None, np.ndarray] = None) -> np.ndarray: 
+                   a: Union[None, np.ndarray] = None) -> np.ndarray:
     """Create image data from the layers."""
-    # If no destination array was sent, it means we are either at the 
-    # start of the layer processing or we are starting the processing 
-    # of a layer group. If we are starting processing, then this will 
-    # contain the final image data. If we are starting the processing 
-    # of a layer group, this allows the layers in the group to only 
-    # blend with the other layers in the group before they blend with 
+    # If no destination array was sent, it means we are either at the
+    # start of the layer processing or we are starting the processing
+    # of a layer group. If we are starting processing, then this will
+    # contain the final image data. If we are starting the processing
+    # of a layer group, this allows the layers in the group to only
+    # blend with the other layers in the group before they blend with
     # the layers outside the group.
     if a is None:
         a = np.zeros(size, dtype=float)
-    
-    # If we got a sequence of layers, we process them recursively and 
+
+    # If we got a sequence of layers, we process them recursively and
     # return the result.
     if isinstance(layers, Sequence):
         for layer in layers:
             a = process_layers(size, layer, a)
         return a
-    
+
     # If we got a source layer, process it.
     if isinstance(layers.source, ValueSource):
         kwargs = {
-            "source": layers.source, 
+            "source": layers.source,
             "size": size,
             "location": layers.location,
             "filters": layers.filters,
         }
         b = render_source(**kwargs)
-    
-    # Otherwise we got a container layer, process its source and run 
+
+    # Otherwise we got a container layer, process its source and run
     # any filters that are set on the layer.
     else:
         new_size = f.preprocess(size, layers.filters)
         b = process_layers(size, layers.source)
         b = f.process(b, layers.filters)
         b = f.postprocess(b, layers.filters)
-    
+
     # Blend the image data and return.
     a, b = _normalize_color_space(a, b)
     return layers.blend(a, b, layers.blend_amount)
@@ -122,7 +122,7 @@ def process_layers(size: Sequence[int],
 def render_source(source: 'pjinoise.sources.ValueSource',
                   size: Sequence[int],
                   location: Sequence[int] = (0, 0, 0),
-                  filters: Sequence[f.ForLayer] = None) -> np.ndarray: 
+                  filters: Sequence[f.ForLayer] = None) -> np.ndarray:
     """Create image data from a ValueSource."""
     # You don't want to set the default value for a parameter to a
     # mutable value because it will remember any changes to it leading
@@ -168,13 +168,13 @@ def main(silent=True):
             t = Thread(target=ui.status_writer, args=(status, stages))
             t.start()
             status.put((ui.INIT,))
-    
+
         if not silent:
             status.put((ui.STATUS, 'Generating image...'))
         a = process_layers(conf.size, conf.source)
         if not silent:
             status.put((ui.PROG, 'Image generated.'))
-    
+
         if not silent:
             status.put((ui.STATUS, 'Saving...'))
         io.save_image(a, conf.filename, conf.format, conf.mode, conf.framerate)
@@ -182,12 +182,12 @@ def main(silent=True):
         if not silent:
             status.put((ui.PROG, f'Saved as {conf.filename}.'))
             status.put((ui.END, 'Good-bye.'))
-    
-    # Since the status updates run in an independent thread, letting 
-    # exceptions bubble up from this thread clobbers causes the last 
-    # status updates to clobber the last few lines of the exception. 
-    # To avoid that, send the exception through the status update 
-    # thread. This also ensures the status update thread is terminated. 
+
+    # Since the status updates run in an independent thread, letting
+    # exceptions bubble up from this thread clobbers causes the last
+    # status updates to clobber the last few lines of the exception.
+    # To avoid that, send the exception through the status update
+    # thread. This also ensures the status update thread is terminated.
     except Exception as e:
         if status:
             status.put((ui.KILL, e))

@@ -12,7 +12,7 @@ from pjinoise.constants import SUPPORTED_FORMATS
 
 
 def deserialize_sequence(value:Union[Sequence[float], str]) -> Tuple[float]:
-    """Deserialize a set of coordinates that could have come from 
+    """Deserialize a set of coordinates that could have come from
     command line input.
     """
     if not value:
@@ -23,9 +23,9 @@ def deserialize_sequence(value:Union[Sequence[float], str]) -> Tuple[float]:
 
 
 def grayscale_to_ints_list(a: np.ndarray) -> List[int]:
-    """pjinoise grayscale stores color values as floats between 
-    zero and one. This is a pain to read on a screen or type 
-    expected values for. This function converts that to lists 
+    """pjinoise grayscale stores color values as floats between
+    zero and one. This is a pain to read on a screen or type
+    expected values for. This function converts that to lists
     of integers for easier test comparison and printing.
     """
     a = a.copy()

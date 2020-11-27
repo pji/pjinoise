@@ -39,15 +39,15 @@ def update_progress(progress:str, stages_done:int, status:deque) -> None:
     progress = list(progress)
     progress[stages_done] = '\u2588'
     progress = ''.join(progress)
-    
+
     write('\033[A' * (len(status) + 2) + '\r')
     write(progress)
     write('\n' * (len(status) + 1) + '\r')
-    
+
     return progress
 
 
-def update_status(status:deque, newline:str, 
+def update_status(status:deque, newline:str,
                   maxlines:int, roll:bool = True) -> None:
     if roll:
         for i in range(len(status))[::-1]:
@@ -74,7 +74,7 @@ def status_writer(msg_queue:Queue, stages:int, maxlines:int = 4) -> None:
     msg = 'Starting...'
     status = deque()
     runflag = False
-    
+
     while True:
         h, m, s = split_time(time.time() - t0)
         if not msg_queue.empty():
@@ -118,7 +118,7 @@ def status_writer(msg_queue:Queue, stages:int, maxlines:int = 4) -> None:
 
 if __name__ == '__main__':
     from threading import Thread
-    
+
     msg_queue = Queue()
     t = Thread(target=status_writer, args=(msg_queue, 3))
     t.start()

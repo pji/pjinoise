@@ -12,7 +12,7 @@ import numpy as np
 
 
 def linear(a:np.ndarray) -> np.ndarray:
-    """Don't perform easing. This exists to avoid having to check if 
+    """Don't perform easing. This exists to avoid having to check if
     easing is needed before sending to an easing function.
     """
     return a
@@ -46,7 +46,7 @@ def in_out_cubic(a:np.ndarray) -> np.ndarray:
 
 def in_out_elastic(a:np.ndarray) -> np.ndarray:
     c5 = (2 * np.pi) / 4.5
-    
+
     # Create masks for the array.
     m1 = np.zeros(a.shape, bool)
     m1[a < .5] = True
@@ -54,7 +54,7 @@ def in_out_elastic(a:np.ndarray) -> np.ndarray:
     m2 = np.zeros(a.shape, bool)
     m2[a >= .5] = True
     m2[a >= 1] = False
-    
+
     # Run the easing function based on the masks.
     a[m1] = -(2 ** (20 * a[m1] - 10) * np.sin((20 * a[m1] - 11.125) * c5))
     a[m1] = a[m1] / 2
@@ -122,12 +122,12 @@ def in_sine(a:np.ndarray) -> np.ndarray:
 def out_bounce(a:np.ndarray) -> np.ndarray:
     n1 = 7.5625
     d1 = 2.75
-    
+
     a[a < 1 / d1] = n1 * a[a < 1 / d1] ** 2
     a[a < 2 / d1] = n1 * (a[a < 2 / d1] - 1.5 / d1) ** 2 + .75
     a[a < 2.5 / d1] = n1 * (a[a < 2.5 / d1] - 2.25 / d1) ** 2 + .9375
     a[a >= 2.5 / d1] = n1 * (a[a >= 2.5 / d1] - 2.625 / d1) ** 2 + .984375
-    
+
     return a
 
 
@@ -179,12 +179,12 @@ def mid_bump_sine(a:np.ndarray) -> np.ndarray:
     return in_out_sin(a)
 
 
-# Abbreviated function names both for registration and ease of use in 
+# Abbreviated function names both for registration and ease of use in
 # command line configuration.
 registered_functions = {
     '': linear,
     'l': linear,
-    
+
     'io2': in_out_quad,
     'io3': in_out_cubic,
     'io5': in_out_quint,
@@ -193,14 +193,14 @@ registered_functions = {
     'ioe': in_out_elastic,
     'ior': in_out_circ,
     'ios': in_out_sin,
-    
+
     'i2': in_quad,
     'i3': in_cubic,
     'i5': in_quint,
     'ie': in_elastic,
     'is': in_sine,
     'ir': in_circ,
-    
+
     'o2': out_quad,
     'o3': out_cubic,
     'o5': out_quint,
@@ -208,7 +208,7 @@ registered_functions = {
     'oe': out_elastic,
     'or': out_circ,
     'os': out_sine,
-    
+
     'mbl': mid_bump_linear,
     'mbs': mid_bump_sine,
 }
@@ -229,9 +229,9 @@ if __name__ == '__main__':
     ]
     a = np.array(a)
     a = a / 0xff
-    
+
     res = mid_bump_sine(a)
-    
+
     res = res * 0xff
     res = np.around(res).astype(int)
     for y in res:

@@ -16,8 +16,8 @@ _SerializedSource = t.Union[t.Mapping, t.Sequence[t.Mapping]]
 
 
 class Layer():
-    def __init__(self, 
-                 source: t.Union[_Source, 
+    def __init__(self,
+                 source: t.Union[_Source,
                                  t.Sequence[_Source],
                                  _SerializedSource],
                  blend: t.Union[str, t.Callable],
@@ -46,16 +46,16 @@ class Layer():
         if not isinstance(other, self.__class__):
             return NotImplemented
         return self.asdict() == other.asdict()
-    
+
     @property
     def source(self) -> _Source:
         return self._source
-    
+
     @source.setter
     def source(self, value) -> None:
         self._source = self._process_source(value)
-            
-    
+
+
     # Public methods.
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
@@ -71,28 +71,28 @@ class Layer():
         attrs['mask_filters'] = [f.asdict() for f in attrs['mask_filters']]
         attrs['blend'] = op.op_names[attrs['blend']]
         return attrs
-    
+
     # Private methods.
     def _process_source(self, value) -> t.Union[_Source, t.Sequence[_Source]]:
         # If passed a sequence, process recursively.
         if isinstance(value, t.Sequence):
             return tuple(self._process_source(item) for item in value)
-        
+
         # If passed a valid object, return it.
         if isinstance(value, (s.ValueSource, self.__class__)):
             return value
-        
-        # Duck type for a serialized source.ValueSource. If that's 
+
+        # Duck type for a serialized source.ValueSource. If that's
         # it, then deserialize and return.
         if 'type' in value:
             return s.deserialize_source(value)
-        
+
         # Otherwise, assume it's a Layer, deserialize, and return.
         return self.__class__(**value)
 
 
 class Image():
-    def __init__(self, 
+    def __init__(self,
                  source: t.Union[Layer, t.Sequence[Layer], _SerializedSource],
                  size: t.Sequence[int],
                  filename: str,
@@ -105,20 +105,20 @@ class Image():
         self.format = format
         self.mode = mode
         self.framerate = framerate
-    
+
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return NotImplemented
         return self.asdict() == other.asdict()
-    
+
     @property
     def source(self) -> _Source:
         return self._source
-    
+
     @source.setter
     def source(self, value) -> None:
         self._source = self._process_source(value)
-    
+
     # Public methods.
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
@@ -129,16 +129,16 @@ class Image():
             attrs['source'] = [item.asdict() for item in attrs['_source']]
         del attrs['_source']
         return attrs
-    
+
     # Private methods.
     def _process_source(self, value) -> t.Union[Layer, t.Sequence[Layer]]:
         # If passed a sequence, process recursively.
         if isinstance(value, t.Sequence):
             return tuple(self._process_source(item) for item in value)
-        
+
         # If passed a valid object, return it.
         if isinstance(value, Layer):
             return value
-        
+
         # Otherwise, assume it's a serialized Layer, deserialize, and return.
         return Layer(**value)

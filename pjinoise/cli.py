@@ -43,7 +43,7 @@ def _build_filters(filters: str) -> List[f.ForLayer]:
         name, *args = filter.split(':')
         cls = f.registered_filters[name]
         return cls(*args)
-    
+
     if not filters:
         return []
     return [_build_filter(filter) for filter in filters.split('+')]
@@ -66,7 +66,7 @@ def build_config(args: argparse.Namespace) -> m.Image:
         layers.append(layer)
     if len(layers) == 1:
         layers = layers[0]
-    
+
     return m.Image(**{
         'source': layers,
         'size': [int(n) for n in args.size[::-1]],
@@ -133,7 +133,7 @@ def parse_cli_args() -> None:
             },
         },
     }
-    
+
     # Read the command line arguments.
     p = argparse.ArgumentParser(
         prog='PJINOISE',

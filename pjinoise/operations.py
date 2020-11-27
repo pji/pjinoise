@@ -2,7 +2,7 @@
 operations
 ~~~~~~~~~~
 
-Array operations for use when combining two layers of an image or 
+Array operations for use when combining two layers of an image or
 animation.
 """
 from functools import wraps
@@ -15,11 +15,11 @@ from PIL import Image
 
 # Decorators.
 def clipped(fn:Callable) -> Callable:
-    """Operations that use division or unbounded addition or 
-    subtraction can overflow the scale of the image. This will 
-    detect whether the scale is one or 0xff, then clip the 
-    image by setting everything below zero to zero and everything 
-    above the scale to the scale maximum before returning the 
+    """Operations that use division or unbounded addition or
+    subtraction can overflow the scale of the image. This will
+    detect whether the scale is one or 0xff, then clip the
+    image by setting everything below zero to zero and everything
+    above the scale to the scale maximum before returning the
     image.
     """
     @wraps(fn)
@@ -35,11 +35,11 @@ def clipped(fn:Callable) -> Callable:
 
 
 def scaled(fn:Callable) -> Callable:
-    """Operations with multiplication rely on values being scaled to 
-    0 ≤ x ≤ 1 to keep the result from overflowing. Operations that add 
-    or subtract by one rely on that same scaling. Many color spaces 
-    are scaled to 0x00 ≤ x ≤ 0xff, so this will attempt to detect 
-    those images, rescale to one for the operation, and then rescale 
+    """Operations with multiplication rely on values being scaled to
+    0 ≤ x ≤ 1 to keep the result from overflowing. Operations that add
+    or subtract by one rely on that same scaling. Many color spaces
+    are scaled to 0x00 ≤ x ≤ 0xff, so this will attempt to detect
+    those images, rescale to one for the operation, and then rescale
     back to 0xff after the operation.
     """
     @wraps(fn)
@@ -62,19 +62,19 @@ def scaled(fn:Callable) -> Callable:
 
 # Non-blends.
 def replace(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
-    """Simple replacement filter. Can double as an opacity filter 
-    if passed an amount, but otherwise this will just replace the 
+    """Simple replacement filter. Can double as an opacity filter
+    if passed an amount, but otherwise this will just replace the
     values in a with the values in b.
-    
-    :param a: The existing values. This is like the bottom layer in 
+
+    :param a: The existing values. This is like the bottom layer in
         a photo editing tool.
-    :param b: The values to blend. This is like the top layer in a 
+    :param b: The values to blend. This is like the top layer in a
         photo editing tool.
-    :param amount: (Optional.) How much of the blending should be 
-        applied to the values in a as a percentage. This is like 
-        the opacity setting on the top layer in a photo editing 
+    :param amount: (Optional.) How much of the blending should be
+        applied to the values in a as a percentage. This is like
+        the opacity setting on the top layer in a photo editing
         tool.
-    :return: An array that contains the values of the blended arrays. 
+    :return: An array that contains the values of the blended arrays.
     :rtype: np.ndarray
     """
     if amount == 1:
@@ -186,7 +186,7 @@ def exclusion(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     ab = a + b - 2 * a * b
     if amount == 1:
         return ab
-    return a + (ab - a) * float(amount)    
+    return a + (ab - a) * float(amount)
 
 
 @scaled
@@ -212,7 +212,7 @@ def hard_mix(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     ab[a > 1 - b] = 1
     if amount == 1:
         return ab
-    return a + (ab - a) * float(amount)    
+    return a + (ab - a) * float(amount)
 
 
 @clipped
@@ -221,7 +221,7 @@ def linear_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
-    ab = b + 2 * a - 1    
+    ab = b + 2 * a - 1
     if amount == 1:
         return ab
     return a + (ab - a) * float(amount)
@@ -255,13 +255,13 @@ def pin_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     m3 = np.zeros(a.shape, bool)
     m3[~m1] = True
     m3[m2] = False
-    
+
     # Blend the arrays using the algorithm.
     ab = np.zeros_like(a)
     ab[m1] = 2 * a[m1] - 1
     ab[m2] = 2 * a[m2]
     ab[m3] = b[m3]
-    
+
     # Reduce the effect by the given amount and return.
     if amount == 1:
         return ab
@@ -289,7 +289,7 @@ def vivid_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
-    # Create masks to handle the algorithm change and avoid division 
+    # Create masks to handle the algorithm change and avoid division
     # by zero.
     m1 = np.zeros(a.shape, bool)
     m1[a <= .5] = True
@@ -297,7 +297,7 @@ def vivid_light(a:np.ndarray, b:np.ndarray, amount:float = 1) -> np.ndarray:
     m2 = np.zeros(a.shape, bool)
     m2[a > .5] = True
     m2[a == 1] = False
-    
+
     # Use the algorithm to blend the arrays.
     ab = np.zeros_like(a)
     ab[m1] = 1 - (1 - b[m1]) / (2 * a[m1])
@@ -349,7 +349,7 @@ registered_ops = {
     'screen': screen,
     'softlight': soft_light,
     'vividlight': vivid_light,
-    
+
     'rgbhue': rgb_hue,
 }
 op_names = {registered_ops[k]: k for k in registered_ops}
@@ -410,9 +410,9 @@ if __name__ == '__main__':
     a[a != 0] = a[a != 0] / scale
     b[b != 0] = b[b != 0] / scale
     amount = 1
-    
+
     op = hard_mix
-    
+
     ab = op(a, b, amount)
     ab = np.around(ab * scale).astype(int)
     print('[')
@@ -423,6 +423,6 @@ if __name__ == '__main__':
             print(' ' * 8 + '[' + ', '.join(cols) + ']',)
         print(' ' * 4 + ']')
     print(']')
-            
-    
-    
+
+
+

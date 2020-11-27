@@ -2,7 +2,7 @@
 __version__
 ~~~~~~~~~~~
 
-Common information about the pjinoise module, including the version 
+Common information about the pjinoise module, including the version
 number.
 """
 

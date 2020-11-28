@@ -13,6 +13,7 @@ from pjinoise import model as m
 from pjinoise import operations as op
 from pjinoise import pjinoise as pn
 from pjinoise import sources as s
+from pjinoise.common import grayscale_to_ints_list
 from pjinoise.constants import X, Y, Z
 
 
@@ -39,7 +40,7 @@ class Filter(f.ForLayer):
 
 
 class Source(s.ValueSource):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, flip=False, *args, **kwargs):
         self.image = np.array([
             [
                 [0x00, 0x40, 0x80, 0xc0, 0xff,],
@@ -58,6 +59,8 @@ class Source(s.ValueSource):
         ]).astype(int)
         self.scale = 0xff
         self.size = self.image.shape
+        if flip:
+            self.image = np.flip(self.image, -1)
     
     def fill(self, size, loc, *args, **kwargs):
         a = self.image.astype(float) / self.scale
@@ -67,6 +70,28 @@ class Source(s.ValueSource):
         if size != self.size:
             a = slice_array(a, size)
         return a
+
+
+class SourceMask(Source):
+    def __init__(self, *args, **kwargs):
+        self.image = np.array([
+            [
+                [0x00, 0x00, 0x00, 0x00, 0x00,],
+                [0x00, 0x00, 0x00, 0x00, 0x00,],
+                [0x80, 0x80, 0x80, 0x80, 0x80,],
+                [0xff, 0xff, 0xff, 0xff, 0xff,],
+                [0xff, 0xff, 0xff, 0xff, 0xff,],
+            ],
+            [
+                [0x00, 0x00, 0x00, 0x00, 0x00,],
+                [0x00, 0x00, 0x00, 0x00, 0x00,],
+                [0x80, 0x80, 0x80, 0x80, 0x80,],
+                [0xff, 0xff, 0xff, 0xff, 0xff,],
+                [0xff, 0xff, 0xff, 0xff, 0xff,],
+            ],
+        ], dtype=int)
+        self.scale = 0xff
+        self.size = self.image.shape
 
 
 # Test cases.
@@ -237,6 +262,60 @@ class LayerTestCase(ut.TestCase):
         # Extract actual values.
         a = np.around(result).astype(int)
         act = a.tolist()
+
+        # Determine whether test passed.
+        self.assertListEqual(exp, act)
+
+    def test_blend_data_with_mask(self):
+        """Given a base layer and a blend layer with a mask, blend 
+        those two layers using the mask.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x80, 0x80, 0x80, 0x80, 0x7f,],
+                [0xff, 0xc0, 0x80, 0x40, 0x00,],
+                [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            ],
+            [
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x80, 0x80, 0x80, 0x80, 0x7f,],
+                [0xff, 0xc0, 0x80, 0x40, 0x00,],
+                [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            ],
+        ]
+        
+        # Set up test data and state.
+        layers = [
+            m.Layer(**{
+                'source': Source(),
+                'blend': op.replace,
+                'blend_amount': 1,
+                'location': [0, 0, 0],
+                'filters': [],
+                'mask': None,
+                'mask_filters': []
+            }),
+            m.Layer(**{
+                'source': Source(flip=True),
+                'blend': op.replace,
+                'blend_amount': 1,
+                'location': [0, 0, 0],
+                'filters': [],
+                'mask': SourceMask(),
+                'mask_filters': []
+            }),
+        ]
+        size = layers[0].source.size
+
+        # Run test.
+        result = pn.process_layers(size, layers)
+
+        # Extract actual values.
+        act = grayscale_to_ints_list(result)
 
         # Determine whether test passed.
         self.assertListEqual(exp, act)

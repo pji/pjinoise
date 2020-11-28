@@ -59,20 +59,23 @@ def _convert_color_space(a: np.ndarray,
     return out
 
 
-def _normalize_color_space(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray]:
+def _normalize_color_space(*arrays) -> Tuple[np.ndarray]:
     """If one of the arrays is in RGB, convert both to RGB."""
-    # Assuming the working spaces are either grayscale or RGB, if the
-    # two arrays are the same shape, they should be in the same space.
-    if len(a.shape) == len(b.shape):
-        return a, b
+    # Assuming the working spaces are either grayscale or RGB, if all
+    # the two arrays are the same shape, they should be in the same
+    # space.
+    shapes = [len(a.shape) for a in arrays]
+    if all(shape == shapes[0] for shape in shapes):
+        return arrays
 
     # Grayscale has three dimensions. RGB has four. To preserve color
     # in blending operations, grayscale has to be converted to RGB.
-    if len(a.shape) == 3:
-        a = _convert_color_space(a)
-    if len(b.shape) == 3:
-        b = _convert_color_space(b)
-    return a, b
+    converted = []
+    for a in arrays:
+        if len(a.shape) == 3:
+            a = _convert_color_space(a)
+        converted.append(a)
+    return tuple(converted)
 
 
 def process_layers(size: Sequence[int],
@@ -99,10 +102,10 @@ def process_layers(size: Sequence[int],
     # If we got a source layer, process it.
     if isinstance(layers.source, ValueSource):
         kwargs = {
-            "source": layers.source,
-            "size": size,
-            "location": layers.location,
-            "filters": layers.filters,
+            'source': layers.source,
+            'size': size,
+            'location': layers.location,
+            'filters': layers.filters,
         }
         b = render_source(**kwargs)
 
@@ -114,7 +117,21 @@ def process_layers(size: Sequence[int],
         b = f.process(b, layers.filters)
         b = f.postprocess(b, layers.filters)
 
-    # Blend the image data and return.
+    # There are two possibilities for how the layers should be
+    # blended: masked or unmasked. Masked blends will have a
+    # ValueSource in the mask attribute, which needs to be sent
+    # to the blending operation.
+    if layers.mask is not None:
+        kwargs = {
+            'source': layers.mask,
+            'size': size,
+            'filters': [],
+        }
+        mask = render_source(**kwargs)
+        a, b, mask = _normalize_color_space(a, b, mask)
+        return layers.blend(a, b, layers.blend_amount, mask)
+
+    # Unmasked layers have no mask, so Blend the image data and return.
     a, b = _normalize_color_space(a, b)
     return layers.blend(a, b, layers.blend_amount)
 

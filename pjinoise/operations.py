@@ -37,9 +37,9 @@ def clipped(fn: Callable) -> Callable:
 def masked(fn: Callable) -> Callable:
     """Apply a blending mask to the operation."""
     @wraps(fn)
-    def wrapper(a: np.ndarray, 
-                b: np.ndarray, 
-                amount: float = 1, 
+    def wrapper(a: np.ndarray,
+                b: np.ndarray,
+                amount: float = 1,
                 mask: Union[None, np.ndarray] = None) -> np.ndarray:
         ab = fn(a, b, amount)
         if mask is None:
@@ -373,6 +373,7 @@ registered_ops = {
     'rgbhue': rgb_hue,
 }
 op_names = {registered_ops[k]: k for k in registered_ops}
+
 
 if __name__ == '__main__':
     a = [

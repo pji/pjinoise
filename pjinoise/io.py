@@ -98,6 +98,7 @@ def save_image(a: np.ndarray,
         # incoming array. The Image.save function in pillow need these
         # images to be two-dimensional and in the 'L' color space.
         if len(a.shape) == 3:
+            assert np.max(a) <= 1.0
             a = a[0].copy()
             a = (a * 0xff).astype(np.uint8)
 

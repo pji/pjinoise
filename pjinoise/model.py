@@ -38,8 +38,10 @@ class Layer():
             filters = [f.deserialize_filter(filter) for filter in filters]
         self.filters = filters
         self.mask = mask
-        if mask_filters is None:
+        if not mask_filters:
             mask_filters = []
+        elif isinstance(mask_filters[0], t.Mapping):
+            mask_filters = [f.deserialize_filter(f_) for f_ in mask_filters]
         self.mask_filters = mask_filters
 
     def __eq__(self, other):
@@ -55,6 +57,17 @@ class Layer():
     def source(self, value) -> None:
         self._source = self._process_source(value)
 
+    @property
+    def mask(self) -> _Source:
+        return self._mask
+
+    @mask.setter
+    def mask(self, value) -> None:
+        if value is None:
+            self._mask = None
+        else:
+            self._mask = self._process_source(value)
+
     # Public methods.
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
@@ -65,8 +78,11 @@ class Layer():
             attrs['source'] = [item.asdict() for item in attrs['_source']]
         del attrs['_source']
         attrs['filters'] = [item.asdict() for item in attrs['filters']]
-        if attrs['mask']:
-            attrs['mask'] = attrs['mask'].asdict()
+        if attrs['_mask']:
+            attrs['mask'] = attrs['_mask'].asdict()
+        else:
+            attrs['mask'] = None
+        del attrs['_mask']
         attrs['mask_filters'] = [f.asdict() for f in attrs['mask_filters']]
         attrs['blend'] = op.op_names[attrs['blend']]
         return attrs

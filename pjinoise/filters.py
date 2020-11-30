@@ -14,7 +14,7 @@ from PIL import Image, ImageChops, ImageFilter, ImageOps
 import numpy as np
 from skimage.transform import swirl
 
-from pjinoise.common import deserialize_sequence
+from pjinoise.common import convert_color_space, deserialize_sequence
 from pjinoise.constants import COLOR, X, Y, Z
 from pjinoise import ease as e
 from pjinoise import operations as op
@@ -34,14 +34,12 @@ def scaled(fn: Callable) -> Callable:
     def wrapper(obj, a: np.ndarray, *args, **kwargs) -> np.ndarray:
         rescaled = False
         if len(a.shape) == 4:
-            try:
-                a = a.astype(float) / 0xff
-                rescaled = True
-            except TypeError as e:
-                msg = f'max {np.max(a)}, {e}'
-                raise TypeError(msg)
+            a = a.astype(float) / 0xff
+            assert np.max(a) <= 1.0
+            rescaled = True
         a = fn(obj, a, *args, **kwargs)
         if rescaled:
+            assert np.max(a) <= 1.0
             a = np.around(a * 0xff).astype(np.uint8)
         return a
     return wrapper
@@ -107,23 +105,37 @@ class Color(ForLayer):
                  colorkey: str = '',
                  white: str = '',
                  black: str = '',
-                 invert: bool = False) -> None:
+                 invert: bool = False,
+                 src_space: str = '',
+                 dst_space: str = 'RGB') -> None:
         if colorkey:
             white, black = COLOR[colorkey]
         if invert:
             white, black = black, white
         self.white = white
         self.black = black
+        self.src_space = src_space
+        self.dst_space = dst_space
 
     # Public methods.
     def process(self, a: np.ndarray, *args) -> np.ndarray:
         out = None
-        a = (a * 0xff).astype(np.uint8)
+        src_space = self.src_space
+        if self.src_space == '':
+            assert np.max(a) <= 1.0
+            a = np.around(a * 0xff).astype(np.uint8)
+            src_space = 'L'
+        src_space = 'L'
         for i in range(a.shape[Z]):
-            img = Image.fromarray(a[i], mode='L')
-            img = ImageOps.colorize(img, self.black, self.white)
-            img = img.convert('RGB')
-            a_img = np.array(img, dtype=float)
+            img = Image.fromarray(a[i], mode=src_space)
+            img = ImageOps.colorize(**{'image': img,
+                                       'black': self.black,
+                                       'white': self.white,
+                                       'blackpoint': 0x00,
+                                       'midpoint': 0x79,
+                                       'whitepoint': 0xff,})
+            img = img.convert(self.dst_space)
+            a_img = np.array(img, dtype=np.uint8)
             if out is None:
                 out = np.zeros((a.shape[Z], *a_img.shape), dtype=np.uint8)
             out[i] = a_img
@@ -139,8 +151,9 @@ class Contrast(ForLayer):
         a_min = np.min(a)
         a_max = np.max(a)
         scale = a_max - a_min
-        a -= a_min
-        a /= scale
+        if scale != 0:
+            a = a - a_min
+            a = a / scale
         return a
 
 
@@ -170,12 +183,13 @@ class CutLight(ForLayer):
 
 class CutShadow(CutLight):
     # Public methods.
+    @scaled
     def process(self, a: np.array, *args) -> np.array:
-        a = 1 - a
-        threshold = 1 - self.threshold
-        a[a > self.threshold] = self.threshold
-        a = a / self.threshold
-        a = 1 - a
+        a = 1.0 - a
+        threshold = 1.0 - self.threshold
+        a[a > threshold] = threshold
+        a = a / threshold
+        a = 1.0 - a
         return self.ease(a)
 
 
@@ -184,6 +198,7 @@ class Inverse(ForLayer):
         self.ease = e.registered_functions[ease]
 
     # Public methods.
+    @scaled
     def process(self, a: np.ndarray, *args) -> np.ndarray:
         return self.ease(1 - a)
 
@@ -706,22 +721,90 @@ if __name__ == '__main__':
             [0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20, 0x00],
         ],
     ]
+    a = [
+        [
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+        ],
+        [
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
+        ],
+    ]
     a = np.array(a, dtype=float)
     a = a / 0xff
-    obj = BoxBlur(5)
+    obj = Color(**{
+        'colorkey': 'p',
+        'src_space': '',
+        'dst_space': 'RGB'
+    })
     size = preprocess(a.shape, [obj,])
-    res = obj.process(a)
-    res = postprocess(res, [obj,])
+    resa = obj.process(a)
+    resa = postprocess(resa, [obj,])
+
+    obj = Color(**{
+        'colorkey': 'b',
+        'src_space': '',
+        'dst_space': 'RGB'
+    })
+    size = preprocess(a.shape, [obj,])
+    resb = obj.process(a)
+    resb = postprocess(resb, [obj,])
+    
+    mask = [
+        [
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+        ],
+        [
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
+        ],
+    ]
+    mask = np.array(mask, dtype=float)
+    mask = mask / 0xff
+    mask = convert_color_space(mask, '', 'RGB')
+    
+    res = op.replace(resa, resb, 1, mask)
 
     print(res.shape)
-    res = np.around(res * 0xff).astype(np.uint)
     if len(res.shape) == 2:
+        res = np.around(res * 0xff).astype(np.uint)
         for y in res:
             print(' ' * 8, end='')
             r = [f'0x{x:02x}' for x in y]
             print('[' + ', '.join(r) + '],')
 
     if len(res.shape) == 3:
+        res = np.around(res * 0xff).astype(np.uint)
         for plane in res:
             print('    [')
             for row in plane:
@@ -729,3 +812,20 @@ if __name__ == '__main__':
                 r = [f'0x{col:02x}' for col in row]
                 print('[' + ', '.join(r) + '],')
             print('    ],')
+
+    if len(res.shape) == 4:
+        for plane in res:
+            print('    [')
+            for row in plane:
+                print(' ' * 8 + '[')
+                for col in row:
+                    print(' ' * 12, end = '')
+#                     p = [f'{color:3d}' for color in col]
+                    p = [f'0x{color:02x}' for color in col]
+                    print('[' + ', '.join(p) + '],')
+                print(' ' * 8 + ']')
+            print('    ],')
+
+    print(res.dtype)
+    img = Image.fromarray(res[0], mode='RGB')
+    img.save('spam.jpg', 'JPEG')

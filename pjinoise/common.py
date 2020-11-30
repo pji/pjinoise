@@ -7,8 +7,48 @@ Utilities and other commonly reused functions for pjinoise.
 from typing import List, Sequence, Tuple, Union
 
 import numpy as np
+from PIL import Image
 
 from pjinoise.constants import SUPPORTED_FORMATS
+
+
+X, Y, Z = 2, 1, 0
+
+
+def convert_color_space(a: np.ndarray,
+                        src_space: str = '',
+                        dst_space: str = 'RGB') -> np.ndarray:
+    """Convert an array to the given color space."""
+    # The shape of the output is based on the space, so we can't
+    # build out until we do the first conversion. However, setting
+    # it to None here makes the process of detecting whether we've
+    # set up the output array a little smoother later.
+    out = None
+
+    # Most of pjinoise tries to work with grayscale color values
+    # that go from zero to one. However, pillow's grayscale mode
+    # is 'L', which represents the color as an unsigned 8 bit
+    # integer. The data will need to at least be in mode 'L' for
+    # pillow to be able to convert the color space.
+    if src_space == '':
+        assert np.max(a) <= 1.0
+        a = np.around(a * 0xff).astype(np.uint8)
+        src_space = 'L'
+
+    # PIL.image.convert can only convert two-dimensional (or three,
+    # with color channel being the third) images. So, for animations
+    # we have to iterate through the Z axis, coverting one frame at
+    # a time. Since pjinoise thinks of still images as single frame
+    # animations, this means we're always going to have to handle
+    # the Z axis like this.
+    for i in range(a.shape[Z]):
+        img = Image.fromarray(a[i], mode=src_space)
+        img = img.convert(dst_space)
+        a_img = np.array(img)
+        if out is None:
+            out = np.zeros((a.shape[Z], *a_img.shape), dtype=np.uint8)
+        out[i] = a_img
+    return out
 
 
 def deserialize_sequence(value: Union[Sequence[float], str]) -> Tuple[float]:

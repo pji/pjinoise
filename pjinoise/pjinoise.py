@@ -15,6 +15,7 @@ from pjinoise import cli
 from pjinoise import filters as f
 from pjinoise import io
 from pjinoise import ui
+from pjinoise.common import convert_color_space as _convert_color_space
 from pjinoise.model import Layer
 from pjinoise.sources import ValueSource
 
@@ -24,41 +25,41 @@ X, Y, Z = 2, 1, 0
 
 
 # Image generation functions.
-def _convert_color_space(a: np.ndarray,
-                         src_space: str = '',
-                         dst_space: str = 'RGB') -> np.ndarray:
-    """Convert an array to the given color space."""
-    # The shape of the output is based on the space, so we can't
-    # build out until we do the first conversion. However, setting
-    # it to None here makes the process of detecting whether we've
-    # set up the output array a little smoother later.
-    out = None
-
-    # Most of pjinoise tries to work with grayscale color values
-    # that go from zero to one. However, pillow's grayscale mode
-    # is 'L', which represents the color as an unsigned 8 bit
-    # integer. The data will need to at least be in mode 'L' for
-    # pillow to be able to convert the color space.
-    if src_space == '':
-        a = (a * 0xff).astype(np.uint8)
-        src_space = 'L'
-
-    # PIL.image.convert can only convert two-dimensional (or three,
-    # with color channel being the third) images. So, for animations
-    # we have to iterate through the Z axis, coverting one frame at
-    # a time. Since pjinoise thinks of still images as single frame
-    # animations, this means we're always going to have to handle
-    # the Z axis like this.
-    for i in range(a.shape[Z]):
-        img = Image.fromarray(a[i], mode=src_space)
-        img = img.convert(dst_space)
-        a_img = np.array(img)
-        if out is None:
-            out = np.zeros((a.shape[Z], *a_img.shape), dtype=a.dtype)
-        out[i] = a_img
-    return out
-
-
+# def _convert_color_space(a: np.ndarray,
+#                          src_space: str = '',
+#                          dst_space: str = 'RGB') -> np.ndarray:
+#     """Convert an array to the given color space."""
+#     # The shape of the output is based on the space, so we can't
+#     # build out until we do the first conversion. However, setting
+#     # it to None here makes the process of detecting whether we've
+#     # set up the output array a little smoother later.
+#     out = None
+# 
+#     # Most of pjinoise tries to work with grayscale color values
+#     # that go from zero to one. However, pillow's grayscale mode
+#     # is 'L', which represents the color as an unsigned 8 bit
+#     # integer. The data will need to at least be in mode 'L' for
+#     # pillow to be able to convert the color space.
+#     if src_space == '':
+#         a = (a * 0xff).astype(np.uint8)
+#         src_space = 'L'
+# 
+#     # PIL.image.convert can only convert two-dimensional (or three,
+#     # with color channel being the third) images. So, for animations
+#     # we have to iterate through the Z axis, coverting one frame at
+#     # a time. Since pjinoise thinks of still images as single frame
+#     # animations, this means we're always going to have to handle
+#     # the Z axis like this.
+#     for i in range(a.shape[Z]):
+#         img = Image.fromarray(a[i], mode=src_space)
+#         img = img.convert(dst_space)
+#         a_img = np.array(img)
+#         if out is None:
+#             out = np.zeros((a.shape[Z], *a_img.shape), dtype=a.dtype)
+#         out[i] = a_img
+#     return out
+# 
+# 
 def _normalize_color_space(*arrays) -> Tuple[np.ndarray]:
     """If one of the arrays is in RGB, convert both to RGB."""
     # Assuming the working spaces are either grayscale or RGB, if all
@@ -73,7 +74,9 @@ def _normalize_color_space(*arrays) -> Tuple[np.ndarray]:
     converted = []
     for a in arrays:
         if len(a.shape) == 3:
+            assert np.max(a) <= 1.0
             a = _convert_color_space(a)
+            assert a.dtype == np.uint8
         converted.append(a)
     return tuple(converted)
 
@@ -125,7 +128,7 @@ def process_layers(size: Sequence[int],
         kwargs = {
             'source': layers.mask,
             'size': size,
-            'filters': [],
+            'filters': layers.mask_filters,
         }
         mask = render_source(**kwargs)
         a, b, mask = _normalize_color_space(a, b, mask)
@@ -158,6 +161,7 @@ def render_source(source: 'pjinoise.sources.ValueSource',
     # Generate the image data from the source.
     try:
         a = source.fill(new_size, location)
+        assert np.max(a) <= 1.0
     except AttributeError as e:
         print(source)
         raise e

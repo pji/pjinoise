@@ -999,7 +999,7 @@ class CachingMixin():
         """
         if self.key not in self._cache:
             self._cache[self.key] = super().fill(size, location)
-        return self._cache[self.key]
+        return self._cache[self.key].copy()
 
 
 class CachingOctavePerlin(CachingMixin, OctavePerlin):

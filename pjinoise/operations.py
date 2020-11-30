@@ -41,11 +41,13 @@ def masked(fn: Callable) -> Callable:
                 b: np.ndarray,
                 amount: float = 1,
                 mask: Union[None, np.ndarray] = None) -> np.ndarray:
-        ab = fn(a, b, amount)
+        ab = fn(a.copy(), b, amount)
         if mask is None:
             return ab
-        diff = ab - a
-        return a + diff * mask
+        if np.max(mask) > 1.0:
+            mask = mask.astype(float) / 0xff
+        ab = a * (1 - mask) + ab * mask
+        return np.around(ab).astype(np.uint8)        
     return wrapper
 
 

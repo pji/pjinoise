@@ -68,6 +68,60 @@ class ClassTestCase(ut.TestCase):
         self.assertEqual(exp_param, act_param)
 
 
+# Decorator tests.
+class DecoratorTestCase(ut.TestCase):
+    def test_channeled_filter(self):
+        """Given image data in a multiple channel color space, like 
+        RGB, process each channel of the image separately, then 
+        recombine into a single image. This is used to allow filters 
+        that can only process a single channel (grayscale) to 
+        process multiple channel images.
+        """
+        # Expected values.
+        exp = [
+            [
+                [[0x00, 0x40,], [0x40, 0x7f], [0x7f, 0x00],],
+                [[0x00, 0x40,], [0x40, 0x7f], [0x7f, 0x00],],
+                [[0x00, 0x40,], [0x40, 0x7f], [0x7f, 0x00],],
+            ],
+            [
+                [[0x00, 0x40,], [0x40, 0x7f], [0x7f, 0x00],],
+                [[0x00, 0x40,], [0x40, 0x7f], [0x7f, 0x00],],
+                [[0x00, 0x40,], [0x40, 0x7f], [0x7f, 0x00],],
+            ],
+        ]
+        
+        # Set up test data and state.
+        a = np.array([
+            [
+                [[0x00, 0x80,], [0x80, 0xff], [0xff, 0x00],],
+                [[0x00, 0x80,], [0x80, 0xff], [0xff, 0x00],],
+                [[0x00, 0x80,], [0x80, 0xff], [0xff, 0x00],],
+            ],
+            [
+                [[0x00, 0x80,], [0x80, 0xff], [0xff, 0x00],],
+                [[0x00, 0x80,], [0x80, 0xff], [0xff, 0x00],],
+                [[0x00, 0x80,], [0x80, 0xff], [0xff, 0x00],],
+            ],
+        ], dtype=np.uint8)
+        class Filter(filters.ForLayer):
+            @filters.channeled
+            def process(self, a):
+                if len(a.shape) != 3:
+                    raise TypeError('Array not channeled.')
+                return a // 2
+        f = Filter()
+        
+        # Run test.
+        result = f.process(a)
+        
+        # Extract actual result from test.
+        act = result.tolist()
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+
+
 # Layer filter tests.
 class CurveTestCase(ut.TestCase):
     def test_curve_process(self):

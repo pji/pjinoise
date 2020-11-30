@@ -116,7 +116,7 @@ def process_layers(size: Sequence[int],
     # any filters that are set on the layer.
     else:
         new_size = f.preprocess(size, layers.filters)
-        b = process_layers(size, layers.source)
+        b = process_layers(new_size, layers.source)
         b = f.process(b, layers.filters)
         b = f.postprocess(b, layers.filters)
 

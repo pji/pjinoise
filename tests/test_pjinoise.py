@@ -27,13 +27,13 @@ def slice_array(a, new_shape):
 
 class Filter(f.ForLayer):
     amount = .5
-    
+
     def preprocess(self, size, original_size):
         return [size[Z], size[Y] + 2, size[X] + 2,]
-    
+
     def process(self, a):
         return a * self.amount
-    
+
     def postprocess(self, size):
         new_size = [size[Z], size[Y] - 2, size[X] - 2]
         return new_size
@@ -61,7 +61,7 @@ class Source(s.ValueSource):
         self.size = self.image.shape
         if flip:
             self.image = np.flip(self.image, -1)
-    
+
     def fill(self, size, loc, *args, **kwargs):
         a = self.image.astype(float) / self.scale
         if loc:
@@ -267,7 +267,7 @@ class LayerTestCase(ut.TestCase):
         self.assertListEqual(exp, act)
 
     def test_blend_data_with_mask(self):
-        """Given a base layer and a blend layer with a mask, blend 
+        """Given a base layer and a blend layer with a mask, blend
         those two layers using the mask.
         """
         # Expected value.
@@ -287,7 +287,7 @@ class LayerTestCase(ut.TestCase):
                 [0xff, 0xc0, 0x80, 0x40, 0x00,],
             ],
         ]
-        
+
         # Set up test data and state.
         layers = [
             m.Layer(**{
@@ -318,6 +318,7 @@ class LayerTestCase(ut.TestCase):
         act = grayscale_to_ints_list(result)
 
         # Determine whether test passed.
+        self.maxDiff = None
         self.assertListEqual(exp, act)
 
     def test_create_image_data_from_valuesource(self):

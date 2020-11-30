@@ -22,6 +22,22 @@ from pjinoise import sources as s
 
 
 # Decorators
+def channeled(fn: Callable) -> Callable:
+    @wraps(fn)
+    def wrapper(obj, a: np.ndarray, *args, **kwargs) -> np.ndarray:
+        channeled = False
+        if len(a.shape) == 3:
+            return fn(obj, a, *args, **kwargs)
+        out = np.zeros_like(a)
+        for i in range(a.shape[-1]):
+            channel = np.zeros(a.shape[:-1], dtype=a.dtype)
+            channel[:, :] = a[:, :, :, i]
+            channel = fn(obj, channel, *args, **kwargs)
+            out[:, :, :, i] = channel[:, :]
+        return out
+    return wrapper
+
+
 def scaled(fn: Callable) -> Callable:
     """Operations with multiplication rely on values being scaled to
     0 ≤ x ≤ 1 to keep the result from overflowing. Operations that add
@@ -62,6 +78,22 @@ class ForLayer(ABC):
         attrs['type'] = get_regname_for_class(self)
         if 'ease' in attrs:
             attrs['ease'] = e.get_regname_for_func(attrs['ease'])
+        
+        # This is to address a problem with the Pinch filter. It 
+        # likely be fixed in the Pinch filter instead.
+        for key in attrs:
+            if isinstance(attrs[key], np.float32):
+                attrs[key] = float(attrs[key])
+            if (isinstance(attrs[key], Sequence) 
+                    and not isinstance(attrs[key], str)):
+                try:
+                    if isinstance(attrs[key][0], np.float32):
+                        attrs[key] = [float(n) for n in attrs[key]]
+                except IndexError:
+                    raise TypeError(type(attrs[key]))
+        if 'padding' in attrs:
+            del attrs['padding']
+        
         return attrs
 
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
@@ -268,6 +300,28 @@ class Pinch(ForLayer):
         self.offset = tuple(np.float32(n) for n in offset)
 
     # Public methods.
+    def preprocess(self, size: Sequence[int], 
+                   original_size: Sequence[int],
+                   *args) -> Sequence[int]:
+        factor = 1 + self.amount
+        side = self.radius * 2 * factor
+        needed_size = [side for n in original_size[1:]]
+        needed_size = [original_size[0], *needed_size]
+        needed_size = [int(n) for n in needed_size]
+        self.padding = []
+        new_size = []
+        for axis in range(len(size)):
+            if size[axis] >= needed_size[axis]:
+                new_size.append(size[axis])
+                self.padding.append(0)
+            else:
+                new_size.append(needed_size[axis])
+                pad = needed_size[axis] - size[axis]
+                self.padding.append(pad)
+        return new_size
+        
+    
+    @channeled
     def process(self, a: np.ndarray, *args) -> np.ndarray:
         """Based on logic found here:
         https://stackoverflow.com/questions/64067196/pinch-bulge-distortion-using-python-opencv
@@ -602,6 +656,8 @@ class Twirl(ForLayer):
         self.padding = tuple([new - old for new, old in zip(new_size, size)])
         return tuple(new_size)
 
+    @scaled
+    @channeled
     def process(self, a: np.ndarray) -> np.ndarray:
         """ Based on code taken from:
         https://stackoverflow.com/questions/30448045

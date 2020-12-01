@@ -15,6 +15,7 @@ _Source = t.Union[s.ValueSource, 'Layer']
 _SerializedSource = t.Union[t.Mapping, t.Sequence[t.Mapping]]
 
 
+# Classes.
 class Layer():
     def __init__(self,
                  source: t.Union[_Source,
@@ -145,6 +146,10 @@ class Image():
         del attrs['_source']
         return attrs
 
+    def count_sources(self) -> int:
+        """Return the number of ValueSources contained by the Image."""
+        return count_sources(self.source)
+
     # Private methods.
     def _process_source(self, value) -> t.Union[Layer, t.Sequence[Layer]]:
         # If passed a sequence, process recursively.
@@ -157,3 +162,18 @@ class Image():
 
         # Otherwise, assume it's a serialized Layer, deserialize, and return.
         return Layer(**value)
+
+
+# Utility functions.
+def count_sources(obj: t.Union[_Source, t.Sequence[Layer]]) -> int:
+    """Find the number of ValueSources contained in the object."""
+    if isinstance(obj, t.Sequence):
+        counts = [count_sources(item) for item in obj]
+        return sum(counts)
+    if isinstance(obj, Layer):
+        return count_sources(obj.source)
+    if isinstance(obj, s.ValueSource):
+        return 1
+    else:
+        msg = f'Unexpected type in Image: {obj.__class__.__name__}'
+        raise TypeError(msg)

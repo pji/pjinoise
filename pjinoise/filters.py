@@ -78,13 +78,13 @@ class ForLayer(ABC):
         attrs['type'] = get_regname_for_class(self)
         if 'ease' in attrs:
             attrs['ease'] = e.get_regname_for_func(attrs['ease'])
-        
-        # This is to address a problem with the Pinch filter. It 
+
+        # This is to address a problem with the Pinch filter. It
         # likely be fixed in the Pinch filter instead.
         for key in attrs:
             if isinstance(attrs[key], np.float32):
                 attrs[key] = float(attrs[key])
-            if (isinstance(attrs[key], Sequence) 
+            if (isinstance(attrs[key], Sequence)
                     and not isinstance(attrs[key], str)):
                 try:
                     if isinstance(attrs[key][0], np.float32):
@@ -93,7 +93,7 @@ class ForLayer(ABC):
                     raise TypeError(type(attrs[key]))
         if 'padding' in attrs:
             del attrs['padding']
-        
+
         return attrs
 
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
@@ -300,7 +300,7 @@ class Pinch(ForLayer):
         self.offset = tuple(np.float32(n) for n in offset)
 
     # Public methods.
-    def preprocess(self, size: Sequence[int], 
+    def preprocess(self, size: Sequence[int],
                    original_size: Sequence[int],
                    *args) -> Sequence[int]:
         factor = 1 + self.amount
@@ -319,8 +319,7 @@ class Pinch(ForLayer):
                 pad = needed_size[axis] - size[axis]
                 self.padding.append(pad)
         return new_size
-        
-    
+
     @channeled
     def process(self, a: np.ndarray, *args) -> np.ndarray:
         """Based on logic found here:
@@ -809,47 +808,8 @@ if __name__ == '__main__':
         'dst_space': 'RGB'
     })
     size = preprocess(a.shape, [obj,])
-    resa = obj.process(a)
-    resa = postprocess(resa, [obj,])
-
-    obj = Color(**{
-        'colorkey': 'b',
-        'src_space': '',
-        'dst_space': 'RGB'
-    })
-    size = preprocess(a.shape, [obj,])
-    resb = obj.process(a)
-    resb = postprocess(resb, [obj,])
-    
-    mask = [
-        [
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-        ],
-        [
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-            [0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0xff, 0xff, 0xff],
-        ],
-    ]
-    mask = np.array(mask, dtype=float)
-    mask = mask / 0xff
-    mask = convert_color_space(mask, '', 'RGB')
-    
-    res = op.replace(resa, resb, 1, mask)
+    res = obj.process(a)
+    res = postprocess(resa, [obj,])
 
     print(res.shape)
     if len(res.shape) == 2:
@@ -875,8 +835,7 @@ if __name__ == '__main__':
             for row in plane:
                 print(' ' * 8 + '[')
                 for col in row:
-                    print(' ' * 12, end = '')
-#                     p = [f'{color:3d}' for color in col]
+                    print(' ' * 12, end='')
                     p = [f'0x{color:02x}' for color in col]
                     print('[' + ', '.join(p) + '],')
                 print(' ' * 8 + ']')

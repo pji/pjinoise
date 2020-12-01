@@ -321,6 +321,69 @@ class LayerTestCase(ut.TestCase):
         self.maxDiff = None
         self.assertListEqual(exp, act)
 
+    def count_sources(self):
+        """Given a configuration object, count the number of sources
+        used in the configuration. This is used to display progress
+        in the UI.
+        """
+        # Expected values.
+        exp = 3
+
+        # Set up test data and state.
+        src = Source()
+        conf = m.Image(**{
+            'source': [
+                m.Layer(**{
+                    'source': Source(),
+                    'blend': op.replace,
+                    'blend_amount': 1,
+                    'location': [0, 0, 0],
+                    'filters': [],
+                    'mask': None,
+                    'mask_filters': []
+                }),
+                m.Layer(**{
+                    'source': [
+                        m.Layer(**{
+                            'source': Source(),
+                            'blend': op.difference,
+                            'blend_amount': 1,
+                            'location': [0, 0, 0],
+                            'filters': [],
+                            'mask': None,
+                            'mask_filters': []
+                        }),
+                        m.Layer(**{
+                            'source': Source(),
+                            'blend': op.difference,
+                            'blend_amount': 1,
+                            'location': [0, 0, 0],
+                            'filters': [],
+                            'mask': None,
+                            'mask_filters': []
+                        }),
+                    ],
+                    'blend': op.difference,
+                    'blend_amount': 1,
+                    'location': [0, 0, 0],
+                    'filters': [],
+                    'mask': None,
+                    'mask_filters': []
+                }),
+            ],
+            'size': src.size,
+            'filename': 'spam.jpg',
+            'format': 'JPEG',
+            'mode': 'RGB',
+            'framerate': None,
+        })
+
+        # Run test.
+        act = conf.count_sources()
+
+        # Determine if test passed.
+        self.assertEqual(exp, act)
+
     def test_create_image_data_from_valuesource(self):
         """Given a ValueSource and a size, produce an amount of image
         data equal to size from the given location within the source.

@@ -25,41 +25,6 @@ X, Y, Z = 2, 1, 0
 
 
 # Image generation functions.
-# def _convert_color_space(a: np.ndarray,
-#                          src_space: str = '',
-#                          dst_space: str = 'RGB') -> np.ndarray:
-#     """Convert an array to the given color space."""
-#     # The shape of the output is based on the space, so we can't
-#     # build out until we do the first conversion. However, setting
-#     # it to None here makes the process of detecting whether we've
-#     # set up the output array a little smoother later.
-#     out = None
-# 
-#     # Most of pjinoise tries to work with grayscale color values
-#     # that go from zero to one. However, pillow's grayscale mode
-#     # is 'L', which represents the color as an unsigned 8 bit
-#     # integer. The data will need to at least be in mode 'L' for
-#     # pillow to be able to convert the color space.
-#     if src_space == '':
-#         a = (a * 0xff).astype(np.uint8)
-#         src_space = 'L'
-# 
-#     # PIL.image.convert can only convert two-dimensional (or three,
-#     # with color channel being the third) images. So, for animations
-#     # we have to iterate through the Z axis, coverting one frame at
-#     # a time. Since pjinoise thinks of still images as single frame
-#     # animations, this means we're always going to have to handle
-#     # the Z axis like this.
-#     for i in range(a.shape[Z]):
-#         img = Image.fromarray(a[i], mode=src_space)
-#         img = img.convert(dst_space)
-#         a_img = np.array(img)
-#         if out is None:
-#             out = np.zeros((a.shape[Z], *a_img.shape), dtype=a.dtype)
-#         out[i] = a_img
-#     return out
-# 
-# 
 def _normalize_color_space(*arrays) -> Tuple[np.ndarray]:
     """If one of the arrays is in RGB, convert both to RGB."""
     # Assuming the working spaces are either grayscale or RGB, if all
@@ -83,7 +48,8 @@ def _normalize_color_space(*arrays) -> Tuple[np.ndarray]:
 
 def process_layers(size: Sequence[int],
                    layers: Union[ValueSource, Layer, Sequence[Layer]],
-                   a: Union[None, np.ndarray] = None) -> np.ndarray:
+                   a: Union[None, np.ndarray] = None,
+                   status: Union[None, Queue] = None) -> np.ndarray:
     """Create image data from the layers."""
     # If no destination array was sent, it means we are either at the
     # start of the layer processing or we are starting the processing
@@ -99,11 +65,14 @@ def process_layers(size: Sequence[int],
     # return the result.
     if isinstance(layers, Sequence):
         for layer in layers:
-            a = process_layers(size, layer, a)
+            a = process_layers(size, layer, a, status)
         return a
 
     # If we got a source layer, process it.
     if isinstance(layers.source, ValueSource):
+        if status is not None:
+            src_name = layers.source.__class__.__name__
+            status.put((ui.STATUS, f'Rendering {src_name}...'))
         kwargs = {
             'source': layers.source,
             'size': size,
@@ -111,12 +80,15 @@ def process_layers(size: Sequence[int],
             'filters': layers.filters,
         }
         b = render_source(**kwargs)
+        if status is not None:
+            src_name = layers.source.__class__.__name__
+            status.put((ui.PROG, f'Rendered {src_name}.'))
 
     # Otherwise we got a container layer, process its source and run
     # any filters that are set on the layer.
     else:
         new_size = f.preprocess(size, layers.filters)
-        b = process_layers(new_size, layers.source)
+        b = process_layers(new_size, layers.source, None, status)
         b = f.process(b, layers.filters)
         b = f.postprocess(b, layers.filters)
 
@@ -139,7 +111,7 @@ def process_layers(size: Sequence[int],
     return layers.blend(a, b, layers.blend_amount)
 
 
-def render_source(source: 'pjinoise.sources.ValueSource',
+def render_source(source: ValueSource,
                   size: Sequence[int],
                   location: Sequence[int] = (0, 0, 0),
                   filters: Sequence[f.ForLayer] = None) -> np.ndarray:
@@ -184,15 +156,15 @@ def main(silent=True):
         else:
             conf = cli.build_config(args)
         if not silent:
-            stages = 2
             status = Queue()
+            stages = 2 + conf.count_sources()
             t = Thread(target=ui.status_writer, args=(status, stages))
             t.start()
             status.put((ui.INIT,))
 
         if not silent:
             status.put((ui.STATUS, 'Generating image...'))
-        a = process_layers(conf.size, conf.source)
+        a = process_layers(conf.size, conf.source, None, status)
         if not silent:
             status.put((ui.PROG, 'Image generated.'))
 

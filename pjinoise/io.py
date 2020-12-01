@@ -77,7 +77,6 @@ def save_conf(conf: m.Image) -> None:
         'Image': conf.asdict(),
     }
     confjson = json.dumps(confmap, indent=4)
-                        
 
     # Save the config.
     with open(conffile, 'w') as fh:

@@ -40,12 +40,15 @@ class CachingTestCase(ut.TestCase):
         class Source(s.ValueSource):
             def __init__(self, value):
                 self.value = value
+
             def fill(self, size, _):
                 a = np.zeros(size, dtype=float)
                 a.fill(self.value)
                 return a
+
         class CachingSource(s.CachingMixin, Source):
             _cache = {}
+
         src1 = CachingSource('spam', 0.25)
         src2 = CachingSource('spam', 0.75)
         size = (2, 3, 3)
@@ -118,7 +121,8 @@ class PatternTestCase(ut.TestCase):
         array of that size filled with noise.
         """
         # Expected values.
-        exp = [[
+        exp = [
+            [
                 [0x00, 0x00, 0x00, 0x00],
                 [0x80, 0x80, 0x80, 0x80],
                 [0xff, 0xff, 0xff, 0xff],
@@ -179,7 +183,8 @@ class PatternTestCase(ut.TestCase):
         array of that size filled with noise.
         """
         # Expected values.
-        exp = [[
+        exp = [
+            [
                 [0x00, 0x00, 0x00, 0x00],
                 [0x80, 0x80, 0x80, 0x80],
                 [0xff, 0xff, 0xff, 0xff],
@@ -217,7 +222,8 @@ class PatternTestCase(ut.TestCase):
         volume filled with a single color.
         """
         # Expected values.
-        exp = [[
+        exp = [
+            [
                 [0x40, 0x40, 0x40, 0x40],
                 [0x40, 0x40, 0x40, 0x40],
                 [0x40, 0x40, 0x40, 0x40],
@@ -253,7 +259,8 @@ class PatternTestCase(ut.TestCase):
         volume filled a radial gradient.
         """
         # Expected values.
-        exp = [[
+        exp = [
+            [
                 [0x2f, 0x42, 0x53, 0x60, 0x69, 0x6c, 0x69, 0x60,],
                 [0x42, 0x58, 0x6c, 0x7b, 0x86, 0x89, 0x86, 0x7b,],
                 [0x53, 0x6c, 0x82, 0x95, 0xa2, 0xa7, 0xa2, 0x95,],
@@ -295,7 +302,8 @@ class PatternTestCase(ut.TestCase):
         volume filled a radial gradient.
         """
         # Expected values.
-        exp = [[
+        exp = [
+            [
                 [0x6c, 0x89, 0xa7, 0xc4, 0xe2, 0xff, 0xe2, 0xc4,],
                 [0x69, 0x86, 0xa2, 0xbd, 0xd5, 0xe2, 0xd5, 0xbd,],
                 [0x60, 0x7b, 0x95, 0xac, 0xbd, 0xc4, 0xbd, 0xac,],
@@ -418,25 +426,25 @@ class RandomTestCase(ut.TestCase):
         # Set up test data and state.
         size = (1, 3, 5)
         table = [
-                [
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                ],
-                [
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                ],
-                [
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                    [0x00, 0x7f, 0xff, 0xff,],
-                ],
-            ]
+            [
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+            ],
+            [
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+            ],
+            [
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+                [0x00, 0x7f, 0xff, 0xff,],
+            ],
+        ]
         unit = (2, 2, 2)
         obj = s.Values(table=table, ease='l', unit=unit)
 

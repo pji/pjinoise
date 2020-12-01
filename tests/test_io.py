@@ -300,7 +300,6 @@ class IOTestCase(ut.TestCase):
         # Determine if test passed.
         self.assertTupleEqual(exp, act)
 
-
     @patch('PIL.Image.Image.save')
     def test_save_color_image(self, mock_save):
         """Given image configuration and image data, save the image
@@ -329,7 +328,6 @@ class IOTestCase(ut.TestCase):
 
         # Determine if test passed.
         self.assertTupleEqual(exp, act)
-
 
     @patch('cv2.VideoWriter')
     def test_save_video(self, mock_write):
@@ -383,7 +381,6 @@ class IOTestCase(ut.TestCase):
 
         # Determine if test passed.
         self.assertListEqual(exp, act)
-
 
     def test_serialize_config_to_json_file(self):
         """Given a configuration object, serialize that object to

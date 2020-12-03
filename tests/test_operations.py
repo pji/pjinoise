@@ -13,7 +13,7 @@ from pjinoise import operations as op
 
 
 # Utility functions.
-def run_test(operation:Callable) -> List[int]:
+def run_test(operation: Callable, amount: float = 1.0) -> List[int]:
     a = np.array([
         [0x00, 0x40, 0x80, 0xc0, 0xff,],
         [0x00, 0x40, 0x80, 0xc0, 0xff,],
@@ -30,7 +30,7 @@ def run_test(operation:Callable) -> List[int]:
     ])
     a = a / 0xff
     b = b / 0xff
-    result = operation(a, b)
+    result = operation(a, b, amount)
     result = result * 0xff
     result = np.around(result).astype(int)
     return result.tolist()
@@ -123,6 +123,23 @@ class OperationsTestCase(ut.TestCase):
             [0x00, 0x30, 0x40, 0x30, 0x00,],
         ]
         act = run_test(op.multiply)
+        self.assertListEqual(exp, act)
+
+    def test_multiply_with_half_effect(self):
+        """Given two arrays and an amount the operation should affect 
+        the first array, operations.multiply should return the value 
+        of the product of each point in the arrays. Since each value 
+        in the arrays is between zero and one, this results in a 
+        darkening of the image.
+        """
+        exp = [
+            [0x00, 0x38, 0x60, 0x78, 0x80,],
+            [0x00, 0x38, 0x60, 0x78, 0x80,],
+            [0x00, 0x38, 0x60, 0x78, 0x80,],
+            [0x00, 0x38, 0x60, 0x78, 0x80,],
+            [0x00, 0x38, 0x60, 0x78, 0x80,],
+        ]
+        act = run_test(op.multiply, .5)
         self.assertListEqual(exp, act)
 
     def test_overlay(self):

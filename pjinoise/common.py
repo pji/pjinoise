@@ -85,3 +85,19 @@ def get_format(filename: str) -> str:
         supported = ', '.join(SUPPORTED_FORMATS)
         print(f'The supported formats are: {supported}.')
         raise SystemExit
+
+
+def print_array(a: np.ndarray, depth: int = 0) -> None:
+    """Write the values of the given array to stdout."""
+    if len(a.shape) > 1:
+        print(' ' * depth + '[')
+        for i in range(a.shape[0]):
+            print_array(a[i], depth + 1)
+        print(' ' * depth + '],')
+    
+    else:
+        if a.dtype != np.uint8:
+            a = np.around(a.copy() * 0xff).astype(np.uint8)
+        tmp = '0x{:02x}'
+        nums = [tmp.format(n) for n in a]
+        print(' ' * depth + '[' + ', '.join(nums) + '],')

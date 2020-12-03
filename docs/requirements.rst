@@ -571,4 +571,22 @@ model contains an Image object:
     *   mode: str
     *   framerate: Union[None, float]
 
-That would then replace the SaveConfig object from v0.1.0. 
+That would then replace the SaveConfig object from v0.1.0.
+
+
+CONFIGURATION COMPLEXITY
+~~~~~~~~~~~~~~~~~~~~~~~~
+The above works. However, after having worked with it for a while, 
+setting up the configuration is just too complex. Nested structures 
+in JSON just aren't visually distinctive enough, and I can't comment 
+them or pass references to other JSON objects. 
+
+While there may be a GUI solution for this, I'm leaning towards image 
+creation being done with Python code that imports the pjinoise module. 
+I'll keep the possibility of serialization around. In fact the best 
+way to do this may be to have the Python code create the model.Image 
+object to pass to pjinoise, rather than having it generate the image 
+directly.
+
+Either way, complex configuration through JSON is not fun, so let's 
+not do that any more.

@@ -295,8 +295,7 @@ class Pinch(ForLayer):
         if isinstance(scale, str):
             scale = scale.split(',')
         self.scale = tuple(np.float32(n) for n in scale)
-        if isinstance(offset, str):
-            offset = offset.split(',')
+        offset = deserialize_sequence(offset)
         self.offset = tuple(np.float32(n) for n in offset)
 
     # Public methods.
@@ -666,7 +665,7 @@ class Twirl(ForLayer):
 
         # Run the swirl filter.
         for i in range(a.shape[Z]):
-            a[i] = swirl(a[i], center, self.strength, self.radius)
+            a[i] = swirl(a[i], center[::-1], self.strength, self.radius)
         return a
 
 

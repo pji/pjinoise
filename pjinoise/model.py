@@ -171,9 +171,11 @@ def count_sources(obj: t.Union[_Source, t.Sequence[Layer]]) -> int:
         counts = [count_sources(item) for item in obj]
         return sum(counts)
     if isinstance(obj, Layer):
-        return count_sources(obj.source)
+        return count_sources(obj.source) + count_sources(obj.mask)
     if isinstance(obj, s.ValueSource):
         return 1
+    if obj is None:
+        return 0
     else:
         msg = f'Unexpected type in Image: {obj.__class__.__name__}'
         raise TypeError(msg)

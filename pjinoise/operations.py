@@ -34,6 +34,20 @@ def clipped(fn: Callable) -> Callable:
     return wrapper
 
 
+def faded(fn: Callable) -> Callable:
+    """Adjust how much the operation affects the first array."""
+    @wraps(fn)
+    def wrapper(a: np.ndarray, 
+                b: np.ndarray, 
+                amount: Union[str, float] = 1) -> np.ndarray:
+        ab = fn(a, b)
+        if amount == 1:
+            return ab
+        ab = a + (ab - a) * float(amount)
+        return ab
+    return wrapper
+
+
 def masked(fn: Callable) -> Callable:
     """Apply a blending mask to the operation."""
     @wraps(fn)
@@ -81,7 +95,8 @@ def scaled(fn: Callable) -> Callable:
 
 # Non-blends.
 @masked
-def replace(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def replace(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Simple replacement filter. Can double as an opacity filter
     if passed an amount, but otherwise this will just replace the
     values in a with the values in b.
@@ -97,32 +112,30 @@ def replace(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     :return: An array that contains the values of the blended arrays.
     :rtype: np.ndarray
     """
-    if amount == 1:
-        return b
-    return a + (b - a) * float(amount)
+    return b
 
 
 # Darker/burn blends.
-def darker(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@masked
+@faded
+def darker(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     ab = a.copy()
     ab[b < a] = b[b < a]
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
-
-
-@scaled
-def multiply(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
-    ab = a * b
-    if amount == 1:
-        return ab
-    ab = a + (ab - a) * float(amount)
     return ab
 
 
+@masked
+@scaled
+@faded
+def multiply(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return a * b
+
+
+@masked
 @clipped
 @scaled
-def color_burn(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def color_burn(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Taken from:
     http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
     """
@@ -130,129 +143,120 @@ def color_burn(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     ab = np.zeros_like(a)
     ab[m] = 1 - (1 - a[m]) / b[m]
     ab[~m] = 0
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
-
-
-@clipped
-@scaled
-def linear_burn(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
-    """Taken from:
-    http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
-    """
-    if amount == 1:
-        return a + b - 1
-    ab = a + b - 1
-    return a + (ab - a) * float(amount)
-
-
-# Lighter/dodge blends.
-def lighter(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
-    ab = a.copy()
-    ab[b > a] = b[b > a]
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
-
-
-@scaled
-def screen(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
-    rev_a = 1 - a
-    rev_b = 1 - b
-    ab = rev_a * rev_b
-    if amount == 1:
-        return 1 - ab
-    return a + (ab - a) * float(amount)
-
-
-@clipped
-@scaled
-def color_dodge(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
-    """Taken from:
-    http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
-    """
-    if amount == 1:
-        return a / (1 - b)
-    ab = a / (1 - b)
-    return a + (ab - a) * float(amount)
-
-
-@clipped
-def linear_dodge(a: np.ndarray,
-                 b: np.ndarray,
-                 amount: float = 1) -> np.ndarray:
-    """Taken from:
-    http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
-    """
-    if amount == 1:
-        return a + b
-    ab = a + b
-    return a + (ab - a) * float(amount)
-
-
-# Mixed blends.
-def difference(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
-    if amount == 1:
-        return np.abs(a - b)
-    ab = np.abs(a - b)
-    ab = a + (ab - a) * float(amount)
     return ab
 
 
+@masked
+@clipped
 @scaled
-def exclusion(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def linear_burn(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Taken from:
+    http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
+    """
+    return a + b - 1
+
+
+# Lighter/dodge blends.
+@masked
+@faded
+def lighter(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    ab = a.copy()
+    ab[b > a] = b[b > a]
+    return ab
+
+
+@masked
+@scaled
+@faded
+def screen(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    rev_a = 1 - a
+    rev_b = 1 - b
+    ab = rev_a * rev_b
+    return 1 - ab
+
+
+@masked
+@clipped
+@scaled
+@faded
+def color_dodge(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Taken from:
+    http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
+    """
+    return a / (1 - b)
+
+
+@masked
+@clipped
+@faded
+def linear_dodge(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Taken from:
+    http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
+    """
+    return a + b
+
+
+# Mixed blends.
+@masked
+@faded
+def difference(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return np.abs(a - b)
+
+
+@masked
+@scaled
+@faded
+def exclusion(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
     ab = a + b - 2 * a * b
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
+@masked
 @scaled
-def hard_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def hard_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
     ab = np.zeros(a.shape)
     ab[a < .5] = 2 * a[a < .5] * b[a < .5]
     ab[a >= .5] = 1 - 2 * (1 - a[a >= .5]) * (1 - b[a >= .5])
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
+@masked
 @scaled
-def hard_mix(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def hard_mix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
     ab = np.zeros_like(a)
     ab[a < 1 - b] = 0
     ab[a > 1 - b] = 1
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
+@masked
 @clipped
 @scaled
-def linear_light(a: np.ndarray,
-                 b: np.ndarray,
-                 amount: float = 1) -> np.ndarray:
+@faded
+def linear_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
     ab = b + 2 * a - 1
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
+@masked
 @scaled
-def overlay(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def overlay(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the solution found here:
     https://stackoverflow.com/questions/52141987
     """
@@ -260,14 +264,14 @@ def overlay(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     ab = np.zeros_like(a)
     ab[~mask] = (2 * a[~mask] * b[~mask])
     ab[mask] = (1 - 2 * (1 - a[mask]) * (1 - b[mask]))
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
+@masked
 @clipped
 @scaled
-def pin_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def pin_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -285,15 +289,13 @@ def pin_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     ab[m1] = 2 * a[m1] - 1
     ab[m2] = 2 * a[m2]
     ab[m3] = b[m3]
-
-    # Reduce the effect by the given amount and return.
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
+@masked
 @scaled
-def soft_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def soft_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -302,14 +304,14 @@ def soft_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     m[a < .5] = True
     ab[m] = (2 * a[m] - 1) * (b[m] - b[m] ** 2) + b[m]
     ab[~m] = (2 * a[~m] - 1) * (np.sqrt(b[~m]) - b[~m]) + b[~m]
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
+@masked
 @clipped
 @scaled
-def vivid_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@faded
+def vivid_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -326,13 +328,13 @@ def vivid_light(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
     ab = np.zeros_like(a)
     ab[m1] = 1 - (1 - b[m1]) / (2 * a[m1])
     ab[m2] = b[m2] / (2 * (1 - a[m2]))
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
 # Color blending operations.
-def rgb_hue(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
+@masked
+@faded
+def rgb_hue(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """This is based on the equations found here:
     http://www.simplefilter.de/en/basics/mixmods.html
     """
@@ -347,9 +349,7 @@ def rgb_hue(a: np.ndarray, b: np.ndarray, amount: float = 1) -> np.ndarray:
         ab_hsv[:, :, 0] += a_hsv[:, :, 0] * (1 - (b_hsv[:, :, 2] / 0xff))
         ab_rgb = cv2.cvtColor(ab_hsv, cv2.COLOR_HSV2RGB)
         ab[i] = ab_rgb
-    if amount == 1:
-        return ab
-    return a + (ab - a) * float(amount)
+    return ab
 
 
 # Registration.

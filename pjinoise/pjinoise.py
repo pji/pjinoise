@@ -16,7 +16,7 @@ from pjinoise import filters as f
 from pjinoise import io
 from pjinoise import ui
 from pjinoise.common import convert_color_space as _convert_color_space
-from pjinoise.model import Layer
+from pjinoise.model import Image, Layer
 from pjinoise.sources import ValueSource
 
 
@@ -97,12 +97,18 @@ def process_layers(size: Sequence[int],
     # ValueSource in the mask attribute, which needs to be sent
     # to the blending operation.
     if layers.mask is not None:
+        if status is not None:
+            src_name = layers.mask.__class__.__name__
+            status.put((ui.STATUS, f'Rendering {src_name}...'))
         kwargs = {
             'source': layers.mask,
             'size': size,
             'filters': layers.mask_filters,
         }
         mask = render_source(**kwargs)
+        if status is not None:
+            src_name = layers.mask.__class__.__name__
+            status.put((ui.PROG, f'Rendered {src_name}.'))
         a, b, mask = _normalize_color_space(a, b, mask)
         return layers.blend(a, b, layers.blend_amount, mask)
 
@@ -146,15 +152,16 @@ def render_source(source: ValueSource,
 
 
 # Mainline.
-def main(silent=True):
+def main(silent: bool = True, conf: Image = None) -> None:
     """Mainline."""
     try:
         status = None
-        args = cli.parse_cli_args()
-        if args.load_config:
-            conf = io.load_conf(args.load_config, args)
-        else:
-            conf = cli.build_config(args)
+        if not conf:
+            args = cli.parse_cli_args()
+            if args.load_config:
+                conf = io.load_conf(args.load_config, args)
+            else:
+                conf = cli.build_config(args)
         if not silent:
             status = Queue()
             stages = 2 + conf.count_sources()

@@ -220,6 +220,7 @@ def get_regname_for_func(func: Callable) -> str:
 
 
 if __name__ == '__main__':
+    from pjinoise.common import print_array
     a = [
         [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
         [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
@@ -229,12 +230,5 @@ if __name__ == '__main__':
     ]
     a = np.array(a)
     a = a / 0xff
-
     res = mid_bump_sine(a)
-
-    res = res * 0xff
-    res = np.around(res).astype(int)
-    for y in res:
-        print(' ' * 8, end='')
-        r = [f'0x{x:02x}' for x in y]
-        print('[' + ', '.join(r) + '],')
+    print_array(res)

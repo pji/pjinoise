@@ -11,10 +11,19 @@ from unittest.mock import call, patch
 import numpy as np
 
 from pjinoise import sources as s
-from pjinoise.common import grayscale_to_ints_list
+from pjinoise.common import grayscale_to_ints_list, print_array
 from pjinoise.constants import P
 
 
+# Common test functions.
+def source_fill_test(test, exp, src_cls, src_kwargs, size, loc=(0, 0, 0)):
+    src = src_cls(**src_kwargs)
+    result = src.fill(size, loc)
+    act = grayscale_to_ints_list(result)
+    test.assertListEqual(exp, act)
+
+
+# Test cases.
 class CachingTestCase(ut.TestCase):
     def test_cache_fill(self):
         """The first time a fill is generated from a caching source,
@@ -411,6 +420,144 @@ class RandomTestCase(ut.TestCase):
         self.assertListEqual(exp, act)
         self.assertListEqual(exp_random, act_random)
 
+    def test_octaveperlinnoise_fill(self):
+        """Given the size of a space to fill, PerlinNoise.fill should
+        return a np.array of that shape filled with noise.
+        """
+        # Expected data.
+        exp = [
+            [
+                [0x80, 0x70, 0x7c, 0x8b,],
+                [0x78, 0x79, 0x7e, 0x82,],
+                [0x7c, 0x89, 0x80, 0x7e,],
+                [0x76, 0x80, 0x86, 0x7f,],
+            ],
+        ]
+
+        # Set up test data and state.
+        size = (1, 4, 4)
+        start = (4, 0, 0)
+        kwargs = {
+            'octaves': 4,
+            'persistence': 8,
+            'amplitude': 8,
+            'frequency': 2,
+            'unit': (8, 8, 8),
+            'ease': '',
+            'table': P,
+        }
+        cls = s.OctavePerlin
+        
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size, start)
+
+    def test_perlin_fill(self):
+        """Given the size of a space to fill, Perlin.fill should
+        return a np.array of that shape filled with noise.
+        """
+        # Expected value.
+        exp = [[
+            [0x9f, 0x8e, 0x77, 0x60],
+            [0xa5, 0x94, 0x7d, 0x65],
+            [0x9f, 0x90, 0x7c, 0x68],
+            [0x8b, 0x81, 0x74, 0x67],
+        ],]
+
+        # Set up test data and state.
+        size = (1, 4, 4)
+        start = (4, 0, 0)
+        kwargs = {
+            'unit': (8, 8, 8),
+            'ease': '',
+            'table': P,
+        }
+        cls = s.Perlin
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size, start)
+
+    def test_seededrandom_fill(self):
+        """When given the size of an array, return an array that 
+        contains randomly generated noise.
+        """
+        exp = [
+            [
+                [0xb7, 0xe0, 0xc5, 0x95, 0x3f, 0x0b, 0xc7, 0x8d],
+                [0xb2, 0x15, 0x20, 0x1f, 0x3e, 0x2f, 0x09, 0x92],
+                [0xaa, 0xb6, 0x9d, 0x57, 0xf5, 0xb7, 0xbb, 0x1d],
+                [0x52, 0x8a, 0xe5, 0xdb, 0x7d, 0xc7, 0x52, 0x2c],
+                [0x16, 0xc5, 0xb9, 0x46, 0xca, 0x45, 0x02, 0xaf],
+                [0x49, 0xef, 0x63, 0x8b, 0xf7, 0xbd, 0xa5, 0x0a],
+                [0x8d, 0x21, 0xf7, 0x72, 0x9a, 0x2c, 0xaa, 0x8b],
+                [0x9a, 0xa8, 0xba, 0xda, 0x0b, 0xd8, 0x86, 0xc9],
+            ],
+            [
+                [0xe4, 0x10, 0xc0, 0xf4, 0xf6, 0x18, 0xf4, 0x94],
+                [0xd7, 0x73, 0x80, 0xd2, 0x6b, 0xc8, 0x5d, 0xee],
+                [0xb8, 0xcf, 0x10, 0x28, 0x7e, 0x7f, 0xe5, 0xfd],
+                [0x5d, 0x91, 0xb5, 0x01, 0x78, 0x02, 0x5e, 0x1c],
+                [0x05, 0x20, 0xb8, 0x23, 0x51, 0xc3, 0x67, 0x45],
+                [0x94, 0x13, 0x72, 0x00, 0x68, 0x22, 0x63, 0xa5],
+                [0x67, 0x7a, 0x77, 0xa6, 0xf9, 0xcf, 0x47, 0xc2],
+                [0xe7, 0x73, 0xa0, 0xa6, 0xb5, 0x17, 0x05, 0x4c],
+            ],
+        ]
+        src_class = s.SeededRandom
+        src_kwargs = {'seed': 'spam'}
+        size = (2, 8, 8)
+        source_fill_test(self, exp, src_class, src_kwargs, size)
+    
+    def test_seededrandom_with_seed_repeats_noise(self):
+        """When given the same seed, two instances of SeededRandom 
+        should return the same noise.
+        """
+        # Set up for expected values.
+        seed = 'spam'
+        size = (2, 8, 8)
+        src_a = s.SeededRandom(seed)
+        result = src_a.fill(size)
+        
+        # Expected value.
+        exp = grayscale_to_ints_list(result)
+        
+        # Set up test data and state.
+        src_b = s.SeededRandom(seed)
+        
+        # Run test.
+        result = src_b.fill(size)
+        
+        # Extract actual test results.
+        act = grayscale_to_ints_list(result)
+        
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+    
+    def test_seededrandom_without_seed_not_repeat_noise(self):
+        """When given the same seed, two instances of SeededRandom 
+        should return the same noise.
+        """
+        # Set up for expected values.
+        seed_exp = 'spam'
+        size = (2, 8, 8)
+        src_a = s.SeededRandom(seed_exp)
+        result = src_a.fill(size)
+        
+        # Expected value.
+        exp = grayscale_to_ints_list(result)
+        
+        # Set up test data and state.
+        seed_act = 'eggs'
+        src_b = s.SeededRandom(seed_act)
+        
+        # Run test.
+        result = src_b.fill(size)
+        
+        # Extract actual test results.
+        act = grayscale_to_ints_list(result)
+        
+        # Determine if test passed.
+        self.assertNotEqual(exp, act)
+    
     def test_values_fill_with_noise(self):
         """Given the size of each dimension of the noise,
         Values.fill should return an array that contains
@@ -452,74 +599,6 @@ class RandomTestCase(ut.TestCase):
         result = obj.fill(size)
 
         # Extract actual values.
-        result = np.around(result * 0xff).astype(int)
-        act = result.tolist()
-
-        # Determine if test passed.
-        self.assertListEqual(exp, act)
-
-    def test_octaveperlinnoise_fill(self):
-        """Given the size of a space to fill, PerlinNoise.fill should
-        return a np.array of that shape filled with noise.
-        """
-        # Expected data.
-        exp = [
-            [0x80, 0x70, 0x7c, 0x8b,],
-            [0x78, 0x79, 0x7e, 0x82,],
-            [0x7c, 0x89, 0x80, 0x7e,],
-            [0x76, 0x80, 0x86, 0x7f,],
-        ]
-
-        # Set up test data and state.
-        size = (1, 4, 4)
-        start = (4, 0, 0)
-        kwargs = {
-            'octaves': 4,
-            'persistence': 8,
-            'amplitude': 8,
-            'frequency': 2,
-            'unit': (8, 8, 8),
-            'ease': '',
-            'table': P,
-        }
-        obj = s.OctavePerlin(**kwargs)
-
-        # Run test.
-        result = obj.fill(size, start)
-
-        # Extract actual result.
-        result = np.around(result * 0xff).astype(int)
-        act = result.tolist()[0]
-
-        # Determine if test passed.
-        self.assertListEqual(exp, act)
-
-    def test_perlin_fill(self):
-        """Given the size of a space to fill, Perlin.fill should
-        return a np.array of that shape filled with noise.
-        """
-        # Expected value.
-        exp = [[
-            [0x9f, 0x8e, 0x77, 0x60],
-            [0xa5, 0x94, 0x7d, 0x65],
-            [0x9f, 0x90, 0x7c, 0x68],
-            [0x8b, 0x81, 0x74, 0x67],
-        ],]
-
-        # Set up test data and state.
-        size = (1, 4, 4)
-        start = (4, 0, 0)
-        kwargs = {
-            'unit': (8, 8, 8),
-            'ease': '',
-            'table': P,
-        }
-        obj = s.Perlin(**kwargs)
-
-        # Run test.
-        result = obj.fill(size, start)
-
-        # Extract actual result.
         result = np.around(result * 0xff).astype(int)
         act = result.tolist()
 

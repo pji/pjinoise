@@ -37,8 +37,8 @@ def clipped(fn: Callable) -> Callable:
 def faded(fn: Callable) -> Callable:
     """Adjust how much the operation affects the first array."""
     @wraps(fn)
-    def wrapper(a: np.ndarray, 
-                b: np.ndarray, 
+    def wrapper(a: np.ndarray,
+                b: np.ndarray,
                 amount: Union[str, float] = 1) -> np.ndarray:
         ab = fn(a, b)
         if amount == 1:
@@ -159,6 +159,7 @@ def linear_burn(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 # Lighter/dodge blends.
 @masked
+@scaled
 @faded
 def lighter(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     ab = a.copy()
@@ -380,6 +381,7 @@ op_names = {registered_ops[k]: k for k in registered_ops}
 
 
 if __name__ == '__main__':
+    from pjinoise.common import print_array
     a = [
         [
             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
@@ -434,16 +436,6 @@ if __name__ == '__main__':
     a[a != 0] = a[a != 0] / scale
     b[b != 0] = b[b != 0] / scale
     amount = 1
-
     op = hard_mix
-
     ab = op(a, b, amount)
-    ab = np.around(ab * scale).astype(int)
-    print('[')
-    for frame in ab:
-        print(' ' * 4 + '[')
-        for row in frame:
-            cols = [f'0x{n:02x}' for n in row]
-            print(' ' * 8 + '[' + ', '.join(cols) + ']',)
-        print(' ' * 4 + ']')
-    print(']')
+    print_array(ab)

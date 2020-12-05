@@ -4,7 +4,8 @@ common
 
 Utilities and other commonly reused functions for pjinoise.
 """
-from typing import List, Sequence, Tuple, Union
+from functools import wraps
+from typing import List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image
@@ -15,6 +16,7 @@ from pjinoise.constants import SUPPORTED_FORMATS
 X, Y, Z = 2, 1, 0
 
 
+# General purpose functions.
 def convert_color_space(a: np.ndarray,
                         src_space: str = '',
                         dst_space: str = 'RGB') -> np.ndarray:
@@ -90,14 +92,24 @@ def get_format(filename: str) -> str:
 def print_array(a: np.ndarray, depth: int = 0) -> None:
     """Write the values of the given array to stdout."""
     if len(a.shape) > 1:
-        print(' ' * depth + '[')
+        print(' ' * (4 * depth) + '[')
         for i in range(a.shape[0]):
             print_array(a[i], depth + 1)
-        print(' ' * depth + '],')
-    
+        print(' ' * (4 * depth) + '],')
+
     else:
         if a.dtype != np.uint8:
             a = np.around(a.copy() * 0xff).astype(np.uint8)
         tmp = '0x{:02x}'
         nums = [tmp.format(n) for n in a]
-        print(' ' * depth + '[' + ', '.join(nums) + '],')
+        print(' ' * (4 * depth) + '[' + ', '.join(nums) + '],')
+
+
+def remove_private_attrs(map: Mapping) -> Mapping:
+    """Remove the keys for private attributes from an object that
+    has been serialized as an mapping.
+    """
+    pvt_keys = [key for key in map if key.startswith('_')]
+    for key in pvt_keys:
+        del map[key]
+    return map

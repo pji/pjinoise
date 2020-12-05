@@ -76,7 +76,10 @@ class Layer():
         try:
             attrs['source'] = attrs['_source'].asdict()
         except AttributeError:
-            attrs['source'] = [item.asdict() for item in attrs['_source']]
+            try:
+                attrs['source'] = [item.asdict() for item in attrs['_source']]
+            except AttributeError:
+                raise ValueError(attrs['_source'])
         del attrs['_source']
         attrs['filters'] = [item.asdict() for item in attrs['filters']]
         if attrs['_mask']:

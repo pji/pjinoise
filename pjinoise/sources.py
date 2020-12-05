@@ -5,16 +5,27 @@ sources
 Objects that generate values, both patterned and noise.
 """
 from abc import ABC, abstractmethod
+from functools import wraps
 import inspect
 import random
-from typing import Any, List, Mapping, Sequence, Tuple, Union
+from typing import Any, Callable, List, Mapping, Sequence, Tuple, Union
 
+import cv2
 import numpy as np
 from numpy.random import default_rng
 
 from pjinoise.constants import P, TEXT, X, Y, Z
 from pjinoise import common as c
 from pjinoise import ease as e
+from pjinoise import operations as op
+
+
+# Common decorators.
+def eased(fn: Callable) -> Callable:
+    @wraps(fn)
+    def wrapper(obj, *args, **kwargs) -> np.ndarray:
+        return obj.ease(fn(obj, *args, **kwargs))
+    return wrapper
 
 
 # Base classes.
@@ -45,6 +56,7 @@ class ValueSource(ABC):
             attrs['ease'] = keys[vals.index(attrs['ease'])]
         if 'table' in attrs:
             attrs['table'] = self.table.tolist()
+        attrs = c.remove_private_attrs(attrs)
         return attrs
 
     @abstractmethod
@@ -166,6 +178,7 @@ class Lines(ValueSource):
         super().__init__(*args, **kwargs)
 
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
@@ -182,7 +195,7 @@ class Lines(ValueSource):
         values = values % period
         values[values > period / 2] = period - values[values > period / 2]
         values = (values / (period / 2))
-        return self.ease(values)
+        return values
 
 
 class Rays(ValueSource):
@@ -194,6 +207,7 @@ class Rays(ValueSource):
         self.ease = e.registered_functions[ease]
 
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         # Determine the center of the effect.
@@ -227,7 +241,7 @@ class Rays(ValueSource):
             center = [int(n) for n in center]
             rays[(center[Y], center[X])] = 1
         rays = np.tile(rays, (size[Z], 1, 1))
-        return self.ease(rays)
+        return rays
 
 
 class Ring(ValueSource):
@@ -243,6 +257,7 @@ class Ring(ValueSource):
         self.ease = e.registered_functions[ease]
 
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
@@ -269,7 +284,6 @@ class Ring(ValueSource):
                 m[working <= wr] = True
                 a[m] = working[m] * (radius / (self.width / 2))
                 a[m] = 1 - a[m]
-        a = self.ease(a)
         return a
 
 
@@ -292,6 +306,7 @@ class Spheres(ValueSource):
         self.offset = offset
 
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
@@ -342,7 +357,6 @@ class Spheres(ValueSource):
         # Then run the easing function on those spheres.
         a = np.sqrt(a[X] ** 2 + a[Y] ** 2 + a[Z] ** 2)
         a = 1 - (a / np.sqrt(3 * self.radius ** 2))
-        a = self.ease(a)
         return a
 
 
@@ -352,6 +366,7 @@ class Spot(ValueSource):
         self.ease = e.registered_functions[ease]
 
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
@@ -370,7 +385,6 @@ class Spot(ValueSource):
         a = 1 - (a / np.sqrt(2 * self.radius ** 2))
         a[a > 1] = 1
         a[a < 0] = 0
-        a = self.ease(a)
         return a
 
 
@@ -383,6 +397,7 @@ class Waves(ValueSource):
         self.ease = e.registered_functions[ease]
 
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
@@ -415,13 +430,12 @@ class Waves(ValueSource):
                 in_length = out_length
                 out_length *= 2
 
-        a = self.ease(a)
         return a
 
 
 # Random noise generators.
 class Random(ValueSource):
-    """Create random noise with a gaussian (normal) distribution."""
+    """Create random noise with a continuous uniform distribution."""
     def __init__(self, mid: float = .5, scale: float = .02,
                  *args, **kwargs) -> None:
         self.mid = mid
@@ -433,6 +447,95 @@ class Random(ValueSource):
     def fill(self, size: Sequence[int], _: Any = None) -> np.ndarray:
         random = self.rng.random(size) * self.scale * 2 - self.scale
         return random + self.mid
+
+
+class SeededRandom(ValueSource):
+    """Create continuous-uniformly distributed random noise with a
+    seed value to allow the noise to be regenerated in a predictable
+    way.
+    """
+    def __init__(self, seed: Union[None, int, str] = None):
+        self.seed = seed
+        if isinstance(seed, str):
+            seed = bytes(seed, 'utf_8')
+            seed = int.from_bytes(seed, 'little')
+        self._rng = default_rng(seed)
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        # Random number generation is linear and unidirectional. In
+        # order to give the illusion of their being a space to move
+        # in, we define the location of the first number generated
+        # as the origin of the space (so: [0, 0, 0]). We then will
+        # make the negative locations in the space the reflection of
+        # the positive spaces.
+        new_loc = [abs(n) for n in loc]
+
+        # To simulate positioning within a space, we need to burn
+        # random numbers from the generator. This would be easy if
+        # we were just generating single dimensional noise. Then
+        # we'd only need to burn the first numbers from the generator.
+        # Instead, we need to burn until with get to the first row,
+        # then accept. Then we need to burn again until we get to
+        # the second row, and so on. This implementation isn't very
+        # memory efficient, but it should do the trick.
+        new_size = [s + l for s, l in zip(size, loc)]
+        a = self._rng.random(new_size)
+        slices = tuple(slice(n, None) for n in loc)
+        a = a[slices]
+        return a
+
+
+class Embers(SeededRandom):
+    def __init__(self, depth: int = 1,
+                 threshold: float = .9995,
+                 ease: str = '',
+                 blend: str = 'lighter',
+                 *args, **kwargs) -> None:
+        self.depth = depth
+        self.threshold = threshold
+        self.ease = e.registered_functions[ease]
+        self.blend = blend
+        self._blend = op.registered_ops[blend]
+        super().__init__(*args, **kwargs)
+
+    # Public methods.
+    @eased
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        mag = 1
+        out = np.zeros(size, dtype=float)
+        for layer in range(self.depth):
+            # Use the magnification to determine the size of the noise
+            # to get.
+            fill_size = [size[0], * (n // mag for n in size[1:])]
+            fill_size = [int(n) for n in fill_size]
+
+            # Get the noise to work with.
+            a = super().fill(fill_size, loc)
+
+            # Use the threshold to turn it into a sparse collection
+            # of points. Then scale to increase the apparent difference
+            # in brightness.
+            a = a - self.threshold
+            a[a < 0] = 0
+            a[a > 0] = a[a > 0] * .25
+            a[a > 0] = a[a > 0] + .75
+
+            # Resize to increase the size of the points.
+            resized = np.zeros(size, dtype=a.dtype)
+            for i in range(resized.shape[Z]):
+                frame = np.zeros(a.shape[Y:3], dtype=a.dtype)
+                frame = a[i]
+                resized[i] = cv2.resize(frame, (size[X], size[Y]))
+
+            # Blend the layer with previous layers.
+            out = self._blend(out, resized)
+
+            mag = mag * 1.5
+
+        return out
 
 
 # Random noise using unit cubes.
@@ -561,6 +664,7 @@ class Curtains(UnitNoise):
     hashes = [f'{n:>02b}'[::-1] for n in range(2 ** 2)]
 
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = None) -> np.ndarray:
         """Return a space filled with noise."""
@@ -606,7 +710,7 @@ class Curtains(UnitNoise):
         result = self._lerp(x1, x2, parts[z])
         result = result / self.scale
         result = np.tile(result[:, np.newaxis, ...], (1, size[Y], 1))
-        return self.ease(result)
+        return result
 
     # Private methods.
     def _make_table(self) -> List:
@@ -627,6 +731,7 @@ class CosineCurtains(Curtains):
 class Perlin(UnitNoise):
     """A class to generate Perlin noise."""
     # Public classes.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = None) -> np.array:
         """Return a space filled with Perlin noise."""
@@ -766,7 +871,7 @@ class Perlin(UnitNoise):
         # The result from the Perlin noise function is a percentage
         # of how much of the maximum noise each pixel contains.
         # Run the noise through the easing function and return.
-        return self.ease(values)
+        return values
 
     # Private methods.
     def _make_table(self) -> List:
@@ -799,6 +904,7 @@ class Values(UnitNoise):
         super().__init__(unit, ease, table)
 
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              location: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
@@ -853,7 +959,7 @@ class Values(UnitNoise):
         del y1, y2
 
         # Apply the easing function and return.
-        return self.ease(z)
+        return z
 
     # Private methods.
     def _make_table(self, size: Sequence[int] = None) -> List:
@@ -1020,8 +1126,10 @@ registered_sources = {
 
     'curtains': Curtains,
     'cosinecurtains': CosineCurtains,
+    'embers': Embers,
     'perlin': Perlin,
     'random': Random,
+    'seededrandom': SeededRandom,
     'values': Values,
 
     'oldoctavecosinecurtains': OldOctaveCosineCurtains,
@@ -1050,9 +1158,8 @@ def get_regname_for_class(obj: object) -> str:
 
 
 if __name__ == '__main__':
-    obj = Rays(4)
-    val = obj.fill((1, 8, 9), (4, 0, 0))
-    val = np.around(val * 0xff).astype(int)
+    obj = Rays(3)
+    val = obj.fill((1, 8, 8), (4, 0, 0))
 
     # For hash_tables:
     if isinstance(val, dict):
@@ -1062,42 +1169,4 @@ if __name__ == '__main__':
             print()
 
     if isinstance(val, np.ndarray):
-        # For volumetric indicies.
-        if len(val.shape) == 4:
-            for axis in val:
-                for plane in axis:
-                    for row in plane:
-                        for column in row:
-                            column = int(column * 0xff)
-                            print(f'{column:02x}', end=' ')
-                        print()
-                    print()
-                print()
-
-        # For volumes.
-        elif len(val.shape) == 3:
-            for plane in val:
-                for row in plane:
-                    nums = [f'0x{column:02x}' for column in row]
-                    nums = ', '.join(nums)
-                    print(f'[{nums},],', end='')
-#                     for column in row:
-# #                         print(column, end=' ')
-#                         print('[', end='')
-#                         column = int(column * 0xff)
-#                         print(f'{column:02x}', end=', ')
-#                         print
-                    print()
-                print()
-
-        elif len(val.shape) == 2:
-            for row in val:
-                for column in row:
-                    print(f'{column:02x}', end=', ')
-                print()
-
-        else:
-            for column in val:
-                column = int(column * 0xff)
-                print(f'{column:02x}', end=', ')
-            print()
+        c.print_array(val)

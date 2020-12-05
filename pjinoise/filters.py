@@ -14,8 +14,8 @@ from PIL import Image, ImageChops, ImageFilter, ImageOps
 import numpy as np
 from skimage.transform import swirl
 
-from pjinoise.common import convert_color_space, deserialize_sequence
 from pjinoise.constants import COLOR, X, Y, Z
+from pjinoise import common as c
 from pjinoise import ease as e
 from pjinoise import operations as op
 from pjinoise import sources as s
@@ -252,6 +252,37 @@ class Grain(ForLayer):
         return op.overlay(a, self._grain)
 
 
+class Grow(ForLayer):
+    """Expand the generated image and then crop back to the original
+    image size.
+    """
+    def __init__(self, factor: float,
+                 center: Union[None, Sequence[int]] = None) -> None:
+        self.factor = factor
+        self.center = center
+
+    # Public methods.
+    def process(self, a: np.ndarray) -> np.ndarray:
+        X, Y, Z = 2, 1, 0
+
+        resized = np.zeros_like(a)
+        slices = None
+        dim = list(a.shape[1:])
+        dim[0] = int(dim[0] * self.factor)
+        dim[1] = int(dim[1] * self.factor)
+        for i in range(a.shape[Z]):
+            frame = cv2.resize(a[i], tuple(dim[::-1]))
+            if not slices:
+                osize = a.shape
+                nsize = list(osize[:])
+                nsize[Y], nsize[X] = frame.shape[:2]
+                start = [(n - o) // 2 for n, o in zip(nsize[1:], osize[1:])]
+                end = [s + o for s, o in zip(start, osize[1:])]
+                slices = tuple(slice(s, e) for s, e in zip(start, end))
+            resized[i] = frame[slices]
+        return resized
+
+
 class LinearToPolar(ForLayer):
     # Filter protocol.
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
@@ -295,7 +326,7 @@ class Pinch(ForLayer):
         if isinstance(scale, str):
             scale = scale.split(',')
         self.scale = tuple(np.float32(n) for n in scale)
-        offset = deserialize_sequence(offset)
+        offset = c.deserialize_sequence(offset)
         self.offset = tuple(np.float32(n) for n in offset)
 
     # Public methods.
@@ -411,7 +442,8 @@ class Resize(ForLayer):
         self.new_size = new_size
 
     # Public methods.
-    def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int],
+                   *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
@@ -479,9 +511,9 @@ class Ripple(ForLayer):
         are ignored. This may change in future versions, so it is
         probably safest to set Z to zero in all parameters for now.
         """
-        self.wave = deserialize_sequence(wavelength)
-        self.amp = deserialize_sequence(amplitude)
-        self.offset = deserialize_sequence(offset)
+        self.wave = c.deserialize_sequence(wavelength)
+        self.amp = c.deserialize_sequence(amplitude)
+        self.offset = c.deserialize_sequence(offset)
         self.distort_axis = (X, Y)
         if distort_axis == 'cross':
             self.distort_axis = (Y, X)
@@ -639,7 +671,7 @@ class Twirl(ForLayer):
                  offset: Union[str, Sequence[int]] = (0, 0, 0)) -> None:
         self.radius = float(radius)
         self.strength = float(strength)
-        self.offset = deserialize_sequence(offset)
+        self.offset = c.deserialize_sequence(offset)
 
     # Filter protocol.
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
@@ -719,6 +751,7 @@ registered_filters = {
     'cutshadow': CutShadow,
     'cutlight': CutLight,
     'grain': Grain,
+    'grow': Grow,
     'inverse': Inverse,
     'lineartopolar': LinearToPolar,
     'pinch': Pinch,
@@ -775,30 +808,6 @@ if __name__ == '__main__':
             [0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20, 0x00],
         ],
     ]
-    a = [
-        [
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-        ],
-        [
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,],
-        ],
-    ]
     a = np.array(a, dtype=float)
     a = a / 0xff
     obj = Color(**{
@@ -808,38 +817,5 @@ if __name__ == '__main__':
     })
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)
-    res = postprocess(resa, [obj,])
-
-    print(res.shape)
-    if len(res.shape) == 2:
-        res = np.around(res * 0xff).astype(np.uint)
-        for y in res:
-            print(' ' * 8, end='')
-            r = [f'0x{x:02x}' for x in y]
-            print('[' + ', '.join(r) + '],')
-
-    if len(res.shape) == 3:
-        res = np.around(res * 0xff).astype(np.uint)
-        for plane in res:
-            print('    [')
-            for row in plane:
-                print(' ' * 8, end='')
-                r = [f'0x{col:02x}' for col in row]
-                print('[' + ', '.join(r) + '],')
-            print('    ],')
-
-    if len(res.shape) == 4:
-        for plane in res:
-            print('    [')
-            for row in plane:
-                print(' ' * 8 + '[')
-                for col in row:
-                    print(' ' * 12, end='')
-                    p = [f'0x{color:02x}' for color in col]
-                    print('[' + ', '.join(p) + '],')
-                print(' ' * 8 + ']')
-            print('    ],')
-
-    print(res.dtype)
-    img = Image.fromarray(res[0], mode='RGB')
-    img.save('spam.jpg', 'JPEG')
+    res = postprocess(res, [obj,])
+    c.print_array(res)

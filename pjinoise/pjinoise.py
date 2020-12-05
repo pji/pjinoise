@@ -139,7 +139,6 @@ def render_source(source: ValueSource,
     # Generate the image data from the source.
     try:
         a = source.fill(new_size, location)
-        assert np.max(a) <= 1.0
     except AttributeError as e:
         print(source)
         raise e

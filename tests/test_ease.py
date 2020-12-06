@@ -42,7 +42,6 @@ def overflows_test(obj, exp, a, action):
     obj.assertListEqual(exp, act)
 
 
-
 # Test cases.
 class DecoratorsTestCase(ut.TestCase):
     def test_clip_clips_results(self):

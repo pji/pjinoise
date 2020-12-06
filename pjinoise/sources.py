@@ -3,6 +3,135 @@ sources
 ~~~~~~~
 
 Objects that generate values, both patterned and noise.
+
+
+Basic Usage
+===========
+A ValueSource object is used to create an array of data that can be
+used for various things, but the main use case is the creation of
+still images and video. Creating an instance of a subclass of
+ValueSource (a "source") works like instantiating any other Python
+class. The specific parameters vary based on what the specifc source
+will create.
+
+Usage::
+
+    ```
+    > src = Lines('h', 22.2, 'ios')
+    ```
+
+
+fill()
+------
+The fill() method is used to generate data from a source. The fill()
+function always adheres to the following protocol:
+
+    :param size: A sequence containing three integers that give the
+        Z, Y, and X dimensions of the data array to produce.
+    :param loc: (Optional.) A sequence containing three integers that
+        offset the data generation within the total space of data the
+        source could generate.
+
+        If you think of each position in the output array as a pixel
+        in an image, most sources use the location of that pixel within
+        the image to determine what the value of that pixel should be.
+        The loc parameter allows you to offset the location of all the
+        pixels in the image by the given amount, which will change the
+        values of the output.
+    :return: A numpy n-dimensional array containing floats within the
+        range 0 <= x <= 1.
+    :rtype: numpy.ndarray
+
+Usage::
+
+    ```
+    > lines = Lines('h', 22.2, 'ios')
+    > size = (1, 2, 3)
+    > location = (2, 3, 4)
+    > a = lines.fill(size, location)
+    ```
+
+
+asdict()
+--------
+The asdict() method is primarily used to make serializing source
+objects to JSON easier. It also can be used in testing to compare
+two source objects. The following is true of the output of asdict():
+
+*   The "type" key contains the serialization name for the object's
+    class.
+*   The other keys are the parameters for creating a new instance
+    of the objects class that is a copy of the object.
+*   The values of those parameters are data types that can be
+    serialized by the json module.
+
+Note: When creating subclasses of ValueSource, the following should
+be done to ensure ValueSource.asdict() can properly serialize the
+subclass if the subclass requires data that cannot be serialized by
+the json module:
+
+*   The parameter in the subclass's __init__() that sets the attribute
+    should also accept a version of the value that can be serialized
+    by the json module.
+*   The public attribute should return the serializable version of the
+    value.
+*   The unserializable value should be stored in a private attribute
+    that is the same name but starts with an underscore.
+*   Calls to that attribute that need the unserializable value should
+    only occur within the subclass.
+*   Calls those that attribute that need the unserializable value
+    should call the private attribute rather than the public one.
+
+The logic can be implemented through the use of a property or a data
+descriptor, but it's neither required nor should it be expected by
+future implementations. I'm not sure if there are any possible future
+cases where the difference between handling this as a property versus
+handling it in __init__() would matter, but if there are any they
+should be avoided since the existing sources aren't consistant in how
+they handle the situation.
+
+Usage:
+
+    ```
+    > lines = Lines('h', 22.2, 'ios')
+    > lines.asdict()
+    {'direction': 'h', 'length': 22.2, 'type': 'lines', 'ease': 'ios'}
+    ```
+
+
+Serialization Helpers
+=====================
+The source module has a few capabilities to help with serialization.
+The get_regname_for_class() function returns a string that represents
+a source class that has been registered with the source module.
+
+Usage::
+
+    ```
+    > cls = Lines
+    > get_regname_for_class(cls)
+    'lines'
+    ```
+
+New source classes can be registered with the source module by adding
+them to the registered_source dictionary. The key should be the
+short string you want to use as the serialized value of the class.
+
+Usage::
+
+    ```
+    > class Spam(ValueSource):
+    ...     pass
+    ...
+    > registered_functions['spam'] = Spam
+    > get_regname_for_class(Spam)
+    'spam'
+    ```
+
+The primary purpose for this feature is to allow classes to be easily
+deserialized from JSON objects. It also should provide a measure of
+input validation at deserialization to reduce the risk of remote code
+execution vulnerabilities though deserialization.
 """
 from abc import ABC, abstractmethod
 from functools import wraps

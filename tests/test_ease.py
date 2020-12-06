@@ -17,7 +17,21 @@ def to_percent(value:float, scale:float = 0xff) -> float:
     return value / scale
 
 
-def test_overflows(obj, exp, a, action):
+def ease_test(obj, exp, e):
+    a = np.array([
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+    ], dtype=float)
+    a = a / 0xff
+    result = e(a)
+    act = grayscale_to_ints_list(result, int)
+    obj.assertListEqual(exp, act)
+
+
+def overflows_test(obj, exp, a, action):
     @ease.overflows
     def spam(a):
         return a
@@ -77,7 +91,7 @@ class DecoratorsTestCase(ut.TestCase):
         action = ease.clip
 
         # Run test and determine if passed.
-        test_overflows(self, exp, a, action)
+        overflows_test(self, exp, a, action)
 
     def test_nochange_does_not_change_results(self):
         """When passed an array and nochange(), the overflows decorator
@@ -124,7 +138,7 @@ class DecoratorsTestCase(ut.TestCase):
         action = ease.nochange
 
         # Run test and determine if passed.
-        test_overflows(self, exp, a, action)
+        overflows_test(self, exp, a, action)
 
     def test_rescale_rescales_results(self):
         """When passed an array and rescale(), the overflows decorator
@@ -172,7 +186,7 @@ class DecoratorsTestCase(ut.TestCase):
         action = ease.rescale
 
         # Run test and determine if passed.
-        test_overflows(self, exp, a, action)
+        overflows_test(self, exp, a, action)
 
 
 class EasingFunctionsTestCase(ut.TestCase):
@@ -214,6 +228,19 @@ class EasingFunctionsTestCase(ut.TestCase):
 
         # Determine whether the test passed.
         self.assertListEqual(exp, act)
+
+    def test_in_back(self):
+        """Perform the in-back easing function."""
+        exp = [
+            [0x17, 0x12, 0x08, 0x00, 0x02, 0x16, 0x42, 0x8f, 0xff],
+            [0x17, 0x12, 0x08, 0x00, 0x02, 0x16, 0x42, 0x8f, 0xff],
+            [0x17, 0x12, 0x08, 0x00, 0x02, 0x16, 0x42, 0x8f, 0xff],
+            [0x17, 0x12, 0x08, 0x00, 0x02, 0x16, 0x42, 0x8f, 0xff],
+            [0x17, 0x12, 0x08, 0x00, 0x02, 0x16, 0x42, 0x8f, 0xff],
+        ]
+        e = ease.in_back
+        ease_test(self, exp, e)
+
 
     def test_in_cubic(self):
         """Given a value between zero and one, ease.in_cubic

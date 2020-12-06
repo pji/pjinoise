@@ -6,6 +6,13 @@ Basic easing function implementations. Easing functions taken from:
 
     https://easings.net
 
+An easing function is used to adjust the "curve" of the array. The
+curve is the graph of values in the array and the number of times each
+value appears. An easing function will change the values in the array
+in a predictable way that will change the shape of that curve. This
+can be used to create various effects when applied to the color values
+in an image.
+
 
 Basic Usage
 ===========
@@ -31,7 +38,7 @@ Overflowing Eases
 =================
 Several easing functions will return values outside of the expected
 range. These functions are given the overflows decorator that allows
-you to chose how it behaves. Functions with the overflows parameter
+you to chose how it behaves. Functions with the overflows decorator
 have an additional parameter:
 
     :param action: (Optional.) A function that accepts and returns
@@ -219,6 +226,13 @@ def in_out_cos(a: np.ndarray) -> np.ndarray:
 
 
 # Ease in functions.
+@overflows
+def in_back(a: np.ndarray) -> np.ndarray:
+    c1 = 1.70158
+    c3 = c1 + 1
+    return c3 * a ** 3 - c1 * a ** 2
+
+
 def in_circ(a: np.ndarray) -> np.ndarray:
     return 1 - np.sqrt(1 - a ** 2)
 
@@ -330,6 +344,7 @@ registered_functions = {
     'i2': in_quad,
     'i3': in_cubic,
     'i5': in_quint,
+    'ia': in_back,
     'ie': in_elastic,
     'is': in_sine,
     'ir': in_circ,
@@ -363,5 +378,5 @@ if __name__ == '__main__':
     ]
     a = np.array(a)
     a = a / 0xff
-    res = mid_bump_sine(a)
+    res = in_back(a)
     print_array(res)

@@ -9,6 +9,7 @@ import unittest as ut
 import numpy as np
 
 from pjinoise import ease
+from pjinoise.common import grayscale_to_ints_list
 
 
 # Utility functions.
@@ -16,8 +17,165 @@ def to_percent(value:float, scale:float = 0xff) -> float:
     return value / scale
 
 
+def test_overflows(obj, exp, a, action):
+    @ease.overflows
+    def spam(a):
+        return a
+
+    a = a / 0xff
+    result = spam(a, action)
+    act = grayscale_to_ints_list(result, int)
+    obj.assertListEqual(exp, act)
+
+
+
 # Test cases.
-class FunctionsTestCase(ut.TestCase):
+class DecoratorsTestCase(ut.TestCase):
+    def test_clip_clips_results(self):
+        """When passed an array and clip(), the overflows decorator
+        should return an array that has been clipped to be between
+        zero and one. This decorator should be using on easing
+        functions that can result results that exceed zero or one,
+        allowing the results to be rescaled to be within the expected
+        values.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+            ],
+            [
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+                [0x00, 0x00, 0x80, 0xff, 0xff,],
+            ],
+        ]
+
+        # Set up test data and state.
+        a = np.array([
+            [
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+            ],
+            [
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+            ],
+        ], dtype=float)
+        action = ease.clip
+
+        # Run test and determine if passed.
+        test_overflows(self, exp, a, action)
+
+    def test_nochange_does_not_change_results(self):
+        """When passed an array and nochange(), the overflows decorator
+        should return an unchanged array. This decorator should be
+        used on easing functions that can result results that exceed
+        zero or one, allowing the results to be rescaled to be within
+        the expected values.
+        """
+        # Expected value.
+        exp = [
+            [
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+            ],
+            [
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+            ],
+        ]
+
+        # Set up test data and state.
+        a = np.array([
+            [
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+            ],
+            [
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+            ],
+        ], dtype=float)
+        action = ease.nochange
+
+        # Run test and determine if passed.
+        test_overflows(self, exp, a, action)
+
+    def test_rescale_rescales_results(self):
+        """When passed an array and rescale(), the overflows decorator
+        should return an array that has been rescales to be between
+        zero and one. This decorator should be using on easing
+        functions that can result results that exceed zero or one,
+        allowing the results to be rescaled to be within the expected
+        values.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+            ],
+            [
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+                [0x00, 0x40, 0x80, 0xbf, 0xff,],
+            ],
+        ]
+
+        # Set up test data and state.
+        a = np.array([
+            [
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+            ],
+            [
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+                [-0x80, 0x00, 0x80, 0xff, 0x180,],
+            ],
+        ], dtype=float)
+        action = ease.rescale
+
+        # Run test and determine if passed.
+        test_overflows(self, exp, a, action)
+
+
+class EasingFunctionsTestCase(ut.TestCase):
     def test_in_out_cubic(self):
         """Given a value between zero and one, ease.in_out_cubic
         should perform the in out cubic easing function on the

@@ -5,12 +5,142 @@ ease
 Basic easing function implementations. Easing functions taken from:
 
     https://easings.net
+
+
+Basic Usage
+===========
+Easing functions follow the easing protocol, which is the following:
+
+    :param a: A numpy n-dimensional array object containing float
+        values within the range 0 <= x <= 1.
+    :return: A numpy n-dimensional array object containing float
+        values within the range of 0 <= x <= 1.
+    :rtype: numpy.ndarray
+
+Usage::
+
+    ```
+    > import numpy as np
+    > a = np.array([0x40, 0xa0, 0xc0], astype=float)
+    > a = a / 0xff
+    > out = in_quint(a)
+    ```
+
+
+Overflowing Eases
+=================
+Several easing functions will return values outside of the expected
+range. These functions are given the overflows decorator that allows
+you to chose how it behaves. Functions with the overflows parameter
+have an additional parameter:
+
+    :param action: (Optional.) A function that accepts and returns
+        a numpy n-dimensional array that determines how the easing
+        function handles values that fall outside the range of
+        0 <= x <= 1. Defaults to rescaling the values to fit within
+        the range.
+
+The following actions are available within this module:
+
+*   clip: Set all values less than zero to zero and all values greater
+    than one to one.
+*   nochange: Return the values outside the range unchanged.
+*   rescale: Adjust the scale of the values in the array so that the
+    minimum value is zero and the maximum value is one.
+
+Usage::
+
+    ```
+    > import numpy as np
+    > a = np.array([0x40, 0xa0, 0xc0], astype=float)
+    > a = a / 0xff
+    > out = in_out_back(a, clip)
+    ```
+
+
+Serialization Helpers
+=====================
+The ease module has a few capabilities to help with serialization. The
+get_regname_for_func() function returns a string that represents an
+easing function that has been registered with the ease module.
+
+Usage::
+
+    ```
+    > fn = in_out_circ
+    > get_regname_for_func(fn)
+    'ior'
+    ```
+
+New easing functions can be registered with the ease module by adding
+them to the registered_functions dictionary. The key should be the
+short string you want to use as the serialized value of the function.
+
+Usage::
+
+    ```
+    > @overflows
+    > def spam(a):
+    ...     return a + .5
+    ...
+    > registered_functions['sp'] = spam
+    > get_regname_for_func(spam)
+    'sp'
+    ```
+
+The primary purpose for this feature is to allow classes that hold
+easing values as attributes to be serialized with the short name of
+function rather than the function itself. This makes serialization
+into a format like JSON easier, and it provides a measure of input
+validation at deserialization to reduce the risk of remote code
+execution vulnerabilities.
 """
+from functools import wraps
 from typing import Callable
 
 import numpy as np
 
 
+# Overflow actions.
+def clip(a: np.ndarray) -> np.ndarray:
+    """Clip an array that exceeds the boundaries of zero and one."""
+    a[a < 0] = 0
+    a[a > 1] = 1
+    return a
+
+
+def nochange(a: np.ndarray) -> np.ndarray:
+    """Return an array without change."""
+    return a
+
+
+def rescale(a: np.ndarray) -> np.ndarray:
+    """Rescale an array that exceeds the boundaries of zero and one."""
+    scale = np.max(a) - np.min(a)
+    if scale != 0 and (np.max(a) > 1.0 or np.min(a) < 0):
+        old_scale = np.max(a) - np.min(a)
+        a = a - np.min(a)
+        a = a / old_scale
+    elif scale == 0 and np.min(a) < 0:
+        a.fill(0)
+    elif scale == 0 and np.min(a) > 1:
+        a.fill(1)
+    return a
+
+
+# Common decorators.
+def overflows(fn: Callable) -> Callable:
+    """A decorator to handle easing functions that overflow the
+    boundary values of zero and one.
+    """
+    @wraps(fn)
+    def wrapper(a: np.array, action: Callable = rescale) -> np.ndarray:
+        a = fn(a)
+        return action(a)
+    return wrapper
+
+
+# Don't ease function.
 def linear(a: np.ndarray) -> np.ndarray:
     """Don't perform easing. This exists to avoid having to check if
     easing is needed before sending to an easing function.
@@ -19,6 +149,7 @@ def linear(a: np.ndarray) -> np.ndarray:
 
 
 # Ease in and out functions.
+@overflows
 def in_out_back(a: np.ndarray) -> np.ndarray:
     c1 = 1.70158
     c2 = c1 * 1.525
@@ -44,6 +175,7 @@ def in_out_cubic(a: np.ndarray) -> np.ndarray:
     return a
 
 
+@overflows
 def in_out_elastic(a: np.ndarray) -> np.ndarray:
     c5 = (2 * np.pi) / 4.5
 
@@ -139,6 +271,7 @@ def out_cubic(a: np.ndarray) -> np.ndarray:
     return 1 - (1 - a) ** 3
 
 
+@overflows
 def out_elastic(a: np.ndarray) -> np.ndarray:
     c4 = (2 * np.pi) / 3
     m = np.zeros(a.shape, bool)

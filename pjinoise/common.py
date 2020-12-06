@@ -64,7 +64,8 @@ def deserialize_sequence(value: Union[Sequence[float], str]) -> Tuple[float]:
     return tuple(float(n) for n in value)
 
 
-def grayscale_to_ints_list(a: np.ndarray) -> List[int]:
+def grayscale_to_ints_list(a: np.ndarray,
+                           astype: type = np.uint8) -> List[int]:
     """pjinoise grayscale stores color values as floats between
     zero and one. This is a pain to read on a screen or type
     expected values for. This function converts that to lists
@@ -72,7 +73,7 @@ def grayscale_to_ints_list(a: np.ndarray) -> List[int]:
     """
     a = a.copy()
     a = np.around(a * 0xff)
-    a = a.astype(np.uint8)
+    a = a.astype(astype)
     return a.tolist()
 
 

@@ -583,10 +583,21 @@ class SeededRandom(ValueSource):
     seed value to allow the noise to be regenerated in a predictable
     way.
     """
-    def __init__(self, seed: Union[None, int, str] = None):
+    def __init__(self, seed: Union[None, int, str, bytes] = None):
+        """Initialize an instance of SeededRandom.
+
+        :param seed: (Optional.) An int, bytes, or string used to seed
+            therandom number generator used to generate the image data.
+            If no value is passed, the RNG will not be seeded, so
+            serialized versions of this source will not product the
+            same values. Note: strings that are passed to seed will
+            be converted to UTF-8 bytes before being converted to
+            integers for seeding.
+        """
         self.seed = seed
         if isinstance(seed, str):
             seed = bytes(seed, 'utf_8')
+        if isinstance(seed, bytes):
             seed = int.from_bytes(seed, 'little')
         self._rng = default_rng(seed)
 

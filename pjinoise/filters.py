@@ -317,7 +317,7 @@ class LinearToPolar(ForLayer):
 
 
 class MotionBlur(ForLayer):
-    """Apply a blur in a given direction to give the appearance of 
+    """Apply a blur in a given direction to give the appearance of
     motion.
     """
     def __init__(self, size: Union[str, int],

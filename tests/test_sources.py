@@ -110,7 +110,7 @@ class OctaveTestCases(ut.TestCase):
         unit = (4, 4, 4)
         ease = 'l'
         table = P
-        args = [octaves, persistence, amplitude, frequency, unit, ease, table]
+        args = [octaves, persistence, amplitude, frequency, unit, table, ease]
         obj = s.OctaveCosineCurtains(*args)
 
         # Run test.
@@ -148,7 +148,7 @@ class PatternTestCase(ut.TestCase):
         ]
 
         # Set up test data and state.
-        args = ['v', 'l', 0., 0., .5, 1., 1., 0.]
+        args = ['v', [0., 0., .5, 1., 1., 0.], 'l']
         n = s.Gradient(*args)
         size = (2, 5, 4)
 
@@ -292,7 +292,7 @@ class PatternTestCase(ut.TestCase):
         ]
 
         # Set up test data and state.
-        args = ['5', 'l', 'x']
+        args = ['5', 'x', 'l']
         n = s.Spheres(*args)
         size = (2, 8, 8)
 
@@ -335,7 +335,7 @@ class PatternTestCase(ut.TestCase):
         ]
 
         # Set up test data and state.
-        args = ['5', 'l', 'y']
+        args = ['5', 'y', 'l']
         n = s.Spheres(*args)
         size = (2, 8, 8)
 
@@ -348,6 +348,45 @@ class PatternTestCase(ut.TestCase):
 
         # Determine if test passed.
         self.assertListEqual(exp, act)
+
+    def test_waves_fill(self):
+        """Waves.fill should return a series of concentric rings."""
+        # Expected value.
+        exp = [
+            [
+                [0x4c, 0x22, 0x76, 0xa4, 0xa4, 0x76, 0x22, 0x4c],
+                [0x22, 0xa4, 0xf1, 0xb2, 0xb2, 0xf1, 0xa4, 0x22],
+                [0x76, 0xf1, 0x6a, 0x0e, 0x0e, 0x6a, 0xf1, 0x76],
+                [0xa4, 0xb2, 0x0e, 0x87, 0x87, 0x0e, 0xb2, 0xa4],
+                [0xa4, 0xb2, 0x0e, 0x87, 0x87, 0x0e, 0xb2, 0xa4],
+                [0x76, 0xf1, 0x6a, 0x0e, 0x0e, 0x6a, 0xf1, 0x76],
+                [0x22, 0xa4, 0xf1, 0xb2, 0xb2, 0xf1, 0xa4, 0x22],
+                [0x4c, 0x22, 0x76, 0xa4, 0xa4, 0x76, 0x22, 0x4c],
+            ],
+            [
+                [0x4c, 0x22, 0x76, 0xa4, 0xa4, 0x76, 0x22, 0x4c],
+                [0x22, 0xa4, 0xf1, 0xb2, 0xb2, 0xf1, 0xa4, 0x22],
+                [0x76, 0xf1, 0x6a, 0x0e, 0x0e, 0x6a, 0xf1, 0x76],
+                [0xa4, 0xb2, 0x0e, 0x87, 0x87, 0x0e, 0xb2, 0xa4],
+                [0xa4, 0xb2, 0x0e, 0x87, 0x87, 0x0e, 0xb2, 0xa4],
+                [0x76, 0xf1, 0x6a, 0x0e, 0x0e, 0x6a, 0xf1, 0x76],
+                [0x22, 0xa4, 0xf1, 0xb2, 0xb2, 0xf1, 0xa4, 0x22],
+                [0x4c, 0x22, 0x76, 0xa4, 0xa4, 0x76, 0x22, 0x4c],
+            ],
+        ]
+        
+        # Set up test data and state.
+        cls = s.Waves
+        kwargs = {
+            'length': 3,
+            'growth': 'l',
+            'ease': '',
+        }
+        size = (2, 8, 8)
+        
+        # Run test and determine if passed.
+        source_fill_test(self, exp, cls, kwargs, size)
+        
 
 
 class RandomTestCase(ut.TestCase):
@@ -381,7 +420,7 @@ class RandomTestCase(ut.TestCase):
         ]
 
         # Set up test data and state.
-        args = ['4,4,4', 'l', P]
+        args = ['4,4,4', P, 'l']
         obj = s.Curtains(*args)
 
         # Run test.

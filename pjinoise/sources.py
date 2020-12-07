@@ -153,20 +153,28 @@ from pjinoise import operations as op
 def eased(fn: Callable) -> Callable:
     @wraps(fn)
     def wrapper(obj, *args, **kwargs) -> np.ndarray:
-        return obj.ease(fn(obj, *args, **kwargs))
+        return obj._ease(fn(obj, *args, **kwargs))
     return wrapper
 
 
 # Base classes.
 class ValueSource(ABC):
     """Base class to define common features of noise classes."""
-    def __init__(self, *args, **kwargs) -> None:
-        pass
+    def __init__(self, ease: str = '', *args, **kwargs) -> None:
+        self.ease = ease
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return NotImplemented
         return self.asdict() == other.asdict()
+
+    @property
+    def ease(self) -> str:
+        return e.get_regname_for_func(self._ease)
+
+    @ease.setter
+    def ease(self, value: str) -> None:
+        self._ease = e.registered_functions[value]
 
     # Public methods.
     def asargs(self) -> List[Any]:
@@ -179,10 +187,7 @@ class ValueSource(ABC):
         """Serialize the object to a dictionary."""
         attrs = self.__dict__.copy()
         attrs['type'] = get_regname_for_class(self)
-        if 'ease' in attrs:
-            vals = list(e.registered_functions.values())
-            keys = list(e.registered_functions)
-            attrs['ease'] = keys[vals.index(attrs['ease'])]
+        attrs['ease'] = self.ease
         if 'table' in attrs:
             attrs['table'] = self.table.tolist()
         attrs = c.remove_private_attrs(attrs)
@@ -206,10 +211,9 @@ class Gradient(ValueSource):
     """Generate a simple gradient."""
     def __init__(self,
                  direction: str = 'h',
-                 ease: str = 'ioq',
-                 *args) -> None:
+                 stops: Union[Sequence[float], str] = (0, 0, 1, 1),
+                 *args, **kwargs) -> None:
         self.direction = direction
-        self.ease = e.registered_functions[ease]
 
         # Parse the stops for the gradient.
         # A gradient stop sets the color at that position in the
@@ -217,10 +221,13 @@ class Gradient(ValueSource):
         # command line, they come in as an ordered list of values,
         # with the position being first and the color value being
         # next.
+        if isinstance(stops, str):
+            stops = stops.split(',')
+        self.stops = stops
         self.stops = []
-        for index in range(len(args))[::2]:
+        for index in range(len(stops))[::2]:
             try:
-                stop = [float(args[index]), float(args[index + 1])]
+                stop = [float(stops[index]), float(stops[index + 1])]
             except IndexError:
                 raise ValueError(TEXT['gradient_error'])
             self.stops.append(stop)
@@ -237,7 +244,10 @@ class Gradient(ValueSource):
         if self.stops[-1][0] != 1:
             self.stops.append([1, self.stops[-1][1]])
 
+        super().__init__(*args, **kwargs)
+
     # Public methods.
+    @eased
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Return a space filled with noise."""
@@ -291,7 +301,7 @@ class Gradient(ValueSource):
         elif self.direction == 't':
             a = a.reshape(a_size, 1, 1)
             a = np.tile(a, (1, size[Y], size[X]))
-        return self.ease(a)
+        return a
 
 
 class Lines(ValueSource):
@@ -299,11 +309,9 @@ class Lines(ValueSource):
     def __init__(self,
                  direction: str = 'h',
                  length: Union[float, str] = 64,
-                 ease: str = 'io5',
                  *args, **kwargs) -> None:
         self.direction = direction
         self.length = float(length)
-        self.ease = e.registered_functions[ease]
         super().__init__(*args, **kwargs)
 
     # Public methods.
@@ -330,10 +338,10 @@ class Lines(ValueSource):
 class Rays(ValueSource):
     def __init__(self, count: Union[str, int],
                  offset: Union[str, float] = 0,
-                 ease: str = 'l') -> None:
+                 *args, **kwargs) -> None:
         self.count = int(count)
         self.offset = float(offset)
-        self.ease = e.registered_functions[ease]
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     @eased
@@ -378,12 +386,12 @@ class Ring(ValueSource):
                  width: float,
                  gap: float = 0,
                  count: int = 1,
-                 ease: str = 'l') -> None:
+                 *args, **kwargs) -> None:
         self.radius = float(radius)
         self.width = float(width)
         self.gap = float(gap)
         self.count = int(count)
-        self.ease = e.registered_functions[ease]
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     @eased
@@ -417,8 +425,9 @@ class Ring(ValueSource):
 
 
 class Solid(ValueSource):
-    def __init__(self, color: Union[str, float]) -> None:
+    def __init__(self, color: Union[str, float], *args, **kwargs) -> None:
         self.color = float(color)
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     def fill(self, size: Sequence[int],
@@ -429,10 +438,11 @@ class Solid(ValueSource):
 
 
 class Spheres(ValueSource):
-    def __init__(self, radius: float, ease: str, offset: str = None) -> None:
+    def __init__(self, radius: float,
+                 offset: str = None, *args, **kwargs) -> None:
         self.radius = float(radius)
-        self.ease = e.registered_functions[ease]
         self.offset = offset
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     @eased
@@ -490,9 +500,9 @@ class Spheres(ValueSource):
 
 
 class Spot(ValueSource):
-    def __init__(self, radius: float, ease: str) -> None:
+    def __init__(self, radius: float, *args, **kwargs) -> None:
         self.radius = float(radius)
-        self.ease = e.registered_functions[ease]
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     @eased
@@ -521,10 +531,20 @@ class Waves(ValueSource):
     """Generates concentric circles."""
     def __init__(self, length: Union[str, float],
                  growth: str = 'l',
-                 ease: str = 'l'):
+                 *args, **kwargs):
+        """Initialize an instance of Waves.
+
+        :param length: The radius of the innermost circle.
+        :param growth: (Optional.) Either the string 'linear' or the
+            string 'geometric'. Determines whether the distance between
+            each circle remains constant (linear) or increases
+            (geometric). Defaults to linear.
+        :returns: None.
+        :rtype: NoneType
+        """
         self.length = float(length)
         self.growth = growth
-        self.ease = e.registered_functions[ease]
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     @eased
@@ -541,12 +561,12 @@ class Waves(ValueSource):
         # Perform a spherical interpolation on the points in the
         # volume and run the easing function on the results.
         c = np.sqrt(c[X] ** 2 + c[Y] ** 2)
-        if self.growth == 'l':
+        if self.growth == 'l' or growth == 'linear':
             a = c % self.length
             a /= self.length
             a = abs(a - .5) * 2
 
-        elif self.growth == 'g':
+        elif self.growth == 'g' or growth == 'geometric':
             in_length = 0
             out_length = self.length
             while in_length < np.max(c):
@@ -685,9 +705,7 @@ class UnitNoise(ValueSource):
 
     def __init__(self,
                  unit: Union[Sequence[int], str],
-                 ease: str = '',
                  table: Union[Sequence[float], str, None] = None,
-                 scale: int = 0xff,
                  *args, **kwargs) -> None:
         """Initialize an instance of UnitNoise.
 
@@ -700,8 +718,7 @@ class UnitNoise(ValueSource):
             They will repeat if there are more units along the axis
             in an image then there are colors defined for that axis.
         """
-        self.ease = e.registered_functions[ease]
-        self.scale = scale
+        self.scale = 0xff
 
         if isinstance(unit, str):
             unit = self._norm_coordinates(unit)
@@ -714,6 +731,7 @@ class UnitNoise(ValueSource):
         self.table = np.array(table)
         self.shape = self.table.shape
         self.table = np.ravel(self.table)
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     def asdict(self) -> dict:
@@ -1026,7 +1044,6 @@ class Values(UnitNoise):
     """Produce a gradient over a multidimensional space."""
     def __init__(self,
                  unit: Union[Sequence[int], str],
-                 ease: str,
                  size: Union[Sequence[int], None] = (50, 720, 1280),
                  table: Union[Sequence, None] = None,
                  *args, **kwargs) -> None:
@@ -1042,7 +1059,7 @@ class Values(UnitNoise):
             in an image then there are colors defined for that axis.
         """
         self.size = size
-        super().__init__(unit, ease, table)
+        super().__init__(unit, table, *args, **kwargs)
 
     # Public methods.
     @eased

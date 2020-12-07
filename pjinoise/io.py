@@ -45,7 +45,7 @@ def load_conf(filename: str,
     conf = json.loads(conf_json)
 
     # Deserialize configuration based on the given version.
-    if conf['Version'] == '0.2.0':
+    if conf['Version'] == '0.2.0' or conf['Version'] == '0.3.0':
         # Allow CLI arguments to change or override values in the
         # loaded config.
         if args and args.filename:

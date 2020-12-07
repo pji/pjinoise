@@ -25,8 +25,5 @@
 audio.py
 chunk_video.sh
 
-# Ignore helper/shortcut scripts.
-runtests.sh
-
 # Working scripts.
 working.py

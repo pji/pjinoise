@@ -518,6 +518,7 @@ class Spot(ValueSource):
 
 
 class Waves(ValueSource):
+    """Generates concentric circles."""
     def __init__(self, length: Union[str, float],
                  growth: str = 'l',
                  ease: str = 'l'):

@@ -316,6 +316,39 @@ class LinearToPolar(ForLayer):
         return cv2.warpPolar(a, a.shape, center, max_radius, flags)
 
 
+class MotionBlur(ForLayer):
+    """Apply a blur in a given direction to give the appearance of 
+    motion.
+    """
+    def __init__(self, size: Union[str, int],
+                 direction: str) -> None:
+        self.size = int(size)
+        self.direction = direction
+
+    # Public methods.
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
+        """Taken from:
+        https://docs.opencv.org/master/d4/d13/tutorial_py_filtering.html
+        """
+        size = self.size
+        kernel = np.zeros((size, size), float)
+        if self.direction == 'h':
+            y = int(size // 2)
+            for x in range(size):
+                kernel[y][x] = 1 / size
+        if self.direction == 'v':
+            x = int(size // 2)
+            for y in range(size):
+                kernel[y][x] = 1 / size
+
+        for i in range(a.shape[Z]):
+            blur = np.zeros(a.shape[Y:], dtype=a.dtype)
+            blur = a[i]
+            blur = cv2.filter2D(blur, -1, kernel)
+            a[i] = blur
+        return a
+
+
 class Pinch(ForLayer):
     def __init__(self, amount: Union[float, str],
                  radius: Union[float, str],
@@ -754,6 +787,7 @@ registered_filters = {
     'grow': Grow,
     'inverse': Inverse,
     'lineartopolar': LinearToPolar,
+    'motionblur': MotionBlur,
     'pinch': Pinch,
     'polartolinear': PolarToLinear,
     'resize': Resize,
@@ -810,10 +844,9 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=float)
     a = a / 0xff
-    obj = Color(**{
-        'colorkey': 'p',
-        'src_space': '',
-        'dst_space': 'RGB'
+    obj = MotionBlur(**{
+        'size': 4,
+        'direction': 'h',
     })
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)

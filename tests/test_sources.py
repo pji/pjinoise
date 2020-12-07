@@ -374,7 +374,7 @@ class PatternTestCase(ut.TestCase):
                 [0x4c, 0x22, 0x76, 0xa4, 0xa4, 0x76, 0x22, 0x4c],
             ],
         ]
-        
+
         # Set up test data and state.
         cls = s.Waves
         kwargs = {
@@ -383,10 +383,9 @@ class PatternTestCase(ut.TestCase):
             'ease': '',
         }
         size = (2, 8, 8)
-        
+
         # Run test and determine if passed.
         source_fill_test(self, exp, cls, kwargs, size)
-        
 
 
 class RandomTestCase(ut.TestCase):
@@ -486,7 +485,7 @@ class RandomTestCase(ut.TestCase):
             'table': P,
         }
         cls = s.OctavePerlin
-        
+
         # Run test.
         source_fill_test(self, exp, cls, kwargs, size, start)
 
@@ -516,7 +515,7 @@ class RandomTestCase(ut.TestCase):
         source_fill_test(self, exp, cls, kwargs, size, start)
 
     def test_seededrandom_fill(self):
-        """When given the size of an array, return an array that 
+        """When given the size of an array, return an array that
         contains randomly generated noise.
         """
         exp = [
@@ -545,9 +544,9 @@ class RandomTestCase(ut.TestCase):
         src_kwargs = {'seed': 'spam'}
         size = (2, 8, 8)
         source_fill_test(self, exp, src_class, src_kwargs, size)
-    
+
     def test_seededrandom_with_seed_repeats_noise(self):
-        """When given the same seed, two instances of SeededRandom 
+        """When given the same seed, two instances of SeededRandom
         should return the same noise.
         """
         # Set up for expected values.
@@ -555,24 +554,24 @@ class RandomTestCase(ut.TestCase):
         size = (2, 8, 8)
         src_a = s.SeededRandom(seed)
         result = src_a.fill(size)
-        
+
         # Expected value.
         exp = grayscale_to_ints_list(result)
-        
+
         # Set up test data and state.
         src_b = s.SeededRandom(seed)
-        
+
         # Run test.
         result = src_b.fill(size)
-        
+
         # Extract actual test results.
         act = grayscale_to_ints_list(result)
-        
+
         # Determine if test passed.
         self.assertListEqual(exp, act)
-    
+
     def test_seededrandom_without_seed_not_repeat_noise(self):
-        """When given the same seed, two instances of SeededRandom 
+        """When given the same seed, two instances of SeededRandom
         should return the same noise.
         """
         # Set up for expected values.
@@ -580,23 +579,23 @@ class RandomTestCase(ut.TestCase):
         size = (2, 8, 8)
         src_a = s.SeededRandom(seed_exp)
         result = src_a.fill(size)
-        
+
         # Expected value.
         exp = grayscale_to_ints_list(result)
-        
+
         # Set up test data and state.
         seed_act = 'eggs'
         src_b = s.SeededRandom(seed_act)
-        
+
         # Run test.
         result = src_b.fill(size)
-        
+
         # Extract actual test results.
         act = grayscale_to_ints_list(result)
-        
+
         # Determine if test passed.
         self.assertNotEqual(exp, act)
-    
+
     def test_values_fill_with_noise(self):
         """Given the size of each dimension of the noise,
         Values.fill should return an array that contains

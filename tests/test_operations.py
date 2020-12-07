@@ -126,10 +126,10 @@ class OperationsTestCase(ut.TestCase):
         self.assertListEqual(exp, act)
 
     def test_multiply_with_half_effect(self):
-        """Given two arrays and an amount the operation should affect 
-        the first array, operations.multiply should return the value 
-        of the product of each point in the arrays. Since each value 
-        in the arrays is between zero and one, this results in a 
+        """Given two arrays and an amount the operation should affect
+        the first array, operations.multiply should return the value
+        of the product of each point in the arrays. Since each value
+        in the arrays is between zero and one, this results in a
         darkening of the image.
         """
         exp = [

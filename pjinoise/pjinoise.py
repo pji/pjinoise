@@ -15,6 +15,7 @@ from pjinoise import cli
 from pjinoise import filters as f
 from pjinoise import io
 from pjinoise import ui
+from pjinoise.__version__ import __version__
 from pjinoise.common import convert_color_space as _convert_color_space
 from pjinoise.model import Image, Layer
 from pjinoise.sources import ValueSource

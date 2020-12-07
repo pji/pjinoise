@@ -160,7 +160,7 @@ def eased(fn: Callable) -> Callable:
 # Base classes.
 class ValueSource(ABC):
     """Base class to define common features of noise classes."""
-    def __init__(self, ease: str = '', *args, **kwargs) -> None:
+    def __init__(self, ease: str = 'l', *args, **kwargs) -> None:
         self.ease = ease
 
     def __eq__(self, other):
@@ -604,7 +604,8 @@ class SeededRandom(ValueSource):
     seed value to allow the noise to be regenerated in a predictable
     way.
     """
-    def __init__(self, seed: Union[None, int, str, bytes] = None):
+    def __init__(self, seed: Union[None, int, str, bytes] = None,
+                 *args, **kwargs) -> None:
         """Initialize an instance of SeededRandom.
 
         :param seed: (Optional.) An int, bytes, or string used to seed
@@ -621,6 +622,7 @@ class SeededRandom(ValueSource):
         if isinstance(seed, bytes):
             seed = int.from_bytes(seed, 'little')
         self._rng = default_rng(seed)
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     def fill(self, size: Sequence[int],
@@ -651,12 +653,10 @@ class SeededRandom(ValueSource):
 class Embers(SeededRandom):
     def __init__(self, depth: int = 1,
                  threshold: float = .9995,
-                 ease: str = '',
                  blend: str = 'lighter',
                  *args, **kwargs) -> None:
         self.depth = depth
         self.threshold = threshold
-        self.ease = e.registered_functions[ease]
         self.blend = blend
         self._blend = op.registered_ops[blend]
         super().__init__(*args, **kwargs)

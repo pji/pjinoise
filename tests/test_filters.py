@@ -469,7 +469,6 @@ class ResizeTestCase(ut.TestCase):
         obj = filters.Resize(new_size, crop)
         filters_ = [obj,]
         _ = filters.preprocess(size, filters_)
-        
 
         # Run test.
         result = filters.postprocess(a, filters_)

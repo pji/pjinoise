@@ -240,7 +240,6 @@ class EasingFunctionsTestCase(ut.TestCase):
         e = ease.in_back
         ease_test(self, exp, e)
 
-
     def test_in_cubic(self):
         """Given a value between zero and one, ease.in_cubic
         should perform the in quint easing function on the

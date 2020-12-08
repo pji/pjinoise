@@ -596,6 +596,33 @@ class RandomTestCase(ut.TestCase):
         # Determine if test passed.
         self.assertNotEqual(exp, act)
 
+    def test_unitnoise_seeds_table_creation(self):
+        """When initialized with a seed value, UnitNoise should use
+        that value to seed the random generation of its table.
+        """
+        # Set up expected values.
+        class Spam(s.UnitNoise):
+            def fill(*args, **kwargs):
+                return None
+
+        kwargs = {
+            'unit': (1024, 1024, 1024),
+            'seed': 'spam',
+        }
+        exp_obj = Spam(**kwargs)
+
+        # Expected value.
+        exp = exp_obj.table.tolist()
+
+        # Run test.
+        act_obj = Spam(**kwargs)
+
+        # Extract actual data.
+        act = act_obj.table.tolist()
+
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+
     def test_values_fill_with_noise(self):
         """Given the size of each dimension of the noise,
         Values.fill should return an array that contains

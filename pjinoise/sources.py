@@ -65,30 +65,18 @@ two source objects. The following is true of the output of asdict():
 *   The values of those parameters are data types that can be
     serialized by the json module.
 
-Note: When creating subclasses of ValueSource, the following should
-be done to ensure ValueSource.asdict() can properly serialize the
-subclass if the subclass requires data that cannot be serialized by
-the json module:
+Note: When creating subclasses of ValuesSource, care should be taken
+to ensure the subclass's asdict() method only returns data that can
+be serialized by the json module. There are a couple of ways to
+accomplish this:
 
-*   The parameter in the subclass's __init__() that sets the attribute
-    should also accept a version of the value that can be serialized
-    by the json module.
-*   The public attribute should return the serializable version of the
-    value.
-*   The unserializable value should be stored in a private attribute
-    that is the same name but starts with an underscore.
-*   Calls to that attribute that need the unserializable value should
-    only occur within the subclass.
-*   Calls those that attribute that need the unserializable value
-    should call the private attribute rather than the public one.
-
-The logic can be implemented through the use of a property or a data
-descriptor, but it's neither required nor should it be expected by
-future implementations. I'm not sure if there are any possible future
-cases where the difference between handling this as a property versus
-handling it in __init__() would matter, but if there are any they
-should be avoided since the existing sources aren't consistant in how
-they handle the situation.
+*   ValueSource.asdict() won't return private attributes in the
+    output dictionary, so the serialized version can be stored in
+    the public attribute (or at least returned by calls to the
+    public attribute) and the deserialized version stored in a
+    private attribute.
+*   The asdict() method can be subclassed to serialize the value of
+    the attribute before the output dictionary is returned.
 
 Usage:
 
@@ -706,6 +694,7 @@ class UnitNoise(ValueSource):
     def __init__(self,
                  unit: Union[Sequence[int], str],
                  table: Union[Sequence[float], str, None] = None,
+                 seed: Union[str, int, None] = None,
                  *args, **kwargs) -> None:
         """Initialize an instance of UnitNoise.
 
@@ -723,6 +712,13 @@ class UnitNoise(ValueSource):
         if isinstance(unit, str):
             unit = self._norm_coordinates(unit)
         self.unit = unit
+
+        self.seed = seed
+        if isinstance(seed, str):
+            seed = bytes(seed, 'utf_8')
+        if isinstance(seed, bytes):
+            seed = int.from_bytes(seed, 'little')
+        self._seed = seed
 
         if table == 'P':
             table = P
@@ -801,6 +797,13 @@ class UnitNoise(ValueSource):
             whole[axis] = indices[axis] // 1
             parts[axis] = indices[axis] - whole[axis]
         return whole, parts
+
+    def _make_table(self) -> List:
+        table = [n for n in range(self.scale)]
+        table.extend(table)
+        rng = default_rng(self._seed)
+        rng.shuffle(table)
+        return table
 
     def _norm_coordinates(self, s: Union[Sequence[int], str]) -> Sequence[int]:
         if isinstance(s, str):
@@ -1031,13 +1034,6 @@ class Perlin(UnitNoise):
         # of how much of the maximum noise each pixel contains.
         # Run the noise through the easing function and return.
         return values
-
-    # Private methods.
-    def _make_table(self) -> List:
-        table = [n for n in range(self.scale)]
-        table.extend(table)
-        random.shuffle(table)
-        return table
 
 
 class Values(UnitNoise):

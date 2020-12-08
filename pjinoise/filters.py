@@ -225,14 +225,20 @@ class CutShadow(CutLight):
         return self.ease(a)
 
 
-class Inverse(ForLayer):
-    def __init__(self, ease: str = '') -> None:
-        self.ease = e.registered_functions[ease]
+class Flip(ForLayer):
+    def __init__(self, direction: str, *args, **kwargs) -> None:
+        self.direction = direction
 
     # Public methods.
-    @scaled
-    def process(self, a: np.ndarray, *args) -> np.ndarray:
-        return self.ease(1 - a)
+    def process(self, a: np.ndarray) -> np.ndarray:
+        if self.direction == 'h':
+            return np.flip(a, X)
+        if self.direction == 'v':
+            return np.flip(a, Y)
+        if self.direction == 't':
+            return np.flip(a, Z)
+        msg = f'Direction {self.direction} not recognized.'
+        raise ValueError(msg)
 
 
 class Grain(ForLayer):
@@ -281,6 +287,16 @@ class Grow(ForLayer):
                 slices = tuple(slice(s, e) for s, e in zip(start, end))
             resized[i] = frame[slices]
         return resized
+
+
+class Inverse(ForLayer):
+    def __init__(self, ease: str = '') -> None:
+        self.ease = e.registered_functions[ease]
+
+    # Public methods.
+    @scaled
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
+        return self.ease(1 - a)
 
 
 class LinearToPolar(ForLayer):
@@ -783,6 +799,7 @@ registered_filters = {
     'curve': Curve,
     'cutshadow': CutShadow,
     'cutlight': CutLight,
+    'flip': Flip,
     'grain': Grain,
     'grow': Grow,
     'inverse': Inverse,
@@ -844,8 +861,7 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=float)
     a = a / 0xff
-    obj = MotionBlur(**{
-        'size': 4,
+    obj = Flip(**{
         'direction': 'h',
     })
     size = preprocess(a.shape, [obj,])

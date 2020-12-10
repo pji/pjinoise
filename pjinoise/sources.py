@@ -896,9 +896,12 @@ class Path(UnitNoise):
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Fill a space with image data."""
-        cursor = (0, 0, 0)
-        a = np.zeros(size, dtype=float)
-
+        # Create a grid of values. This uses the same technique Perlin
+        # noise uses to add randomness to the noise. A table of values
+        # was shuffled, and we use the coordinate of each vertex within
+        # the grid as part of the process to lookup the table value
+        # for that vertex. This grid will be used to determine the
+        # route the path follows through the space.
         unit_dim = [int(s / u) for s, u in zip(size, self.unit)]
         unit_indices = np.indices(unit_dim)
         values = np.take(self.table, unit_indices[X])
@@ -906,20 +909,35 @@ class Path(UnitNoise):
         values = np.take(self.table, values)
         values += unit_indices[Z]
         values = np.take(self.table, values)
+        unit_dim = np.array(unit_dim)
 
+        # The cursor will be used to determine our current position
+        # on the grid as we create the path.
+        cursor = (0, 0, 0)
+
+        # This will be used to track the grid vertices we've already
+        # been to as we create the path. It allows us to keep the
+        # path from looping back into itself.
         been_there = np.zeros(unit_dim, bool)
         been_there[tuple(cursor)] = True
 
+        # These are the positions of the vertices the cursor could
+        # move to next as it creates the path.
         vertices = np.array([
             (0, 0, -1),
             (0, 0, 1),
             (0, -1, 0),
             (0, 1, 0),
         ])
-        unit_dim = np.array(unit_dim)
-        path = []
+
+        # The index tracks where we are along the path. This is used
+        # to allow us to go back up the path an create a new branch
+        # if we run into a dead end while creating the path. It also
+        # is how we know we're done when creating the path.
         index = 0
 
+        # Create the path.
+        path = []
         while True:
             cursor = np.array(cursor)
             options = [vertex + cursor for vertex in vertices]
@@ -939,7 +957,9 @@ class Path(UnitNoise):
                     break
                 cursor = path[index][0]
 
-        width = int(self.unit[-1] * .2)
+        # Fill the requested space with the path.
+        a = np.zeros(size, dtype=float)
+        width = int(self.unit[-1] * self.width)
         for step in path:
             start = tuple(np.array(step[0]) * np.array(self.unit))
             end = tuple(np.array(step[1]) * np.array(self.unit))

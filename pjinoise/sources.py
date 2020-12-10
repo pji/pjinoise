@@ -515,6 +515,31 @@ class Spot(ValueSource):
         return a
 
 
+# class Tile(ValueSource):
+#     def __init__(self, source: Union[Mapping, ValueSource],
+#                  tile_size: Sequence[int],
+#                  seeds: Sequence[int] = None,
+#                  *args, **kwargs) -> None:
+#         if isinstance(source, Mapping):
+#             self.source = source.copy()
+#             self._source = deserialize_source(source)
+#         else:
+#             self.source = source.asdict()
+#             self._source = source
+#         self.tile_size = tile_size
+#         self.seeds = seeds
+#
+#     # Public methods.
+#     def fill(self, size: Sequence[int],
+#              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+#         cursor = [0, 0, 0]
+#         index = 0
+#         a = np.zeros(size, dtype=float)
+#         while cursor[Y] < size[Y]:
+#             while cursor[X] < size[X]:
+#                 tile = self.source.fill()
+#
+#
 class Waves(ValueSource):
     """Generates concentric circles."""
     def __init__(self, length: Union[str, float],
@@ -888,8 +913,11 @@ class CosineCurtains(Curtains):
 
 
 class Path(UnitNoise):
-    def __init__(self, width: float = .2, *args, **kwargs) -> None:
+    def __init__(self, width: float = .2,
+                 inset: Sequence[int] = (0, 1, 1),
+                 *args, **kwargs) -> None:
         self.width = width
+        self.inset = inset
         super().__init__(*args, **kwargs)
 
     # Public methods.
@@ -903,6 +931,8 @@ class Path(UnitNoise):
         # for that vertex. This grid will be used to determine the
         # route the path follows through the space.
         unit_dim = [int(s / u) for s, u in zip(size, self.unit)]
+        unit_dim = tuple(np.array(unit_dim) + np.array((0, 1, 1)))
+        unit_dim = tuple(np.array(unit_dim) - np.array(self.inset) * 2)
         unit_indices = np.indices(unit_dim)
         values = np.take(self.table, unit_indices[X])
         values += unit_indices[Y]
@@ -961,8 +991,8 @@ class Path(UnitNoise):
         a = np.zeros(size, dtype=float)
         width = int(self.unit[-1] * self.width)
         for step in path:
-            start = tuple(np.array(step[0]) * np.array(self.unit))
-            end = tuple(np.array(step[1]) * np.array(self.unit))
+            start = self._unit_to_pixel(step[0])
+            end = self._unit_to_pixel(step[1])
             slice_y = self._get_slice(start[Y], end[Y], width)
             slice_x = self._get_slice(start[X], end[X], width)
             a[:, slice_y, slice_x] = 1.0
@@ -984,6 +1014,15 @@ class Path(UnitNoise):
                 and not been_there[loc]):
             return True
         return False
+
+    def _unit_to_pixel(self, unit_loc: Sequence[int]) -> Sequence[int]:
+        """Convert an index of the unit grid array into an index
+        of the image data.
+        """
+        unit = np.array(self.unit)
+        pixel_loc = np.array(unit_loc) * unit
+        pixel_loc += np.array(self.inset) * unit
+        return tuple(pixel_loc)
 
 
 class Perlin(UnitNoise):
@@ -1410,4 +1449,6 @@ def get_regname_for_class(obj: object) -> str:
 if __name__ == '__main__':
     obj = Path(unit=(1, 2, 2), seed='spam')
     val = obj.fill((1, 8, 8))
-    print(val)
+#     print(val)
+    for step in val:
+        print(step)

@@ -63,6 +63,7 @@ def masked(fn: Callable) -> Callable:
         ab = a.astype(float) * (1 - mask) + ab.astype(float) * mask
         if a.dtype == np.uint8:
             ab = np.around(ab).astype(np.uint8)
+            assert np.max(ab) > 1.0
         return ab
     return wrapper
 

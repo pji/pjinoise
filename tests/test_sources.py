@@ -103,15 +103,16 @@ class OctaveTestCases(ut.TestCase):
         ]
 
         # Set up test data and state.
-        octaves = 4
-        persistence = 8
-        amplitude = 8
-        frequency = 2
-        unit = (4, 4, 4)
-        ease = 'l'
-        table = P
-        args = [octaves, persistence, amplitude, frequency, unit, table, ease]
-        obj = s.OctaveCosineCurtains(*args)
+        kwargs = {
+            'octaves': 4,
+            'persistence': 8,
+            'amplitude': 8,
+            'frequency': 2,
+            'unit': (4, 4, 4),
+            'ease': 'l',
+            'table': P,
+        }
+        obj = s.OctaveCosineCurtains(**kwargs)
 
         # Run test.
         result = obj.fill((2, 8, 8))
@@ -432,32 +433,6 @@ class RandomTestCase(ut.TestCase):
         # Determine if test passed.
         self.assertListEqual(exp, act)
 
-    @patch('random.shuffle')
-    def test_curtains_makes_table(self, mock_random):
-        """If not given a permutations table, generators.Value will
-        create one on initialization.
-        """
-        # Set up for expected values.
-        table = [n for n in range(0xff)]
-        table.extend(table)
-
-        # Expected values.
-        exp = table
-        exp_random = [
-            call(exp),
-        ]
-
-        # Set up test data and state.
-        n = s.Curtains(unit=[32, 32])
-
-        # Run test.
-        act = n.table.tolist()
-        act_random = mock_random.mock_calls
-
-        # Determine if test passed.
-        self.assertListEqual(exp, act)
-        self.assertListEqual(exp_random, act_random)
-
     def test_octaveperlinnoise_fill(self):
         """Given the size of a space to fill, PerlinNoise.fill should
         return a np.array of that shape filled with noise.
@@ -622,6 +597,69 @@ class RandomTestCase(ut.TestCase):
 
         # Determine if test passed.
         self.assertListEqual(exp, act)
+
+    def test_unitnoise_diff_seeds_diff_table(self):
+        """If you pass different seeds to two different UnitNoise
+        objects, their tables will be different.
+        """
+        # Set up expected values.
+        class Spam(s.UnitNoise):
+            def fill(*args, **kwargs):
+                return None
+
+        kwargs = {
+            'unit': (1024, 1024, 1024),
+            'seed': 'spam',
+        }
+        exp_obj = Spam(**kwargs)
+
+        # Expected value.
+        exp = exp_obj.table.tolist()
+
+        # Set up test data and state.
+        kwargs_act = {
+            'unit': kwargs['unit'],
+            'seed': 'eggs',
+        }
+
+        # Run test.
+        act_obj = Spam(**kwargs_act)
+
+        # Extract actual data.
+        act = act_obj.table.tolist()
+
+        # Determine if test passed.
+        self.assertNotEqual(exp, act)
+
+    def test_unitnoise_serializes_seed_not_table(self):
+        """If the UnitNoise object was given a seed,
+        UnitNoise.asdict() should serialize the seed
+        rather than the entire table.
+        """
+        # Expected value.
+        exp = {
+            'ease': 'l',
+            'unit': (1024, 1024, 1024),
+            'seed': 'spam',
+            'type': 'spam',
+        }
+
+        # Set up test data and state.
+        class Spam(s.UnitNoise):
+            def fill(*args, **kwargs):
+                return None
+
+        attrs = {
+            'unit': exp['unit'],
+            'seed': exp['seed']
+        }
+        obj = Spam(**attrs)
+
+        # Run test.
+        act = obj.asdict()
+
+        # Determine if test passed.
+        self.assertDictEqual(exp, act)
 
     def test_values_fill_with_noise(self):
         """Given the size of each dimension of the noise,

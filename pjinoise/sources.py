@@ -124,6 +124,7 @@ execution vulnerabilities though deserialization.
 from abc import ABC, abstractmethod
 from functools import wraps
 import inspect
+from operator import itemgetter
 import random
 from typing import Any, Callable, List, Mapping, Sequence, Tuple, Union
 
@@ -174,10 +175,9 @@ class ValueSource(ABC):
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
         attrs = self.__dict__.copy()
-        attrs['type'] = get_regname_for_class(self)
+        cls = self.__class__.__name__
+        attrs['type'] = cls.casefold()
         attrs['ease'] = self.ease
-        if 'table' in attrs:
-            attrs['table'] = self.table.tolist()
         attrs = c.remove_private_attrs(attrs)
         return attrs
 
@@ -578,12 +578,12 @@ class Random(ValueSource):
                  *args, **kwargs) -> None:
         self.mid = mid
         self.rng = default_rng()
-        self.scale = scale
+        self._scale = scale
         super().__init__(*args, **kwargs)
 
     # Public methods.
     def fill(self, size: Sequence[int], _: Any = None) -> np.ndarray:
-        random = self.rng.random(size) * self.scale * 2 - self.scale
+        random = self.rng.random(size) * self._scale * 2 - self._scale
         return random + self.mid
 
 
@@ -707,7 +707,7 @@ class UnitNoise(ValueSource):
             They will repeat if there are more units along the axis
             in an image then there are colors defined for that axis.
         """
-        self.scale = 0xff
+        self._scale = 0xff
 
         if isinstance(unit, str):
             unit = self._norm_coordinates(unit)
@@ -725,15 +725,19 @@ class UnitNoise(ValueSource):
         if table is None:
             table = self._make_table()
         self.table = np.array(table)
-        self.shape = self.table.shape
+        self._shape = self.table.shape
         self.table = np.ravel(self.table)
         super().__init__(*args, **kwargs)
 
     # Public methods.
     def asdict(self) -> dict:
         attrs = super().asdict()
-        if attrs['table'] == P:
-            attrs['table'] = 'P'
+        if attrs['seed']:
+            del attrs['table']
+        if 'table' in attrs:
+            attrs['table'] = self.table.tolist()
+            if attrs['table'] == P:
+                attrs['table'] = 'P'
         return attrs
 
     # Private methods.
@@ -799,7 +803,7 @@ class UnitNoise(ValueSource):
         return whole, parts
 
     def _make_table(self) -> List:
-        table = [n for n in range(self.scale)]
+        table = [n for n in range(self._scale)]
         table.extend(table)
         rng = default_rng(self._seed)
         rng.shuffle(table)
@@ -870,16 +874,9 @@ class Curtains(UnitNoise):
         x1 = self._lerp(hash_table['00'], hash_table['01'], parts[x])
         x2 = self._lerp(hash_table['10'], hash_table['11'], parts[x])
         result = self._lerp(x1, x2, parts[z])
-        result = result / self.scale
+        result = result / self._scale
         result = np.tile(result[:, np.newaxis, ...], (1, size[Y], 1))
         return result
-
-    # Private methods.
-    def _make_table(self) -> List:
-        table = [n for n in range(self.scale)]
-        table.extend(table)
-        random.shuffle(table)
-        return table
 
 
 class CosineCurtains(Curtains):
@@ -888,6 +885,85 @@ class CosineCurtains(Curtains):
         """Eased linear interpolation function to smooth the noise."""
         x = (1 - np.cos(x * np.pi)) / 2
         return super()._lerp(a, b, x)
+
+
+class Path(UnitNoise):
+    def __init__(self, width: float = .2, *args, **kwargs) -> None:
+        self.width = width
+        super().__init__(*args, **kwargs)
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Fill a space with image data."""
+        cursor = (0, 0, 0)
+        a = np.zeros(size, dtype=float)
+
+        unit_dim = [int(s / u) for s, u in zip(size, self.unit)]
+        unit_indices = np.indices(unit_dim)
+        values = np.take(self.table, unit_indices[X])
+        values += unit_indices[Y]
+        values = np.take(self.table, values)
+        values += unit_indices[Z]
+        values = np.take(self.table, values)
+
+        been_there = np.zeros(unit_dim, bool)
+        been_there[tuple(cursor)] = True
+
+        vertices = np.array([
+            (0, 0, -1),
+            (0, 0, 1),
+            (0, -1, 0),
+            (0, 1, 0),
+        ])
+        unit_dim = np.array(unit_dim)
+        path = []
+        index = 0
+
+        while True:
+            cursor = np.array(cursor)
+            options = [vertex + cursor for vertex in vertices]
+            viable = [(o, values[tuple(o)]) for o in options
+                      if self._is_viable_option(o, unit_dim, been_there)]
+            if viable:
+                cursor = tuple(cursor)
+                viable = sorted(viable, key=itemgetter(1))
+                newloc = tuple(viable[0][0])
+                path.append((cursor, newloc))
+                been_there[newloc] = True
+                cursor = newloc
+                index = len(path)
+            else:
+                index -= 1
+                if index < 0:
+                    break
+                cursor = path[index][0]
+
+        width = int(self.unit[-1] * .2)
+        for step in path:
+            start = tuple(np.array(step[0]) * np.array(self.unit))
+            end = tuple(np.array(step[1]) * np.array(self.unit))
+            slice_y = self._get_slice(start[Y], end[Y], width)
+            slice_x = self._get_slice(start[X], end[X], width)
+            a[:, slice_y, slice_x] = 1.0
+
+        return a
+
+    # Private methods.
+    def _get_slice(self, start, end, width):
+        if start > end:
+            start, end = end, start
+        start -= width
+        end += width
+        return slice(start, end)
+
+    def _is_viable_option(self, option, unit_dim, been_there):
+        loc = tuple(option)
+        if (np.min(option) >= 0
+                and all(unit_dim > option)
+                and not been_there[loc]):
+            return True
+        return False
 
 
 class Perlin(UnitNoise):
@@ -1090,8 +1166,8 @@ class Values(UnitNoise):
                 hash_whole[Y] += 1
             if hash[0] == '1':
                 hash_whole[Z] += 1
-            a_hash = (hash_whole[Z] * self.shape[Y] * self.shape[X]
-                      + hash_whole[Y] * self.shape[X]
+            a_hash = (hash_whole[Z] * self._shape[Y] * self._shape[X]
+                      + hash_whole[Y] * self._shape[X]
                       + hash_whole[X])
             a_hash = np.take(self.table, a_hash)
             hash_table[hash] = a_hash
@@ -1109,7 +1185,7 @@ class Values(UnitNoise):
         del x1, x2, x3, x4
 
         z = self._lerp(y1, y2, parts[Z])
-        z = z / self.scale
+        z = z / self._scale
         del y1, y2
 
         # Apply the easing function and return.
@@ -1312,15 +1388,6 @@ def get_regname_for_class(obj: object) -> str:
 
 
 if __name__ == '__main__':
-    obj = Rays(3)
-    val = obj.fill((1, 8, 8), (4, 0, 0))
-
-    # For hash_tables:
-    if isinstance(val, dict):
-        for key in val:
-            print(key)
-            print(val[key])
-            print()
-
-    if isinstance(val, np.ndarray):
-        c.print_array(val)
+    obj = Path(unit=(1, 2, 2), seed='spam')
+    val = obj.fill((1, 8, 8))
+    print(val)

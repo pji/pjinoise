@@ -57,6 +57,8 @@ def scaled(fn: Callable) -> Callable:
         if rescaled:
             assert np.max(a) <= 1.0
             a = np.around(a * 0xff).astype(np.uint8)
+        if not rescaled and np.max(a) > 1.0:
+            a = a / np.max(a)
         return a
     return wrapper
 
@@ -118,6 +120,7 @@ class BoxBlur(ForLayer):
         self.box_size = int(box_size)
 
     # Public methods.
+    @scaled
     def process(self, a: np.ndarray, *args) -> np.ndarray:
         """Taken from:
         https://docs.opencv.org/master/d4/d13/tutorial_py_filtering.html
@@ -129,6 +132,7 @@ class BoxBlur(ForLayer):
             blur = a[i]
             blur = cv2.filter2D(blur, -1, kernel)
             a[i] = blur
+
         return a
 
 

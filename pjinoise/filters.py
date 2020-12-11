@@ -96,6 +96,9 @@ class ForLayer(ABC):
         if 'padding' in attrs:
             del attrs['padding']
 
+        pvt_keys = [key for key in attrs if key.startswith('_')]
+        for key in pvt_keys:
+            del attrs[key]
         return attrs
 
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:

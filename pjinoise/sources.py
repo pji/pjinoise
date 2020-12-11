@@ -515,31 +515,6 @@ class Spot(ValueSource):
         return a
 
 
-# class Tile(ValueSource):
-#     def __init__(self, source: Union[Mapping, ValueSource],
-#                  tile_size: Sequence[int],
-#                  seeds: Sequence[int] = None,
-#                  *args, **kwargs) -> None:
-#         if isinstance(source, Mapping):
-#             self.source = source.copy()
-#             self._source = deserialize_source(source)
-#         else:
-#             self.source = source.asdict()
-#             self._source = source
-#         self.tile_size = tile_size
-#         self.seeds = seeds
-#
-#     # Public methods.
-#     def fill(self, size: Sequence[int],
-#              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
-#         cursor = [0, 0, 0]
-#         index = 0
-#         a = np.zeros(size, dtype=float)
-#         while cursor[Y] < size[Y]:
-#             while cursor[X] < size[X]:
-#                 tile = self.source.fill()
-#
-#
 class Waves(ValueSource):
     """Generates concentric circles."""
     def __init__(self, length: Union[str, float],
@@ -1402,6 +1377,56 @@ class CachingOctavePerlin(CachingMixin, OctavePerlin):
     _cache = {}
 
 
+# Compound sources.
+class TilePaths(ValueSource):
+    def __init__(self, tile_size: Sequence[float],
+                 seeds: Sequence[Any],
+                 unit: Sequence[int],
+                 line_width: float = .2,
+                 inset: Sequence[int] = (0, 1, 1),
+                 *args, **kwargs) -> None:
+        self.tile_size = tile_size
+        self.seeds = seeds
+        self.unit = unit
+        self.line_width = line_width
+        self.inset = inset
+        super().__init__(*args, **kwargs)
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        a = np.zeros(size, dtype=float)
+        cursor = [0, 0, 0]
+        seeds = self.seeds[:]
+        while cursor[Y] < size[Y]:
+            while cursor[X] < size[X]:
+                if seeds:
+                    seed = seeds.pop(0)
+                else:
+                    seed = None
+                kwargs = {
+                    'width': self.line_width,
+                    'inset': self.inset,
+                    'unit': self.unit,
+                    'seed': seed,
+                }
+                source = Path(**kwargs)
+                slices = tuple(self._get_slices(cursor))
+                a[slices] = source.fill(self.tile_size)
+                cursor[X] += self.tile_size[X]
+            cursor[X] = 0
+            cursor[Y] += self.tile_size[Y]
+        return a
+
+    # Private methods.
+    def _get_slices(self, cursor: Sequence[int]) -> Sequence[slice]:
+        return [
+            slice(0, None),
+            slice(cursor[Y], cursor[Y] + self.tile_size[Y]),
+            slice(cursor[X], cursor[X] + self.tile_size[X]),
+        ]
+
+
 # Registration.
 registered_sources = {
     'gradient': Gradient,
@@ -1426,6 +1451,8 @@ registered_sources = {
     'octaveperlin': OctavePerlin,
 
     'cachingoctaveperlin': CachingOctavePerlin,
+
+    'tilepaths': TilePaths,
 }
 
 

@@ -321,7 +321,7 @@ class LayerTestCase(ut.TestCase):
         self.maxDiff = None
         self.assertListEqual(exp, act)
 
-    def count_sources(self):
+    def test_count_sources(self):
         """Given a configuration object, count the number of sources
         used in the configuration. This is used to display progress
         in the UI.

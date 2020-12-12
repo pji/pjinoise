@@ -254,7 +254,12 @@ class GaussianBlur(ForLayer):
 
     # Public method.
     def process(self, a: np.ndarray, *args) -> np.ndarray:
-        return cv2.GaussianBlur(a, (self.sigma, self.sigma), 0)
+        for i in range(a.shape[0]):
+            frame = np.zeros(a.shape[1:], dtype=a.dtype)
+            frame = a[i]
+            frame = cv2.GaussianBlur(frame, (0, 0), self.sigma, self.sigma, 0)
+            a[i] = frame
+        return a
 
 
 class Grain(ForLayer):
@@ -272,6 +277,27 @@ class Grain(ForLayer):
             grain = self._noise.fill(size)
             self._grain = grain
         return op.overlay(a, self._grain)
+
+
+class Glow(ForLayer):
+    """Use gaussian blurs to create a halo around brighter objects
+    in the image.
+    """
+    def __init__(self, start_sigma: float) -> None:
+        self.start_sigma = start_sigma
+
+    # Public methods.
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
+        b = a.copy()
+        sigma = self.start_sigma
+        while sigma > 0:
+            if sigma % 2 != 1:
+                sigma -= 1
+            blur = GaussianBlur(sigma)
+            b = blur.process(b)
+            b = op.screen(a, b)
+            sigma = sigma // 2
+        return b
 
 
 class Grow(ForLayer):
@@ -818,6 +844,7 @@ registered_filters = {
     'flip': Flip,
     'gaussianblur': GaussianBlur,
     'grain': Grain,
+    'glow': Glow,
     'grow': Grow,
     'inverse': Inverse,
     'lineartopolar': LinearToPolar,
@@ -878,7 +905,7 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=float)
     a = a / 0xff
-    obj = Color(colorkey='b')
+    obj = GaussianBlur(5)
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)
     res = postprocess(res, [obj,])

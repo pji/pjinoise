@@ -248,6 +248,15 @@ class Flip(ForLayer):
         raise ValueError(msg)
 
 
+class GaussianBlur(ForLayer):
+    def __init__(self, sigma: float) -> None:
+        self.sigma = sigma
+
+    # Public method.
+    def process(self, a: np.ndarray, *args) -> np.ndarray:
+        return cv2.GaussianBlur(a, (self.sigma, self.sigma), 0)
+
+
 class Grain(ForLayer):
     def __init__(self, scale: float, *args, **kwargs):
         self.scale = float(scale)
@@ -807,6 +816,7 @@ registered_filters = {
     'cutshadow': CutShadow,
     'cutlight': CutLight,
     'flip': Flip,
+    'gaussianblur': GaussianBlur,
     'grain': Grain,
     'grow': Grow,
     'inverse': Inverse,
@@ -868,9 +878,7 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=float)
     a = a / 0xff
-    obj = Flip(**{
-        'direction': 'h',
-    })
+    obj = GaussianBlur(5)
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)
     res = postprocess(res, [obj,])

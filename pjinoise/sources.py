@@ -888,9 +888,22 @@ class CosineCurtains(Curtains):
 
 
 class Path(UnitNoise):
+    """Create a maze-like path through a grid."""
     def __init__(self, width: float = .2,
                  inset: Sequence[int] = (0, 1, 1),
                  *args, **kwargs) -> None:
+        """Initialize an instance of Path.
+
+        :param width: (Optional.) The width of the path. This is the
+            percentage of the width of the X axis length of the size
+            of the fill. Values over one will probably be weird, but
+            not in a great way.
+        :param inset: (Optional.) Sets how many units from the end of
+            the image to draw the path. Units here refers to the unit
+            parameter from the UnitNoise parent class.
+        :return: None.
+        :rtype: NoneType
+        """
         self.width = width
         self.inset = inset
         super().__init__(*args, **kwargs)
@@ -944,10 +957,17 @@ class Path(UnitNoise):
         # Create the path.
         path = []
         while True:
+
+            # Look at the options available for the direction the path
+            # can take. Some of them won't be viable because they are
+            # outside the bounds of the image or have already been
+            # hit.
             cursor = np.array(cursor)
             options = [vertex + cursor for vertex in vertices]
             viable = [(o, values[tuple(o)]) for o in options
                       if self._is_viable_option(o, unit_dim, been_there)]
+
+            # If there is a viable next step, take that step.
             if viable:
                 cursor = tuple(cursor)
                 viable = sorted(viable, key=itemgetter(1))
@@ -956,6 +976,12 @@ class Path(UnitNoise):
                 been_there[newloc] = True
                 cursor = newloc
                 index = len(path)
+
+            # If there is not a viable next step, go back to the last
+            # place you were, so to see if there are any viable steps
+            # there. If this goes all the way back to the beginning
+            # of the path and there are no viable paths, then the
+            # path is complete.
             else:
                 index -= 1
                 if index < 0:
@@ -971,7 +997,6 @@ class Path(UnitNoise):
             slice_y = self._get_slice(start[Y], end[Y], width)
             slice_x = self._get_slice(start[X], end[X], width)
             a[:, slice_y, slice_x] = 1.0
-
         return a
 
     # Private methods.
@@ -1379,12 +1404,31 @@ class CachingOctavePerlin(CachingMixin, OctavePerlin):
 
 # Compound sources.
 class TilePaths(ValueSource):
+    """Tile the output of a series of Path objects."""
     def __init__(self, tile_size: Sequence[float],
                  seeds: Sequence[Any],
                  unit: Sequence[int],
                  line_width: float = .2,
                  inset: Sequence[int] = (0, 1, 1),
                  *args, **kwargs) -> None:
+        """Initialize an instance of TilePaths.
+
+        :param tile_size: The output of a Path object is a tile.
+            This sets the size of those tiles.
+        :param seeds: The seeds to give the individual Path objects
+            when creating the tiles. It needs to be a sequence of
+            data that can be used to seed a Path object.
+        :param unit: The unit size for the Path objects used to
+            create the tiles.
+        :param line_width: (Optional.) The width of the line used in
+            the tiles. This is the value of the 'width' parameter
+            given to the Path objects.
+        :param inset: (Optional.) The distance, in units, of empty
+            space around the edge of each tile. This is the value of
+            the 'inset' parameter given to the Path objects.
+        :return: None.
+        :rtype: NoneType
+        """
         self.tile_size = tile_size
         self.seeds = seeds
         self.unit = unit

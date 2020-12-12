@@ -18,7 +18,7 @@ from pjinoise.constants import X, Y, Z
 # Utility function.
 def test_color_filter_process(filter: filters.ForLayer,
                               a: list = None) -> List:
-    """Perform the common unit test on the process method of a filter 
+    """Perform the common unit test on the process method of a filter
     that converts a grayscale image to color.
     """
     if a is None:
@@ -53,7 +53,7 @@ def test_color_filter_process(filter: filters.ForLayer,
 
 
 def test_filter_process(filter: filters.ForLayer, a: list = None) -> List:
-    """Parform the common unit test on the process method of a filter 
+    """Parform the common unit test on the process method of a filter
     that takes an returns a pjinoise grayscale image.
     """
     if a is None:

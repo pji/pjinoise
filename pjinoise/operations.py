@@ -12,6 +12,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from pjinoise.common import convert_color_space
+
 
 # Decorators.
 def clipped(fn: Callable) -> Callable:
@@ -68,6 +70,24 @@ def masked(fn: Callable) -> Callable:
     return wrapper
 
 
+def mixed(fn: Callable) -> Callable:
+    """If blending a grayscale and a color image, convert the
+    grayscale image to color.
+    """
+    @wraps(fn)
+    def wrapper(a: np.ndarray,
+                b: np.ndarray,
+                amount: float = 1,
+                mask: Union[None, np.ndarray] = None) -> np.ndarray:
+        if len(a.shape) != len(b.shape):
+            if len(a.shape) == 3:
+                a = convert_color_space(a)
+            if len(b.shape) == 3:
+                b = convert_color_space(b)
+        return fn(a, b, amount, mask)
+    return wrapper
+
+
 def scaled(fn: Callable) -> Callable:
     """Operations with multiplication rely on values being scaled to
     0 ≤ x ≤ 1 to keep the result from overflowing. Operations that add
@@ -95,6 +115,7 @@ def scaled(fn: Callable) -> Callable:
 
 
 # Non-blends.
+@mixed
 @masked
 @faded
 def replace(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -117,6 +138,7 @@ def replace(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 # Darker/burn blends.
+@mixed
 @masked
 @faded
 def darker(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -125,6 +147,7 @@ def darker(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @scaled
 @faded
@@ -132,6 +155,7 @@ def multiply(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return a * b
 
 
+@mixed
 @masked
 @clipped
 @scaled
@@ -147,6 +171,7 @@ def color_burn(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @clipped
 @scaled
@@ -159,6 +184,7 @@ def linear_burn(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 # Lighter/dodge blends.
+@mixed
 @masked
 @scaled
 @faded
@@ -168,6 +194,7 @@ def lighter(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @scaled
 @faded
@@ -178,6 +205,7 @@ def screen(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return 1 - ab
 
 
+@mixed
 @masked
 @clipped
 @scaled
@@ -186,9 +214,12 @@ def color_dodge(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Taken from:
     http://www.deepskycolors.com/archive/2010/04/21/formulas-for-Photoshop-blending-modes.html
     """
-    return a / (1 - b)
+    ab = np.ones_like(a)
+    ab[b != 1] = a[b != 1] / (1 - b[b != 1])
+    return ab
 
 
+@mixed
 @masked
 @clipped
 @faded
@@ -200,12 +231,14 @@ def linear_dodge(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 # Mixed blends.
+@mixed
 @masked
 @faded
 def difference(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.abs(a - b)
 
 
+@mixed
 @masked
 @scaled
 @faded
@@ -217,6 +250,7 @@ def exclusion(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @scaled
 @faded
@@ -230,6 +264,7 @@ def hard_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @scaled
 @faded
@@ -243,6 +278,7 @@ def hard_mix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @clipped
 @scaled
@@ -255,6 +291,7 @@ def linear_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @scaled
 @faded
@@ -269,6 +306,7 @@ def overlay(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @clipped
 @scaled
@@ -294,6 +332,7 @@ def pin_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @scaled
 @faded
@@ -309,6 +348,7 @@ def soft_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
+@mixed
 @masked
 @clipped
 @scaled
@@ -334,6 +374,7 @@ def vivid_light(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 # Color blending operations.
+@mixed
 @masked
 @faded
 def rgb_hue(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -378,6 +419,9 @@ registered_ops = {
 
     'rgbhue': rgb_hue,
 }
+color_only_ops = [
+    rgb_hue,
+]
 op_names = {registered_ops[k]: k for k in registered_ops}
 
 

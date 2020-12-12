@@ -94,6 +94,230 @@ class MaskedTestCase(ut.TestCase):
 
 
 class OperationsTestCase(ut.TestCase):
+    def test_all_operations_handle_color(self):
+        """The result of an operation on two RGB images should
+        return unsigned integers from zero to 255.
+        """
+        # Expected value.
+        exp = []
+
+        # Set up test data and state.
+        a = np.array([
+            [
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x40, 0x40, 0x40],
+                    [0x80, 0x80, 0x80],
+                    [0xc0, 0xc0, 0xc0],
+                    [0xff, 0xff, 0xff],
+                ],
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x40, 0x40, 0x40],
+                    [0x80, 0x80, 0x80],
+                    [0xc0, 0xc0, 0xc0],
+                    [0xff, 0xff, 0xff],
+                ],
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x40, 0x40, 0x40],
+                    [0x80, 0x80, 0x80],
+                    [0xc0, 0xc0, 0xc0],
+                    [0xff, 0xff, 0xff],
+                ],
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x40, 0x40, 0x40],
+                    [0x80, 0x80, 0x80],
+                    [0xc0, 0xc0, 0xc0],
+                    [0xff, 0xff, 0xff],
+                ],
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x40, 0x40, 0x40],
+                    [0x80, 0x80, 0x80],
+                    [0xc0, 0xc0, 0xc0],
+                    [0xff, 0xff, 0xff],
+                ],
+            ],
+        ], dtype=np.uint8)
+        b = np.array([
+            [
+                [
+                    [0x00, 0xaa, 0xff],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x00, 0x00],
+                ],
+                [
+                    [0x00, 0xaa, 0xff],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x00, 0x00],
+                ],
+                [
+                    [0x00, 0xaa, 0xff],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x00, 0x00],
+                ],
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0xaa, 0xff],
+                ],
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0xaa, 0xff],
+                ],
+            ],
+        ], dtype=np.uint8)
+        ops = op.registered_ops.values()
+        act = []
+        for o in ops:
+
+            # Run test.
+            result = o(a, b)
+
+            # Extract actual result.
+            result = np.array(result)
+            if result.dtype != np.uint8:
+                act.append(o)
+            elif np.max(result) > 0xff:
+                act.append(o)
+            elif np.min(result) < 0x00:
+                act.append(o)
+
+        # Determine if test passed.
+        self.assertEqual(exp, act)
+
+    def test_all_operations_handle_grayscale(self):
+        """The result of an operation on two grayscale images should
+        not return any values greater than one or less than zero.
+        """
+        # Expected value.
+        exp = []
+
+        # Set up test data and state.
+        a = np.array([
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+        ], dtype=float)
+        b = np.array([
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            [0xff, 0xc0, 0x80, 0x40, 0x00,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            [0x00, 0x40, 0x80, 0xc0, 0xff,],
+        ], dtype=float)
+        a = a / 0xff
+        b = b / 0xff
+        ops = op.registered_ops.values()
+        act = []
+        for o in ops:
+            if o in op.color_only_ops:
+                continue
+
+            # Run test.
+            result = o(a, b)
+
+            # Extract actual result.
+            result = np.array(result)
+            if np.max(result) > 1.0:
+                act.append(o)
+            elif np.min(result) < 0.0:
+                act.append(o)
+
+        # Determine if test passed.
+        self.assertEqual(exp, act)
+
+    def test_all_operations_handle_mixed(self):
+        """The result of an operation on a grayscale image and an
+        RGB image should return unsigned integers from zero to 255.
+        """
+        # Expected value.
+        exp = []
+
+        # Set up test data and state.
+        a = np.array([
+            [
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+                [0x00, 0x40, 0x80, 0xc0, 0xff,],
+            ],
+        ], dtype=float)
+        a = a / 0xff
+        b = np.array([
+            [
+                [
+                    [0x00, 0xaa, 0xff],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x00, 0x00],
+                ],
+                [
+                    [0x00, 0xaa, 0xff],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x00, 0x00],
+                ],
+                [
+                    [0x00, 0xaa, 0xff],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x00, 0x00],
+                ],
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0xaa, 0xff],
+                ],
+                [
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0x2a, 0x40],
+                    [0x00, 0x55, 0x80],
+                    [0x00, 0x80, 0xc0],
+                    [0x00, 0xaa, 0xff],
+                ],
+            ],
+        ], dtype=np.uint8)
+        ops = op.registered_ops.values()
+        act = []
+        for o in ops:
+
+            # Run test.
+            result = o(a, b)
+
+            # Extract actual result.
+            result = np.array(result)
+            if result.dtype != np.uint8:
+                act.append(o)
+            elif np.max(result) > 0xff:
+                act.append(o)
+            elif np.min(result) < 0x00:
+                act.append(o)
+
+        # Determine if test passed.
+        self.assertEqual(exp, act)
+
     def test_difference(self):
         """Given two arrays, operations.difference should return the
         absolute value of the difference between each point in the

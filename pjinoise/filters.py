@@ -878,7 +878,7 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=float)
     a = a / 0xff
-    obj = GaussianBlur(5)
+    obj = Color(colorkey='b')
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)
     res = postprocess(res, [obj,])

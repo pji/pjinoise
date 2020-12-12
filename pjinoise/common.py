@@ -5,7 +5,7 @@ common
 Utilities and other commonly reused functions for pjinoise.
 """
 from functools import wraps
-from typing import List, Mapping, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image
@@ -104,6 +104,11 @@ def print_array(a: np.ndarray, depth: int = 0) -> None:
         tmp = '0x{:02x}'
         nums = [tmp.format(n) for n in a]
         print(' ' * (4 * depth) + '[' + ', '.join(nums) + '],')
+
+
+def print_seq(seq: Sequence[Any], depth: int = 0) -> None:
+    """Write the values of the given sequence to stdout."""
+    print_array(np.array(seq))
 
 
 def remove_private_attrs(map: Mapping) -> Mapping:

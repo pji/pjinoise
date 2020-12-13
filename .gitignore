@@ -21,6 +21,9 @@
 # Ignore macOS files.
 .DS_Store
 
+# Ignore virtual environments.
+.venv
+
 # Ignore experiments.
 audio.py
 chunk_video.sh

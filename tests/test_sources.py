@@ -124,6 +124,37 @@ class OctaveTestCases(ut.TestCase):
         # Determine if test passed.
         self.assertListEqual(exp, act)
 
+    def test_octaveperlinnoise_fill(self):
+        """Given the size of a space to fill, PerlinNoise.fill should
+        return a np.array of that shape filled with noise.
+        """
+        # Expected data.
+        exp = [
+            [
+                [0x80, 0x70, 0x7c, 0x8b,],
+                [0x78, 0x79, 0x7e, 0x82,],
+                [0x7c, 0x89, 0x80, 0x7e,],
+                [0x76, 0x80, 0x86, 0x7f,],
+            ],
+        ]
+
+        # Set up test data and state.
+        size = (1, 4, 4)
+        start = (4, 0, 0)
+        kwargs = {
+            'octaves': 4,
+            'persistence': 8,
+            'amplitude': 8,
+            'frequency': 2,
+            'unit': (8, 8, 8),
+            'ease': '',
+            'table': P,
+        }
+        cls = s.OctavePerlin
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size, start)
+
 
 class PatternTestCase(ut.TestCase):
     def test_gradient_fill(self):
@@ -300,21 +331,14 @@ class PatternTestCase(ut.TestCase):
         ]
 
         # Set up test data and state.
-        attrs = {
+        kwargs = {
             'color': .25,
         }
-        n = s.Solid(**attrs)
+        cls = s.Solid
         size = (2, 4, 4)
 
         # Run test.
-        values = n.fill(size)
-
-        # Extract actual values.
-        values = np.around(values * 0xff).astype(int)
-        act = values.tolist()
-
-        # Determine if test passed.
-        self.assertListEqual(exp, act)
+        source_fill_test(self, exp, cls, kwargs, size)
 
     def test_spheres_fill_x(self):
         """Given a size and location, Spheres.fill should return a
@@ -402,6 +426,35 @@ class PatternTestCase(ut.TestCase):
         # Determine if test passed.
         self.assertListEqual(exp, act)
 
+    def test_spot_fill(self):
+        """Given a size and location, Spot.fill should return a
+        volume filled with a spot of color.
+        """
+        # Expected values.
+        exp = [
+            [
+                [0x18, 0x32, 0x4c, 0x5f, 0x65, 0x5f, 0x4c, 0x32],
+                [0x32, 0x58, 0x7c, 0x95, 0x9e, 0x95, 0x7c, 0x58],
+                [0x4c, 0x7c, 0xa7, 0xc5, 0xd0, 0xc5, 0xa7, 0x7c],
+                [0x5f, 0x95, 0xc5, 0xe7, 0xf3, 0xe7, 0xc5, 0x95],
+                [0x65, 0x9e, 0xd0, 0xf3, 0xff, 0xf3, 0xd0, 0x9e],
+                [0x5f, 0x95, 0xc5, 0xe7, 0xf3, 0xe7, 0xc5, 0x95],
+                [0x4c, 0x7c, 0xa7, 0xc5, 0xd0, 0xc5, 0xa7, 0x7c],
+                [0x32, 0x58, 0x7c, 0x95, 0x9e, 0x95, 0x7c, 0x58],
+            ],
+        ]
+
+        # Set up test data and state.
+        kwargs = {
+            'radius': 5,
+            'ease': 'ios'
+        }
+        cls = s.Spot
+        size = (1, 8, 8)
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size)
+
     def test_waves_fill(self):
         """Waves.fill should return a series of concentric rings."""
         # Expected value.
@@ -442,104 +495,37 @@ class PatternTestCase(ut.TestCase):
 
 
 class RandomTestCase(ut.TestCase):
-    def test_curtains_makes_noise(self):
-        """Given the size of each dimension of the noise,
-        generators.Value.fill should return a space of that size
-        filled with noise.
-        """
-        # Expected values.
-        exp = [
-            [
-                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
-                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
-                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
-                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
-                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
-                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
-                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
-                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
-            ],
-            [
-                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
-                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
-                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
-                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
-                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
-                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
-                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
-                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
-            ],
-        ]
-
-        # Set up test data and state.
-        args = ['4,4,4', P, 'l']
-        obj = s.Curtains(*args)
-
-        # Run test.
-        result = obj.fill((2, 8, 8))
-
-        # Extract actual values.
-        result = np.around(result * 0xff).astype(int)
-        act = result.tolist()
-
-        # Determine if test passed.
-        self.assertListEqual(exp, act)
-
-    def test_octaveperlinnoise_fill(self):
-        """Given the size of a space to fill, PerlinNoise.fill should
-        return a np.array of that shape filled with noise.
-        """
-        # Expected data.
-        exp = [
-            [
-                [0x80, 0x70, 0x7c, 0x8b,],
-                [0x78, 0x79, 0x7e, 0x82,],
-                [0x7c, 0x89, 0x80, 0x7e,],
-                [0x76, 0x80, 0x86, 0x7f,],
-            ],
-        ]
-
-        # Set up test data and state.
-        size = (1, 4, 4)
-        start = (4, 0, 0)
-        kwargs = {
-            'octaves': 4,
-            'persistence': 8,
-            'amplitude': 8,
-            'frequency': 2,
-            'unit': (8, 8, 8),
-            'ease': '',
-            'table': P,
-        }
-        cls = s.OctavePerlin
-
-        # Run test.
-        source_fill_test(self, exp, cls, kwargs, size, start)
-
-    def test_perlin_fill(self):
-        """Given the size of a space to fill, Perlin.fill should
-        return a np.array of that shape filled with noise.
+    def test_random_fill(self):
+        """Given a size and a location, Random.fill should return a
+        space filled with random noise that is centered around a given
+        midpoint.
         """
         # Expected value.
-        exp = [[
-            [0x9f, 0x8e, 0x77, 0x60],
-            [0xa5, 0x94, 0x7d, 0x65],
-            [0x9f, 0x90, 0x7c, 0x68],
-            [0x8b, 0x81, 0x74, 0x67],
-        ],]
+        exp = [
+            [
+                [0x8b, 0x93, 0x8d, 0x84, 0x73, 0x68, 0x8e, 0x82],
+                [0x8a, 0x6a, 0x6c, 0x6c, 0x72, 0x6f, 0x68, 0x83],
+                [0x88, 0x8a, 0x85, 0x77, 0x97, 0x8b, 0x8b, 0x6c],
+                [0x76, 0x82, 0x94, 0x92, 0x7f, 0x8e, 0x76, 0x6f],
+                [0x6a, 0x8d, 0x8b, 0x74, 0x8e, 0x74, 0x66, 0x89],
+                [0x75, 0x96, 0x7a, 0x82, 0x97, 0x8c, 0x87, 0x68],
+                [0x82, 0x6d, 0x97, 0x7d, 0x85, 0x6f, 0x88, 0x82],
+                [0x85, 0x88, 0x8b, 0x92, 0x68, 0x91, 0x81, 0x8e],
+            ],
+        ]
 
         # Set up test data and state.
-        size = (1, 4, 4)
-        start = (4, 0, 0)
         kwargs = {
-            'unit': (8, 8, 8),
-            'ease': '',
-            'table': P,
+            'mid': .5,
+            'scale': .1,
+            'seed': 'spam',
+            'ease': 'l',
         }
-        cls = s.Perlin
+        cls = s.Random
+        size = (1, 8, 8)
 
         # Run test.
-        source_fill_test(self, exp, cls, kwargs, size, start)
+        source_fill_test(self, exp, cls, kwargs, size)
 
     def test_seededrandom_fill(self):
         """When given the size of an array, return an array that
@@ -622,6 +608,109 @@ class RandomTestCase(ut.TestCase):
 
         # Determine if test passed.
         self.assertNotEqual(exp, act)
+
+    def test_embers_fill(self):
+        """Given a size and a location, Embers.fill should fill the
+        space with an amount of points or small dots of color that
+        look like burning embers or stars.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0x00, 0x00, 0x00, 0x00, 0x3c, 0xb4, 0xc0, 0xc0],
+                [0x00, 0x25, 0x4f, 0x1a, 0x22, 0x65, 0x6c, 0x6c],
+                [0x00, 0x4f, 0xa9, 0x38, 0xc0, 0x00, 0x00, 0x00],
+                [0x00, 0x1a, 0x38, 0x13, 0x00, 0x00, 0x00, 0x00],
+                [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+                [0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00],
+                [0x00, 0x00, 0xc1, 0x00, 0x22, 0x66, 0x30, 0x00],
+                [0x00, 0x00, 0x00, 0x00, 0x3d, 0xb6, 0x55, 0x00],
+            ],
+        ]
+
+        # Set up test data and state.
+        kwargs = {
+            'depth': 2,
+            'threshold': .95,
+            'blend': 'lighter',
+            'seed': 'spam',
+            'ease': 'l',
+        }
+        cls = s.Embers
+        size = (1, 8, 8)
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size)
+
+
+class UnitNoiseTestCase(ut.TestCase):
+    def test_curtains_makes_noise(self):
+        """Given the size of each dimension of the noise,
+        generators.Value.fill should return a space of that size
+        filled with noise.
+        """
+        # Expected values.
+        exp = [
+            [
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+                [0x11, 0x2a, 0x44, 0x5e, 0x77, 0x7e, 0x85, 0x8c,],
+            ],
+            [
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+                [0x3a, 0x52, 0x69, 0x80, 0x97, 0x94, 0x92, 0x8f,],
+            ],
+        ]
+
+        # Set up test data and state.
+        args = ['4,4,4', P, 'l']
+        obj = s.Curtains(*args)
+
+        # Run test.
+        result = obj.fill((2, 8, 8))
+
+        # Extract actual values.
+        result = np.around(result * 0xff).astype(int)
+        act = result.tolist()
+
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+
+    def test_perlin_fill(self):
+        """Given the size of a space to fill, Perlin.fill should
+        return a np.array of that shape filled with noise.
+        """
+        # Expected value.
+        exp = [[
+            [0x9f, 0x8e, 0x77, 0x60],
+            [0xa5, 0x94, 0x7d, 0x65],
+            [0x9f, 0x90, 0x7c, 0x68],
+            [0x8b, 0x81, 0x74, 0x67],
+        ],]
+
+        # Set up test data and state.
+        size = (1, 4, 4)
+        start = (4, 0, 0)
+        kwargs = {
+            'unit': (8, 8, 8),
+            'ease': '',
+            'table': P,
+        }
+        cls = s.Perlin
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size, start)
 
     def test_unitnoise_seeds_table_creation(self):
         """When initialized with a seed value, UnitNoise should use

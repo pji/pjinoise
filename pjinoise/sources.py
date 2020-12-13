@@ -589,21 +589,6 @@ class Waves(ValueSource):
 
 
 # Random noise generators.
-class Random(ValueSource):
-    """Create random noise with a continuous uniform distribution."""
-    def __init__(self, mid: float = .5, scale: float = .02,
-                 *args, **kwargs) -> None:
-        self.mid = mid
-        self.rng = default_rng()
-        self._scale = scale
-        super().__init__(*args, **kwargs)
-
-    # Public methods.
-    def fill(self, size: Sequence[int], _: Any = None) -> np.ndarray:
-        random = self.rng.random(size) * self._scale * 2 - self._scale
-        return random + self.mid
-
-
 class SeededRandom(ValueSource):
     """Create continuous-uniformly distributed random noise with a
     seed value to allow the noise to be regenerated in a predictable
@@ -653,6 +638,22 @@ class SeededRandom(ValueSource):
         slices = tuple(slice(n, None) for n in loc)
         a = a[slices]
         return a
+
+
+class Random(SeededRandom):
+    """Create random noise with a continuous uniform distribution."""
+    def __init__(self, mid: float = .5, scale: float = .02,
+                 *args, **kwargs) -> None:
+        self.mid = mid
+        self.scale = scale
+        super().__init__(*args, **kwargs)
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        a = super().fill(size, loc)
+        a = a * self.scale * 2 - self.scale
+        return a + self.mid
 
 
 class Embers(SeededRandom):
@@ -1536,12 +1537,13 @@ def get_regname_for_class(obj: object) -> str:
 
 if __name__ == '__main__':
     kwargs = {
-        'radius': 2,
-        'width': 1,
-        'gap': 2,
-        'count': 3,
-        'ease': 'l'
+        'mid': .5,
+        'scale': .1,
+        'seed': 'spam',
+        'ease': 'l',
     }
-    obj = Ring(**kwargs)
-    val = obj.fill((1, 8, 8))
+    cls = Random
+    size = (1, 8, 8)
+    obj = cls(**kwargs)
+    val = obj.fill(size)
     c.print_array(val)

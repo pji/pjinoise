@@ -149,19 +149,16 @@ class PatternTestCase(ut.TestCase):
         ]
 
         # Set up test data and state.
-        args = ['v', [0., 0., .5, 1., 1., 0.], 'l']
-        n = s.Gradient(*args)
+        kwargs = {
+            'direction': 'v',
+            'stops': [0., 0., .5, 1., 1., 0.],
+            'ease': 'l',
+        }
+        cls = s.Gradient
         size = (2, 5, 4)
 
         # Run test.
-        values = n.fill(size)
-
-        # Extract actual values.
-        values = np.around(values * 0xff).astype(int)
-        act = values.tolist()
-
-        # Determine if test passed.
-        self.assertListEqual(exp, act)
+        source_fill_test(self, exp, cls, kwargs, size)
 
     def test_lines_class(self):
         """An instance of noise.LineNoise should be initiated with
@@ -209,23 +206,78 @@ class PatternTestCase(ut.TestCase):
         ]
 
         # Set up test data and state.
-        attrs = {
+        kwargs = {
             'direction': 'h',
             'length': 5,
             'ease': 'io3',
         }
-        n = s.Lines(**attrs)
+        cls = s.Lines
         size = (2, 4, 4)
 
         # Run test.
-        values = n.fill(size)
+        source_fill_test(self, exp, cls, kwargs, size)
 
-        # Extract actual values.
-        values = np.around(values * 0xff).astype(int)
-        act = values.tolist()
+    def test_rays_fill(self):
+        """Given a size and location, Ray.fill should return a
+        volume filled with rays emanating from a central point.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0x8f, 0x51, 0x13, 0x04, 0x45, 0xa7, 0xe8, 0xfe],
+                [0xc9, 0x8f, 0x36, 0x00, 0x58, 0xd3, 0xfe, 0xf6],
+                [0xf9, 0xe0, 0x8f, 0x06, 0x87, 0xfe, 0xe8, 0xc2],
+                [0xf1, 0xf9, 0xff, 0x8f, 0xfe, 0xa5, 0x76, 0x61],
+                [0x9e, 0x89, 0x5a, 0x01, 0x70, 0x00, 0x06, 0x0e],
+                [0x3d, 0x17, 0x01, 0x78, 0xf9, 0x70, 0x1f, 0x06],
+                [0x09, 0x01, 0x2c, 0xa7, 0xff, 0xc9, 0x70, 0x36],
+                [0x01, 0x17, 0x58, 0xba, 0xfb, 0xec, 0xae, 0x70],
+            ],
+        ]
 
-        # Determine if test passed.
-        self.assertListEqual(exp, act)
+        # Set up test data and state.
+        kwargs = {
+            'count': 3,
+            'offset': np.pi / 2,
+            'ease': 'ios',
+        }
+        cls = s.Rays
+        size = (1, 8, 8)
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size)
+
+    def test_ring_fill(self):
+        """Given a size and location, Ring.fill should return a
+        volume filled with concentric rings.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0x50, 0x00, 0x0e, 0xc0, 0xff, 0xc0, 0x0e, 0x00],
+                [0x00, 0x83, 0x36, 0x00, 0x00, 0x00, 0x36, 0x83],
+                [0x0e, 0x36, 0x00, 0x87, 0xff, 0x87, 0x00, 0x36],
+                [0xc0, 0x00, 0x87, 0x00, 0x00, 0x00, 0x87, 0x00],
+                [0xff, 0x00, 0xff, 0x00, 0x00, 0x00, 0xff, 0x00],
+                [0xc0, 0x00, 0x87, 0x00, 0x00, 0x00, 0x87, 0x00],
+                [0x0e, 0x36, 0x00, 0x87, 0xff, 0x87, 0x00, 0x36],
+                [0x00, 0x83, 0x36, 0x00, 0x00, 0x00, 0x36, 0x83],
+            ],
+        ]
+
+        # Set up test data and state.
+        kwargs = {
+            'radius': 2,
+            'width': 1,
+            'gap': 2,
+            'count': 3,
+            'ease': 'l'
+        }
+        cls = s.Ring
+        size = (1, 8, 8)
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size)
 
     def test_solid_fill(self):
         """Given a size and location, Solid.fill should return a

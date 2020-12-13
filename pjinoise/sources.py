@@ -375,6 +375,23 @@ class Ring(ValueSource):
                  gap: float = 0,
                  count: int = 1,
                  *args, **kwargs) -> None:
+        """Initialize an instance of Ring.
+
+        :param radius: The radius of the first ring, which is the ring
+            closest to the center. It is measured from the origin point
+            of the rings to the middle of the band of the first ring.
+        :param width: The width of each band of the ring. It's measured
+            from each edge of the band.
+        :param gap: (Optional.) The distance between each ring. It's
+            measured from the middle of the first band to the middle
+            of the next band. The default value of zero causes the
+            rings to draw on top of each other, making it look like
+            there is only one ring.
+        :param count: (Optional.) The number of rings to draw. The
+            default is one.
+        :return: None.
+        :rtype: NoneType
+        """
         self.radius = float(radius)
         self.width = float(width)
         self.gap = float(gap)
@@ -400,7 +417,7 @@ class Ring(ValueSource):
         # volume and run the easing function on the results.
         c = np.sqrt(c[X] ** 2 + c[Y] ** 2)
         for i in range(self.count):
-            radius = self.radius + self.gap * (i - 1)
+            radius = self.radius + self.gap * i
             if radius != 0:
                 working = c / np.sqrt(radius ** 2)
                 working = np.abs(working - 1)
@@ -1518,8 +1535,13 @@ def get_regname_for_class(obj: object) -> str:
 
 
 if __name__ == '__main__':
-    obj = Path(unit=(1, 2, 2), seed='spam')
+    kwargs = {
+        'radius': 2,
+        'width': 1,
+        'gap': 2,
+        'count': 3,
+        'ease': 'l'
+    }
+    obj = Ring(**kwargs)
     val = obj.fill((1, 8, 8))
-#     print(val)
-    for step in val:
-        print(step)
+    c.print_array(val)

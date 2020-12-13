@@ -644,6 +644,18 @@ class Random(SeededRandom):
     """Create random noise with a continuous uniform distribution."""
     def __init__(self, mid: float = .5, scale: float = .02,
                  *args, **kwargs) -> None:
+        """Initialize an instance of Random.
+
+        :param mid: (Optional.) The midpoint level of the noise. This
+            is, basically, the base value of each point in the space.
+            The random numbers will then be used to increase or
+            decrease the value from this point.
+        :param scale: (Optional.) The maximum amount the randomness
+            should increase or decrease the value of a point in the
+            noise.
+        :return: None.
+        :rtype: NoneType
+        """
         self.mid = mid
         self.scale = scale
         super().__init__(*args, **kwargs)
@@ -1537,13 +1549,14 @@ def get_regname_for_class(obj: object) -> str:
 
 if __name__ == '__main__':
     kwargs = {
-        'mid': .5,
-        'scale': .1,
+        'width': .34,
+        'inset': (0, 1, 1),
+        'unit': (1, 3, 3),
         'seed': 'spam',
         'ease': 'l',
     }
-    cls = Random
-    size = (1, 8, 8)
+    cls = Path
+    size = (2, 10, 10)
     obj = cls(**kwargs)
     val = obj.fill(size)
     c.print_array(val)

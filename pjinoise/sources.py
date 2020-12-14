@@ -149,7 +149,7 @@ def eased(fn: Callable) -> Callable:
 # Base classes.
 class ValueSource(ABC):
     """Base class to define common features of noise classes.
-    
+
     :param ease: An easing function to use on any created image data.
     :return: ABCs cannot be instantiated.
     :rtype: ABCs cannot be instantiated.
@@ -202,10 +202,10 @@ class ValueSource(ABC):
 # Pattern generators.
 class Gradient(ValueSource):
     """Generate a simple gradient.
-    
+
     :param direction: (Optional.) This should be 'h' for a horizontal
         gradient or 'v' for a vertical gradient.
-    :param stops: (Optional.) A gradient stop sets the color at a 
+    :param stops: (Optional.) A gradient stop sets the color at a
         position in the gradient. This is a one-dimensional sequence
         of numbers. It's parsed in pairs, with the first number being
         the position of the stop and the second being the color value
@@ -305,7 +305,7 @@ class Gradient(ValueSource):
 
 class Lines(ValueSource):
     """Generate simple lines.
-    
+
     :param direction: (Optional.) This should be 'h' for a horizontal
         gradient or 'v' for a vertical gradient.
     :param length: (Optional.) The distance between each line.
@@ -343,7 +343,7 @@ class Lines(ValueSource):
 
 class Rays(ValueSource):
     """Create rayes that generate from a central point.
-    
+
     :param count: The number of rays to generate.
     :param offset: (Optional.) Rotate the rays around the generation
         point. This is measured in radians.
@@ -397,7 +397,7 @@ class Rays(ValueSource):
 
 class Ring(ValueSource):
     """Create a series of concentric circles.
-    
+
     :param radius: The radius of the first ring, which is the ring
         closest to the center. It is measured from the origin point
         of the rings to the middle of the band of the first ring.
@@ -458,7 +458,7 @@ class Ring(ValueSource):
 
 class Solid(ValueSource):
     """Fill a space with a solid color.
-    
+
     :param color: The color to use for the fill. Zero is black. One
         is white. The values between are values of gray.
     :return: :class:Solid object.
@@ -478,11 +478,11 @@ class Solid(ValueSource):
 
 class Spheres(ValueSource):
     """Fill a space with a series of spots.
-    
+
     :param radius: The radius of an individual spot.
     :param offset: (Optional.) Whether alternating rows or columns
         should be offset. Set to 'x' for rows to be offset. Set to
-        'y' for columns to be offset. It defaults to None for no 
+        'y' for columns to be offset. It defaults to None for no
         offset.
     :return: :class:Spheres object.
     :rtype: pjinoise.sources.Spheres
@@ -550,7 +550,7 @@ class Spheres(ValueSource):
 
 class Spot(ValueSource):
     """Fill a space with a spot.
-    
+
     :param radius: The radius of the spot.
     :return: :class:Spot object.
     :rtype: pjinoise.sources.Spot
@@ -722,7 +722,7 @@ class Random(SeededRandom):
 class Embers(SeededRandom):
     """Fill a space with bright points or dots that resemble embers
     or stars.
-    
+
     :param depth: (Optional.) The number of different sizes of dots
         to create.
     :param threshold: (Optional.) Embers starts by generating random

@@ -20,7 +20,26 @@ X, Y, Z = 2, 1, 0
 def convert_color_space(a: np.ndarray,
                         src_space: str = '',
                         dst_space: str = 'RGB') -> np.ndarray:
-    """Convert an array to the given color space."""
+    """Convert an array to the given color space.
+
+    :param src_space: (Optional.) This is the identifier for the
+        current color space of the image data. These identifiers
+        are either an empty string to represent pjinoise grayscale
+        or a color mode used by the pillow module (see below).
+    :param dst_space: (Optional.) This is the identifier for the
+        destination color space of the image data. These identifiers
+        are either an empty string to represent pjinoise grayscale
+        or a color mode used by the pillow module (see below).
+    :return: :class:ndarray object.
+    :rtype: numpy.ndarray
+
+    Color Modes
+    -----------
+    The color modes used by the pillow library can be found here:
+
+        https://pillow.readthedocs.io/en/stable/handbook/
+        concepts.html#concept-modes
+    """
     # The shape of the output is based on the space, so we can't
     # build out until we do the first conversion. However, setting
     # it to None here makes the process of detecting whether we've
@@ -37,6 +56,14 @@ def convert_color_space(a: np.ndarray,
         a = np.around(a * 0xff).astype(np.uint8)
         src_space = 'L'
 
+    # The pjinoise grayscale isn't a mode that is recognized by
+    # pillow, so we'll need pillow to convert it to its grayscale
+    # first (mode 'L').
+    dst_is_pjinoise_grayscale = False
+    if dst_space == '':
+        dst_is_pjinoise_grayscale = True
+        dst_space = 'L'
+
     # PIL.image.convert can only convert two-dimensional (or three,
     # with color channel being the third) images. So, for animations
     # we have to iterate through the Z axis, coverting one frame at
@@ -50,6 +77,12 @@ def convert_color_space(a: np.ndarray,
         if out is None:
             out = np.zeros((a.shape[Z], *a_img.shape), dtype=np.uint8)
         out[i] = a_img
+
+    # If we are converting to pjinoise grayscale, need to take the
+    # eight-bit integers from pillow and turn them into the pjinoise
+    # grayscale floats.
+    if dst_is_pjinoise_grayscale:
+        out = out.astype(float) / 0xff
     return out
 
 

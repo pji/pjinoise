@@ -7,11 +7,9 @@ the only person writing this and I'm using BBEdit rather than a
 dedicated Python IDE like PyCharm, so there may be a few weird things. 
 
 1.  Argument expansion of dicts built in calls
-2.  Trailing spaces
-3.  Empty line indentation
-4.  Extraneous __main__ checks
-5.  Working tests in __main__ checks
-6.  Color values as hexadecimal integers
+2.  Extraneous __main__ checks
+3.  Working tests in __main__ checks
+4.  Color values as hexadecimal integers
 
 
 Argument Expansion of Dicts Built in Calls
@@ -34,28 +32,6 @@ The main reason is that BBEdit doesn't fold function calls. However,
 it will fold the dictionary definition within the function call. So, 
 defining the dictionary in the call and passing it as keyword 
 arguments allows me to fold calls with several parameters.
-
-
-Trailing Spaces
----------------
-Multiple line comments and commands that are broken across multiple 
-lines tend to end in a space. Why? I find it's easier to manually 
-reflow these lines if there is a space there.
-
-That said, I understand why they are recommended against in PEP-8, 
-and I'll likely be moving away from it in the future.
-
-
-Empty Line Indentations
------------------------
-I tend to indent empty lines within a block to the same level as the 
-block. I think it makes it easier to add new lines within the block. 
-
-However, I understand the concern that white space characters can 
-cause surprises if unexpected, and it's probably better for an empty 
-line to be empty. I'm planning on moving away from doing this at some 
-point, likely as soon as I build a script to go in and strip it out 
-of the existing code.
 
 
 Extraneous __main__ Checks

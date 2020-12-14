@@ -148,7 +148,12 @@ def eased(fn: Callable) -> Callable:
 
 # Base classes.
 class ValueSource(ABC):
-    """Base class to define common features of noise classes."""
+    """Base class to define common features of noise classes.
+    
+    :param ease: An easing function to use on any created image data.
+    :return: ABCs cannot be instantiated.
+    :rtype: ABCs cannot be instantiated.
+    """
     def __init__(self, ease: str = 'l', *args, **kwargs) -> None:
         self.ease = ease
 
@@ -196,7 +201,18 @@ class ValueSource(ABC):
 
 # Pattern generators.
 class Gradient(ValueSource):
-    """Generate a simple gradient."""
+    """Generate a simple gradient.
+    
+    :param direction: (Optional.) This should be 'h' for a horizontal
+        gradient or 'v' for a vertical gradient.
+    :param stops: (Optional.) A gradient stop sets the color at a 
+        position in the gradient. This is a one-dimensional sequence
+        of numbers. It's parsed in pairs, with the first number being
+        the position of the stop and the second being the color value
+        of the stop.
+    :return: :class:Gradient object.
+    :rtype: pjinoise.sources.Gradient
+    """
     def __init__(self,
                  direction: str = 'h',
                  stops: Union[Sequence[float], str] = (0, 0, 1, 1),
@@ -204,11 +220,6 @@ class Gradient(ValueSource):
         self.direction = direction
 
         # Parse the stops for the gradient.
-        # A gradient stop sets the color at that position in the
-        # gradient. Because this needs to be configured from the
-        # command line, they come in as an ordered list of values,
-        # with the position being first and the color value being
-        # next.
         if isinstance(stops, str):
             stops = stops.split(',')
         self.stops = stops
@@ -293,7 +304,14 @@ class Gradient(ValueSource):
 
 
 class Lines(ValueSource):
-    """Generate simple lines."""
+    """Generate simple lines.
+    
+    :param direction: (Optional.) This should be 'h' for a horizontal
+        gradient or 'v' for a vertical gradient.
+    :param length: (Optional.) The distance between each line.
+    :return: :class:Lines object.
+    :rtype: pjinoise.sources.Lines
+    """
     def __init__(self,
                  direction: str = 'h',
                  length: Union[float, str] = 64,
@@ -324,6 +342,14 @@ class Lines(ValueSource):
 
 
 class Rays(ValueSource):
+    """Create rayes that generate from a central point.
+    
+    :param count: The number of rays to generate.
+    :param offset: (Optional.) Rotate the rays around the generation
+        point. This is measured in radians.
+    :return: :class:Rays object.
+    :rtype: pjinoise.sources.Rays
+    """
     def __init__(self, count: Union[str, int],
                  offset: Union[str, float] = 0,
                  *args, **kwargs) -> None:
@@ -370,28 +396,29 @@ class Rays(ValueSource):
 
 
 class Ring(ValueSource):
+    """Create a series of concentric circles.
+    
+    :param radius: The radius of the first ring, which is the ring
+        closest to the center. It is measured from the origin point
+        of the rings to the middle of the band of the first ring.
+    :param width: The width of each band of the ring. It's measured
+        from each edge of the band.
+    :param gap: (Optional.) The distance between each ring. It's
+        measured from the middle of the first band to the middle
+        of the next band. The default value of zero causes the
+        rings to draw on top of each other, making it look like
+        there is only one ring.
+    :param count: (Optional.) The number of rings to draw. The
+        default is one.
+    :return: :class:Ring object.
+    :rtype: pjinoise.sources.Ring
+    """
     def __init__(self, radius: float,
                  width: float,
                  gap: float = 0,
                  count: int = 1,
                  *args, **kwargs) -> None:
-        """Initialize an instance of Ring.
-
-        :param radius: The radius of the first ring, which is the ring
-            closest to the center. It is measured from the origin point
-            of the rings to the middle of the band of the first ring.
-        :param width: The width of each band of the ring. It's measured
-            from each edge of the band.
-        :param gap: (Optional.) The distance between each ring. It's
-            measured from the middle of the first band to the middle
-            of the next band. The default value of zero causes the
-            rings to draw on top of each other, making it look like
-            there is only one ring.
-        :param count: (Optional.) The number of rings to draw. The
-            default is one.
-        :return: None.
-        :rtype: NoneType
-        """
+        """Initialize an instance of Ring."""
         self.radius = float(radius)
         self.width = float(width)
         self.gap = float(gap)
@@ -430,6 +457,13 @@ class Ring(ValueSource):
 
 
 class Solid(ValueSource):
+    """Fill a space with a solid color.
+    
+    :param color: The color to use for the fill. Zero is black. One
+        is white. The values between are values of gray.
+    :return: :class:Solid object.
+    :rtype: pjinoise.sources.Solid
+    """
     def __init__(self, color: Union[str, float], *args, **kwargs) -> None:
         self.color = float(color)
         super().__init__(*args, **kwargs)
@@ -443,6 +477,16 @@ class Solid(ValueSource):
 
 
 class Spheres(ValueSource):
+    """Fill a space with a series of spots.
+    
+    :param radius: The radius of an individual spot.
+    :param offset: (Optional.) Whether alternating rows or columns
+        should be offset. Set to 'x' for rows to be offset. Set to
+        'y' for columns to be offset. It defaults to None for no 
+        offset.
+    :return: :class:Spheres object.
+    :rtype: pjinoise.sources.Spheres
+    """
     def __init__(self, radius: float,
                  offset: str = None, *args, **kwargs) -> None:
         self.radius = float(radius)
@@ -505,6 +549,12 @@ class Spheres(ValueSource):
 
 
 class Spot(ValueSource):
+    """Fill a space with a spot.
+    
+    :param radius: The radius of the spot.
+    :return: :class:Spot object.
+    :rtype: pjinoise.sources.Spot
+    """
     def __init__(self, radius: float, *args, **kwargs) -> None:
         self.radius = float(radius)
         super().__init__(*args, **kwargs)
@@ -533,20 +583,20 @@ class Spot(ValueSource):
 
 
 class Waves(ValueSource):
-    """Generates concentric circles."""
+    """Generates concentric circles.
+
+    :param length: The radius of the innermost circle.
+    :param growth: (Optional.) Either the string 'linear' or the
+        string 'geometric'. Determines whether the distance between
+        each circle remains constant (linear) or increases
+        (geometric). Defaults to linear.
+    :returns: :class:Waves object.
+    :rtype: pjinoise.sources.Waves
+    """
     def __init__(self, length: Union[str, float],
                  growth: str = 'l',
                  *args, **kwargs):
-        """Initialize an instance of Waves.
-
-        :param length: The radius of the innermost circle.
-        :param growth: (Optional.) Either the string 'linear' or the
-            string 'geometric'. Determines whether the distance between
-            each circle remains constant (linear) or increases
-            (geometric). Defaults to linear.
-        :returns: None.
-        :rtype: NoneType
-        """
+        """Initialize an instance of Waves."""
         self.length = float(length)
         self.growth = growth
         super().__init__(*args, **kwargs)
@@ -593,19 +643,20 @@ class SeededRandom(ValueSource):
     """Create continuous-uniformly distributed random noise with a
     seed value to allow the noise to be regenerated in a predictable
     way.
+
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :return: :class:SeededRandom object.
+    :rtype: pjinoise.sources.SeededRandom
     """
     def __init__(self, seed: Union[None, int, str, bytes] = None,
                  *args, **kwargs) -> None:
-        """Initialize an instance of SeededRandom.
-
-        :param seed: (Optional.) An int, bytes, or string used to seed
-            therandom number generator used to generate the image data.
-            If no value is passed, the RNG will not be seeded, so
-            serialized versions of this source will not product the
-            same values. Note: strings that are passed to seed will
-            be converted to UTF-8 bytes before being converted to
-            integers for seeding.
-        """
+        """Initialize an instance of SeededRandom."""
         self.seed = seed
         if isinstance(seed, str):
             seed = bytes(seed, 'utf_8')
@@ -641,21 +692,21 @@ class SeededRandom(ValueSource):
 
 
 class Random(SeededRandom):
-    """Create random noise with a continuous uniform distribution."""
+    """Create random noise with a continuous uniform distribution.
+
+    :param mid: (Optional.) The midpoint level of the noise. This
+        is, basically, the base value of each point in the space.
+        The random numbers will then be used to increase or
+        decrease the value from this point.
+    :param scale: (Optional.) The maximum amount the randomness
+        should increase or decrease the value of a point in the
+        noise.
+    :return: :class:Random object.
+    :rtype: pjinoise.sources.Random
+    """
     def __init__(self, mid: float = .5, scale: float = .02,
                  *args, **kwargs) -> None:
-        """Initialize an instance of Random.
-
-        :param mid: (Optional.) The midpoint level of the noise. This
-            is, basically, the base value of each point in the space.
-            The random numbers will then be used to increase or
-            decrease the value from this point.
-        :param scale: (Optional.) The maximum amount the randomness
-            should increase or decrease the value of a point in the
-            noise.
-        :return: None.
-        :rtype: NoneType
-        """
+        """Initialize an instance of Random."""
         self.mid = mid
         self.scale = scale
         super().__init__(*args, **kwargs)
@@ -669,6 +720,20 @@ class Random(SeededRandom):
 
 
 class Embers(SeededRandom):
+    """Fill a space with bright points or dots that resemble embers
+    or stars.
+    
+    :param depth: (Optional.) The number of different sizes of dots
+        to create.
+    :param threshold: (Optional.) Embers starts by generating random
+        values for each point. This sets the minimum value to keep in
+        the output. It's a percentage, and the lower the value the
+        more points are kept.
+    :param blend: (Optional.) A string reference to the operation to
+        use when blending different sizes of dots together.
+    :return: :class:Embers object.
+    :rtype: pjinoise.sources.Embers
+    """
     def __init__(self, depth: int = 1,
                  threshold: float = .9995,
                  blend: str = 'lighter',
@@ -719,6 +784,19 @@ class Embers(SeededRandom):
 
 # Random noise using unit cubes.
 class UnitNoise(ValueSource):
+    """An base class for visual noise generated with a unit grid.
+
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :return: This ABC cannot be instantiated.
+    :rtype: The ABC cannot be instantiated.
+    """
     hashes = [f'{n:>03b}'[::-1] for n in range(2 ** 3)]
 
     def __init__(self,
@@ -726,17 +804,7 @@ class UnitNoise(ValueSource):
                  table: Union[Sequence[float], str, None] = None,
                  seed: Union[str, int, None] = None,
                  *args, **kwargs) -> None:
-        """Initialize an instance of UnitNoise.
-
-        :param unit: The number of pixels between vertices along an
-            axis. The vertices are the locations where colors for
-            the gradient are set.
-        :param ease: (Optional.) The easing function to use on the
-            generated noise.
-        :param table: (Optional.) The colors to set for the vertices.
-            They will repeat if there are more units along the axis
-            in an image then there are colors defined for that axis.
-        """
+        """Initialize an instance of UnitNoise."""
         self._scale = 0xff
 
         if isinstance(unit, str):

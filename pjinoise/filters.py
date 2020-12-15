@@ -355,6 +355,37 @@ class BoxBlur(Filter):
 
 
 class Color(Filter):
+    """Colorize a grayscale image.
+
+    :param colorkey: (Optional.) The key value of the desired white
+        and black points in constants.COLOR. You cannot have a value
+        for this parameter and for the white or black parameters.
+    :param white: (Optional.) The color value for the white point of
+        the image. In other words, a pjinoise grayscale value of one
+        becomes this color. The value is a str representation of the
+        color value as used by PIL.ImageOps.colorize(). You cannot
+        have a value for this parameter and the colorkey parameter.
+        If you set white, you must set black.
+    :param black: (Optional.) The color value for the black point of
+        the image. In other words, a pjinoise grayscale value of zero
+        becomes this color. The value is a str representation of the
+        color value as used by PIL.ImageOps.colorize(). You cannot
+        have a value for this parameter and the colorkey parameter.
+        If you set black, you must set white.
+    :param invert: Invert the given whitepoint and blackpoint colors.
+        This is primarily intended for use with colorkey, but will
+        work if you are setting white and black.
+    :param src_space: (Optional.) Set the color space of the image
+        data before colorization. Valid values are an empty string
+        (for pjinoise grayscale) or a PIL mode. The default is
+        pjinoise grayscale.
+    :param dst_space: (Optional.) Set the color space of the image
+        data after colorization. Valid values are an empty string
+        (for pjinoise grayscale) or a PIL mode. The default is
+        pjinoise grayscale.
+    :return: A :class:Color object.
+    :rtype: pjinoise.filters.Color
+    """
     def __init__(self,
                  colorkey: str = '',
                  white: str = '',
@@ -362,6 +393,18 @@ class Color(Filter):
                  invert: bool = False,
                  src_space: str = '',
                  dst_space: str = 'RGB') -> None:
+        # Validate incoming parameters to avoid unexpected behavior
+        # due to ambiguous color input.
+        if colorkey and white:
+            msg = ('filter.Color: Due to the conflict between setting '
+                   'both colorkey and white on a filter.Color object, '
+                   'you cannot set both at the same time.')
+            raise ValueError(msg)
+        if white and not black or black and not white:
+            msg = 'filters.Color: if black or white is set, you must set both'
+            raise ValueError(msg)
+
+        # Set the attributes.
         if colorkey:
             white, black = COLOR[colorkey]
         if invert:
@@ -399,6 +442,9 @@ class Color(Filter):
 class Contrast(Filter):
     """Adjust the contrast of the image, setting the darkest value
     to 0% and the brightest value to 100%.
+
+    :return: A :class:Contract object.
+    :rtype: pjinoise.filters.Contrast
     """
     @scaled
     def process(self, a: np.ndarray, *args) -> np.ndarray:
@@ -412,7 +458,14 @@ class Contrast(Filter):
 
 
 class Curve(Filter):
-    """Apply an easing curve to the given image."""
+    """Apply an easing curve to the given image.
+
+    :param ease: The easing function to apply to the image. This is
+        the serialized name of a registered easing function from
+        pjinoise.ease.
+    :return: A :class:Curve object.
+    :rtype: pjinoise.filters.Curve
+    """
     def __init__(self, ease: str) -> None:
         self.ease = e.registered_functions[ease]
 
@@ -421,6 +474,20 @@ class Curve(Filter):
 
 
 class CutLight(Filter):
+    """Clip the lightest parts of the image and then adjust the
+    contrast of the image.
+
+    :param threshold: Color values greater than or equal to this
+        value are clipped to this value before the contrast adjustment.
+    :param ease: (Optional.) The easing function to apply to the image.
+        This is the serialized name of a registered easing function
+        from pjinoise.ease.
+    :param scale: (Optional.) The maximum range of color values in the
+        color space. For pjinoise grayscale this is one. For most other
+        color spaces, this is 0xff.
+    :return: A :class:CutLight object.
+    :rtype: pjinoise.filters.CutLight
+    """
     def __init__(self, threshold: float,
                  ease: str = '',
                  scale: float = 1.0) -> None:
@@ -436,6 +503,20 @@ class CutLight(Filter):
 
 
 class CutShadow(CutLight):
+    """Clip the darkest parts of the image and then adjust the
+    contrast of the image.
+
+    :param threshold: Color values less than or equal to this
+        value are clipped to this value before the contrast adjustment.
+    :param ease: (Optional.) The easing function to apply to the image.
+        This is the serialized name of a registered easing function
+        from pjinoise.ease.
+    :param scale: (Optional.) The maximum range of color values in the
+        color space. For pjinoise grayscale this is one. For most other
+        color spaces, this is 0xff.
+    :return: A :class:CutShadow object.
+    :rtype: pjinoise.filters.CutShadow
+    """
     # Public methods.
     @scaled
     def process(self, a: np.array, *args) -> np.array:
@@ -448,6 +529,13 @@ class CutShadow(CutLight):
 
 
 class Flip(Filter):
+    """Flip an image in the given direction.
+
+    :param direction: The direction to flip the image. Valid options
+        are 'h' for horizontal, 'v' for vertical, and 't' for time.
+    :return: A :class:Flip object.
+    :rtype: pjinoise.filters.Filp
+    """
     def __init__(self, direction: str, *args, **kwargs) -> None:
         self.direction = direction
 
@@ -464,6 +552,16 @@ class Flip(Filter):
 
 
 class GaussianBlur(Filter):
+    """Perform a gaussian blur on an image.
+
+    :param sigma: The sigma value of the blur. A gaussian blur uses a
+        gaussian function to determine how much the other pixels in
+        the image should affect the value of a pixel. Gaussian
+        functions produce a normal distribution. This value is the
+        size of a standard deviation in that normal distribution.
+    :return: A :class:GaussianBlur object.
+    :rtype: pjinoise.filters.GaussianBlur
+    """
     def __init__(self, sigma: float) -> None:
         self.sigma = sigma
 
@@ -478,10 +576,26 @@ class GaussianBlur(Filter):
 
 
 class Grain(Filter):
-    def __init__(self, scale: float, *args, **kwargs):
+    """Add random fluctuations in color to the image to simulate
+    graininess.
+
+    :param scale: The range of the variation in color. The minimum
+        value of the range is the initial color minus half of the
+        scale. The maximum value of the range is the initial color
+        plus half of the scale.
+    :param seed: (Optional.) A seed value for the random noise
+        generation to allow use of the filter to be completely
+        repeatable.
+    :return: A :class:Grain object.
+    :rtype: pjinoise.filters.Grain
+    """
+    def __init__(self, scale: float,
+                 seed: Union[int, str, bytes] = None,
+                 *args, **kwargs) -> None:
         self.scale = float(scale)
+        self.seed = seed
         self._grain = None
-        self._noise = s.Random(.5, self.scale)
+        self._noise = s.Random(.5, self.scale, self.seed)
         super().__init__(*args, **kwargs)
 
     # Public methods.
@@ -1123,7 +1237,11 @@ if __name__ == '__main__':
     ]
     a = np.array(a, dtype=float)
     a = a / 0xff
-    obj = GaussianBlur(5)
+    kwargs = {
+        'scale': .1,
+        'seed': 'spam',
+    }
+    obj = Grain(**kwargs)
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)
     res = postprocess(res, [obj,])

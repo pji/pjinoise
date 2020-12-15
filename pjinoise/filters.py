@@ -5,8 +5,8 @@ filters
 Postprocessing filters to use on image data.
 
 
-Basic Usage
-===========
+Basic Usage: Filter Objects
+===========================
 A Filter object is used to alter image data. Creating an instance of
 a subclass of Filter (a "filter") works like instantiating any other
 Python class. The specific parameters vary based on what the specific
@@ -19,6 +19,43 @@ Usage::
     > fltr
     BoxBlur(box_size=5)
     ```
+
+
+process()
+---------
+The process() method is used to alter image data. It always adheres
+to the following protocol:
+
+    :param values: The numpy n-dimensional array of image data to
+        alter. This should be able to two different types of arrays:
+        a three-dimensional array of floats within the range of
+        0 <= x <= 1 and a four-dimensional array of unsigned eight-
+        bit integers.
+    :return: In most cases this will return a numpy n-dimensional
+        array of the same shape and data type it was given. However,
+        certain filters, such as the Color filter will return array
+        with a different shape or data type.
+    :rtype: numpy.ndarray
+
+Usage::
+
+    ```
+    > import numpy as np
+    > from pjinoise import common as c
+    > a = [[[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]]
+    > fltr = Flip('v')
+    > fltr.process(a)
+    [[[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]]]
+    ```
+
+
+preprocess() and postprocess()
+------------------------------
+The preprocess() and postprocess() methods are used to handle image
+data generators (sources) in cases where the filter has specific
+requirements about the data it will alter. The primary use case is
+to change the size of the generated data to avoid undesired artifacts
+of the alteration in the altered image data.
 """
 from abc import ABC, abstractmethod
 from functools import wraps

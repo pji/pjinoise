@@ -121,7 +121,7 @@ def process_layers(size: Sequence[int],
 def render_source(source: ValueSource,
                   size: Sequence[int],
                   location: Sequence[int] = (0, 0, 0),
-                  filters: Sequence[f.ForLayer] = None) -> np.ndarray:
+                  filters: Sequence[f.Filter] = None) -> np.ndarray:
     """Create image data from a ValueSource."""
     # You don't want to set the default value for a parameter to a
     # mutable value because it will remember any changes to it leading

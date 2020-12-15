@@ -24,9 +24,9 @@ class Layer():
                  blend: t.Union[str, t.Callable],
                  blend_amount: float = 1,
                  location: t.Sequence[int] = (0, 0, 0),
-                 filters: t.Sequence[f.ForLayer] = None,
+                 filters: t.Sequence[f.Filter] = None,
                  mask: t.Union[None, s.ValueSource] = None,
-                 mask_filters: t.Sequence[f.ForLayer] = None) -> None:
+                 mask_filters: t.Sequence[f.Filter] = None) -> None:
         self.source = source
         if isinstance(blend, str):
             blend = op.registered_ops[blend]

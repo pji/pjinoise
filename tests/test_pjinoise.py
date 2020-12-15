@@ -25,7 +25,7 @@ def slice_array(a, new_shape):
     return a[slices]
 
 
-class Filter(f.ForLayer):
+class Filter(f.Filter):
     amount = .5
 
     def preprocess(self, size, original_size):

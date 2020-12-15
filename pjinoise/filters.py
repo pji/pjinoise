@@ -2,7 +2,23 @@
 filters
 ~~~~~~~
 
-Postprocessing filters to use on noise images.
+Postprocessing filters to use on image data.
+
+
+Basic Usage
+===========
+A Filter object is used to alter image data. Creating an instance of
+a subclass of Filter (a "filter") works like instantiating any other
+Python class. The specific parameters vary based on what the specific
+filter does.
+
+Usage::
+
+    ```
+    > fltr = BoxBlur(5)
+    > fltr
+    BoxBlur(box_size=5)
+    ```
 """
 from abc import ABC, abstractmethod
 from functools import wraps
@@ -64,7 +80,7 @@ def scaled(fn: Callable) -> Callable:
 
 
 # Layer filter classes.
-class ForLayer(ABC):
+class Filter(ABC):
     """The base class for filter objects."""
     padding = None
 
@@ -72,6 +88,21 @@ class ForLayer(ABC):
         if not isinstance(other, self.__class__):
             return NotImplemented
         return self.asdict() == other.asdict()
+
+    def __repr__(self):
+        cls = self.__class__.__name__
+        attrs = self.asdict()
+        del attrs['type']
+        params = []
+        for key in attrs:
+            val = attrs[key]
+            if isinstance(val, str):
+                val = f"'{val}'"
+            if isinstance(val, bytes):
+                val = f"b'{val}'"
+            params.append(f'{key}={val}')
+        params_str = ', '.join(params)
+        return f'{cls}({params_str})'
 
     # Public methods.
     def asdict(self) -> dict:
@@ -118,7 +149,7 @@ class ForLayer(ABC):
         return tuple(n - pad for n, pad in zip(size, self.padding))
 
 
-class BoxBlur(ForLayer):
+class BoxBlur(Filter):
     def __init__(self, box_size: Union[str, int]) -> None:
         self.box_size = int(box_size)
 
@@ -139,7 +170,7 @@ class BoxBlur(ForLayer):
         return a
 
 
-class Color(ForLayer):
+class Color(Filter):
     def __init__(self,
                  colorkey: str = '',
                  white: str = '',
@@ -181,7 +212,7 @@ class Color(ForLayer):
         return out
 
 
-class Contrast(ForLayer):
+class Contrast(Filter):
     """Adjust the contrast of the image, setting the darkest value
     to 0% and the brightest value to 100%.
     """
@@ -196,7 +227,7 @@ class Contrast(ForLayer):
         return a
 
 
-class Curve(ForLayer):
+class Curve(Filter):
     """Apply an easing curve to the given image."""
     def __init__(self, ease: str) -> None:
         self.ease = e.registered_functions[ease]
@@ -205,7 +236,7 @@ class Curve(ForLayer):
         return self.ease(a)
 
 
-class CutLight(ForLayer):
+class CutLight(Filter):
     def __init__(self, threshold: float,
                  ease: str = '',
                  scale: float = 1.0) -> None:
@@ -232,7 +263,7 @@ class CutShadow(CutLight):
         return self.ease(a)
 
 
-class Flip(ForLayer):
+class Flip(Filter):
     def __init__(self, direction: str, *args, **kwargs) -> None:
         self.direction = direction
 
@@ -248,7 +279,7 @@ class Flip(ForLayer):
         raise ValueError(msg)
 
 
-class GaussianBlur(ForLayer):
+class GaussianBlur(Filter):
     def __init__(self, sigma: float) -> None:
         self.sigma = sigma
 
@@ -262,7 +293,7 @@ class GaussianBlur(ForLayer):
         return a
 
 
-class Grain(ForLayer):
+class Grain(Filter):
     def __init__(self, scale: float, *args, **kwargs):
         self.scale = float(scale)
         self._grain = None
@@ -279,7 +310,7 @@ class Grain(ForLayer):
         return op.overlay(a, self._grain)
 
 
-class Glow(ForLayer):
+class Glow(Filter):
     """Use gaussian blurs to create a halo around brighter objects
     in the image.
     """
@@ -300,7 +331,7 @@ class Glow(ForLayer):
         return b
 
 
-class Grow(ForLayer):
+class Grow(Filter):
     """Expand the generated image and then crop back to the original
     image size.
     """
@@ -331,7 +362,7 @@ class Grow(ForLayer):
         return resized
 
 
-class Inverse(ForLayer):
+class Inverse(Filter):
     def __init__(self, ease: str = '') -> None:
         self.ease = e.registered_functions[ease]
 
@@ -341,7 +372,7 @@ class Inverse(ForLayer):
         return self.ease(1 - a)
 
 
-class LinearToPolar(ForLayer):
+class LinearToPolar(Filter):
     # Filter protocol.
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
@@ -374,7 +405,7 @@ class LinearToPolar(ForLayer):
         return cv2.warpPolar(a, a.shape, center, max_radius, flags)
 
 
-class MotionBlur(ForLayer):
+class MotionBlur(Filter):
     """Apply a blur in a given direction to give the appearance of
     motion.
     """
@@ -407,7 +438,7 @@ class MotionBlur(ForLayer):
         return a
 
 
-class Pinch(ForLayer):
+class Pinch(Filter):
     def __init__(self, amount: Union[float, str],
                  radius: Union[float, str],
                  scale: Union[Tuple[float], str],
@@ -484,7 +515,7 @@ class Pinch(ForLayer):
         return a
 
 
-class PolarToLinear(ForLayer):
+class PolarToLinear(Filter):
     # Filter Protocol.
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
@@ -518,7 +549,7 @@ class PolarToLinear(ForLayer):
         return a.astype(float)
 
 
-class Resize(ForLayer):
+class Resize(Filter):
     """Generate layers at a different size than the final image
     size. This can be used to reduce the generation time of expensive
     generators or crop out awkward edges of generated images.
@@ -571,7 +602,7 @@ class Resize(ForLayer):
         return resized
 
 
-class Ripple(ForLayer):
+class Ripple(Filter):
     def __init__(self, wavelength: Union[Sequence[float], str],
                  amplitude: Union[Sequence[float], str],
                  distort_axis: str = 'cross',
@@ -661,7 +692,7 @@ class Ripple(ForLayer):
         return dst
 
 
-class Rotate90(ForLayer):
+class Rotate90(Filter):
     """Rotate the image ninety degrees in the given direction."""
     def __init__(self, direction: str) -> None:
         self.direction = direction
@@ -687,7 +718,7 @@ class Rotate90(ForLayer):
         return np.rot90(values, direction, (Y, X))
 
 
-class Skew(ForLayer):
+class Skew(Filter):
     """Skew the image."""
     def __init__(self, slope: Union[float, str]) -> None:
         self.slope = float(slope)
@@ -756,7 +787,7 @@ class Skew(ForLayer):
         return values.astype(original_type)
 
 
-class Twirl(ForLayer):
+class Twirl(Filter):
     def __init__(self, radius: Union[str, float],
                  strength: Union[str, float],
                  offset: Union[str, Sequence[int]] = (0, 0, 0)) -> None:
@@ -794,7 +825,7 @@ class Twirl(ForLayer):
 
 # Layer filter processing functions.
 def preprocess(size: Sequence[int],
-               filters: Sequence[Sequence[ForLayer]]) -> Tuple[int]:
+               filters: Sequence[Sequence[Filter]]) -> Tuple[int]:
     if not filters:
         return size
     new_size = size[:]
@@ -804,7 +835,7 @@ def preprocess(size: Sequence[int],
 
 
 def process(a: np.ndarray,
-            filters: Sequence[ForLayer]) -> np.ndarray:
+            filters: Sequence[Filter]) -> np.ndarray:
     if not filters:
         return a
     for filter in filters:
@@ -813,7 +844,7 @@ def process(a: np.ndarray,
 
 
 def postprocess(a: np.ndarray,
-                filters: Sequence[ForLayer]) -> np.ndarray:
+                filters: Sequence[Filter]) -> np.ndarray:
     # If there are no layer filters, bounce out.
     if not filters:
         return a
@@ -860,13 +891,13 @@ registered_filters = {
 
 
 # Registration and deserialization utility functions.
-def make_filter(name: str, args: Sequence = ()) -> ForLayer:
+def make_filter(name: str, args: Sequence = ()) -> Filter:
     name = name.casefold()
     cls = registered_filters[name]
     return cls(*args)
 
 
-def deserialize_filter(attrs: Mapping) -> ForLayer:
+def deserialize_filter(attrs: Mapping) -> Filter:
     cls = registered_filters[attrs['type']]
     del attrs['type']
     return cls(**attrs)

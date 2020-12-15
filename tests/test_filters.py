@@ -16,7 +16,7 @@ from pjinoise.constants import X, Y, Z
 
 
 # Utility function.
-def test_color_filter_process(filter: filters.ForLayer,
+def test_color_filter_process(filter: filters.Filter,
                               a: list = None) -> List:
     """Perform the common unit test on the process method of a filter
     that converts a grayscale image to color.
@@ -52,7 +52,7 @@ def test_color_filter_process(filter: filters.ForLayer,
     return result.tolist()
 
 
-def test_filter_process(filter: filters.ForLayer, a: list = None) -> List:
+def test_filter_process(filter: filters.Filter, a: list = None) -> List:
     """Parform the common unit test on the process method of a filter
     that takes an returns a pjinoise grayscale image.
     """
@@ -94,7 +94,7 @@ class ClassTestCase(ut.TestCase):
         comma delimited string, filters.make_filter should return
         an initialized Filter object of the correct type.
         """
-        exp_super = filters.ForLayer
+        exp_super = filters.Filter
         exp_cls = filters.Rotate90
         exp_param = 'r'
 
@@ -144,7 +144,7 @@ class DecoratorTestCase(ut.TestCase):
             ],
         ], dtype=np.uint8)
 
-        class Filter(filters.ForLayer):
+        class Filter(filters.Filter):
             @filters.channeled
             def process(self, a):
                 if len(a.shape) != 3:

@@ -38,8 +38,8 @@ def _build_blend_amount(blend: str) -> float:
     return float(amount)
 
 
-def _build_filters(filters: str) -> List[f.ForLayer]:
-    def _build_filter(filter: str) -> f.ForLayer:
+def _build_filters(filters: str) -> List[f.Filter]:
+    def _build_filter(filter: str) -> f.Filter:
         name, *args = filter.split(':')
         cls = f.registered_filters[name]
         return cls(*args)

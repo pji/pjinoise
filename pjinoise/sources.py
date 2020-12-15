@@ -150,7 +150,8 @@ def eased(fn: Callable) -> Callable:
 class ValueSource(ABC):
     """Base class to define common features of noise classes.
 
-    :param ease: An easing function to use on any created image data.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: ABCs cannot be instantiated.
     :rtype: ABCs cannot be instantiated.
     """
@@ -210,6 +211,8 @@ class Gradient(ValueSource):
         of numbers. It's parsed in pairs, with the first number being
         the position of the stop and the second being the color value
         of the stop.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:Gradient object.
     :rtype: pjinoise.sources.Gradient
     """
@@ -309,6 +312,8 @@ class Lines(ValueSource):
     :param direction: (Optional.) This should be 'h' for a horizontal
         gradient or 'v' for a vertical gradient.
     :param length: (Optional.) The distance between each line.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:Lines object.
     :rtype: pjinoise.sources.Lines
     """
@@ -347,6 +352,8 @@ class Rays(ValueSource):
     :param count: The number of rays to generate.
     :param offset: (Optional.) Rotate the rays around the generation
         point. This is measured in radians.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:Rays object.
     :rtype: pjinoise.sources.Rays
     """
@@ -410,6 +417,8 @@ class Ring(ValueSource):
         there is only one ring.
     :param count: (Optional.) The number of rings to draw. The
         default is one.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:Ring object.
     :rtype: pjinoise.sources.Ring
     """
@@ -484,6 +493,8 @@ class Spheres(ValueSource):
         should be offset. Set to 'x' for rows to be offset. Set to
         'y' for columns to be offset. It defaults to None for no
         offset.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:Spheres object.
     :rtype: pjinoise.sources.Spheres
     """
@@ -552,6 +563,8 @@ class Spot(ValueSource):
     """Fill a space with a spot.
 
     :param radius: The radius of the spot.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:Spot object.
     :rtype: pjinoise.sources.Spot
     """
@@ -590,6 +603,8 @@ class Waves(ValueSource):
         string 'geometric'. Determines whether the distance between
         each circle remains constant (linear) or increases
         (geometric). Defaults to linear.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :returns: :class:Waves object.
     :rtype: pjinoise.sources.Waves
     """
@@ -651,18 +666,18 @@ class SeededRandom(ValueSource):
         same values. Note: strings that are passed to seed will
         be converted to UTF-8 bytes before being converted to
         integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:SeededRandom object.
     :rtype: pjinoise.sources.SeededRandom
     """
-    def __init__(self, seed: Union[None, int, str, bytes] = None,
+    def __init__(self,
+                 seed: Union[None, int, str, bytes] = None,
                  *args, **kwargs) -> None:
         """Initialize an instance of SeededRandom."""
         self.seed = seed
-        if isinstance(seed, str):
-            seed = bytes(seed, 'utf_8')
-        if isinstance(seed, bytes):
-            seed = int.from_bytes(seed, 'little')
-        self._rng = default_rng(seed)
+        self._seed = _text_to_int(self.seed)
+        self._rng = default_rng(self._seed)
         super().__init__(*args, **kwargs)
 
     # Public methods.
@@ -701,6 +716,15 @@ class Random(SeededRandom):
     :param scale: (Optional.) The maximum amount the randomness
         should increase or decrease the value of a point in the
         noise.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:Random object.
     :rtype: pjinoise.sources.Random
     """
@@ -731,6 +755,15 @@ class Embers(SeededRandom):
         more points are kept.
     :param blend: (Optional.) A string reference to the operation to
         use when blending different sizes of dots together.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: :class:Embers object.
     :rtype: pjinoise.sources.Embers
     """
@@ -789,11 +822,18 @@ class UnitNoise(ValueSource):
     :param unit: The number of pixels between vertices along an
         axis. The vertices are the locations where colors for
         the gradient are set.
-    :param ease: (Optional.) The easing function to use on the
-        generated noise.
     :param table: (Optional.) The colors to set for the vertices.
         They will repeat if there are more units along the axis
         in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
     :return: This ABC cannot be instantiated.
     :rtype: The ABC cannot be instantiated.
     """
@@ -812,11 +852,7 @@ class UnitNoise(ValueSource):
         self.unit = unit
 
         self.seed = seed
-        if isinstance(seed, str):
-            seed = bytes(seed, 'utf_8')
-        if isinstance(seed, bytes):
-            seed = int.from_bytes(seed, 'little')
-        self._seed = seed
+        self._seed = _text_to_int(self.seed)
 
         if table == 'P':
             table = P
@@ -920,10 +956,30 @@ class UnitNoise(ValueSource):
 
 
 class Curtains(UnitNoise):
-    """A class to generate value noise. Reference algorithms taken
-    from:
+    """A class to generate vertical bands of unit noise. Reference
+    algorithms taken from:
 
-    https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/procedural-patterns-noise-part-1/creating-simple-1D-noise
+        https://www.scratchapixel.com/lessons/procedural-generation-
+        virtual-worlds/procedural-patterns-noise-part-1/creating-simple
+        -1D-noise
+
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:Curtains object.
+    :rtype: pjinoise.sources.Curtains
     """
     hashes = [f'{n:>02b}'[::-1] for n in range(2 ** 2)]
 
@@ -978,6 +1034,32 @@ class Curtains(UnitNoise):
 
 
 class CosineCurtains(Curtains):
+    """A class to generate vertical bands of unit noise eased with
+    a cosine-based function. Reference algorithms taken from:
+
+        https://www.scratchapixel.com/lessons/procedural-generation-
+        virtual-worlds/procedural-patterns-noise-part-1/creating-simple
+        -1D-noise
+
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:CosineCurtains object.
+    :rtype: pjinoise.sources.CosineCurtains
+    """
+
     # Private methods.
     def _lerp(self, a: float, b: float, x: float) -> float:
         """Eased linear interpolation function to smooth the noise."""
@@ -986,22 +1068,37 @@ class CosineCurtains(Curtains):
 
 
 class Path(UnitNoise):
-    """Create a maze-like path through a grid."""
+    """Create a maze-like path through a grid.
+
+    :param width: (Optional.) The width of the path. This is the
+        percentage of the width of the X axis length of the size
+        of the fill. Values over one will probably be weird, but
+        not in a great way.
+    :param inset: (Optional.) Sets how many units from the end of
+        the image to draw the path. Units here refers to the unit
+        parameter from the UnitNoise parent class.
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:Path object.
+    :rtype: pjinoise.sources.Path
+    """
     def __init__(self, width: float = .2,
                  inset: Sequence[int] = (0, 1, 1),
                  *args, **kwargs) -> None:
-        """Initialize an instance of Path.
-
-        :param width: (Optional.) The width of the path. This is the
-            percentage of the width of the X axis length of the size
-            of the fill. Values over one will probably be weird, but
-            not in a great way.
-        :param inset: (Optional.) Sets how many units from the end of
-            the image to draw the path. Units here refers to the unit
-            parameter from the UnitNoise parent class.
-        :return: None.
-        :rtype: NoneType
-        """
+        """Initialize an instance of Path."""
         self.width = width
         self.inset = inset
         super().__init__(*args, **kwargs)
@@ -1124,7 +1221,26 @@ class Path(UnitNoise):
 
 
 class Perlin(UnitNoise):
-    """A class to generate Perlin noise."""
+    """A class to generate Perlin noise.
+
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:Perlin object.
+    :rtype: pjinoise.sources.Perlin
+    """
     # Public classes.
     @eased
     def fill(self, size: Sequence[int],
@@ -1270,25 +1386,34 @@ class Perlin(UnitNoise):
 
 
 class Values(UnitNoise):
-    """Produce a gradient over a multidimensional space."""
-    def __init__(self,
-                 unit: Union[Sequence[int], str],
-                 size: Union[Sequence[int], None] = (50, 720, 1280),
-                 table: Union[Sequence, None] = None,
-                 *args, **kwargs) -> None:
-        """Initialize an instance of GradientNoise.
+    """Produce a gradient over a multidimensional space.
 
-        :param unit: The number of pixels between vertices along an
-            axis. The vertices are the locations where colors for
-            the gradient are set.
-        :param size: (Optional.) The expected size of the noise that
-            will be generated. This is only used if no table is passed.
-        :param table: (Optional.) The colors to set for the vertices.
-            They will repeat if there are more units along the axis
-            in an image then there are colors defined for that axis.
-        """
+    :param size: (Optional.) The expected size of the noise that
+        will be generated. This is only used if no table is passed.
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:Values object.
+    :rtype: pjinoise.sources.Values
+    """
+    def __init__(self,
+                 size: Union[Sequence[int], None] = (50, 720, 1280),
+                 *args, **kwargs) -> None:
+        """Initialize an instance of GradientNoise."""
         self.size = size
-        super().__init__(unit, table, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     @eased
@@ -1372,6 +1497,20 @@ class Values(UnitNoise):
 
 # Random octave noise using unit cubes.
 class OctaveMixin():
+    """A mixin for the generation of octave noise.
+
+    :param octave: (Optional.) Sets the number of octaves to generate.
+        Essentially, this is how many different scales of noise to
+        include in the output.
+    :param pesistence: (Optional.) Sets the impact that each octave
+        has on the final output.
+    :param amplitude: (Optional.) Sets the amount the persistence
+        changes for each octave.
+    :param frequency: (Optional.) Sets how much the scale changes
+        for each octave.
+    :return: Mixins aren't intended to be instantiated.
+    :rtype: Mixins aren't intended to be instantiated.
+    """
     genclass = None
 
     def __init__(self, octaves: int = 4,
@@ -1455,11 +1594,69 @@ class OldOctaveCosineCurtains(OctaveMixin, CosineCurtains):
 
 
 class OctaveCosineCurtains(OctaveMixin, CosineCurtains):
+    """Generate octaves of CosineCurtains noise.
+
+    :param octave: (Optional.) Sets the number of octaves to generate.
+        Essentially, this is how many different scales of noise to
+        include in the output.
+    :param pesistence: (Optional.) Sets the impact that each octave
+        has on the final output.
+    :param amplitude: (Optional.) Sets the amount the persistence
+        changes for each octave.
+    :param frequency: (Optional.) Sets how much the scale changes
+        for each octave.
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:OctaveCosineCurtains object.
+    :rtype: pjinoise.sources.OctaveCosineCurtains
+    """
     genclass = CosineCurtains
 
 
 class OctavePerlin(OctaveMixin, Perlin):
-    """Create octave Perlin noise. Arguments that provide good results:
+    """Create octave Perlin noise.
+
+    :param octave: (Optional.) Sets the number of octaves to generate.
+        Essentially, this is how many different scales of noise to
+        include in the output.
+    :param pesistence: (Optional.) Sets the impact that each octave
+        has on the final output.
+    :param amplitude: (Optional.) Sets the amount the persistence
+        changes for each octave.
+    :param frequency: (Optional.) Sets how much the scale changes
+        for each octave.
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:OctavePerlin object.
+    :rtype: pjinoise.sources.OctavePerlin
+
+    Note: Arguments that provide good results:
     octaves: 6
     persistence: -4
     amplitude: 24
@@ -1496,13 +1693,57 @@ class CachingMixin():
 
 
 class CachingOctavePerlin(CachingMixin, OctavePerlin):
-    """A caching source for octave Perlin noise."""
+    """A caching source for octave Perlin noise.
+
+    :param octave: (Optional.) Sets the number of octaves to generate.
+        Essentially, this is how many different scales of noise to
+        include in the output.
+    :param pesistence: (Optional.) Sets the impact that each octave
+        has on the final output.
+    :param amplitude: (Optional.) Sets the amount the persistence
+        changes for each octave.
+    :param frequency: (Optional.) Sets how much the scale changes
+        for each octave.
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:CachingOctavePerlin object.
+    :rtype: pjinoise.sources.CachingOctavePerlin
+    """
     _cache = {}
 
 
 # Compound sources.
 class TilePaths(ValueSource):
-    """Tile the output of a series of Path objects."""
+    """Tile the output of a series of Path objects.
+
+    :param tile_size: The size of the fills from the sources.Path
+        used in the image.
+    :param seeds: An iterator of seed values to use for the
+        sources.Path objects used in the image.
+    :param unit: The unit size for the sources.Path objects used
+        in the image.
+    :param line_width: The width of the line used by the sources.Path
+        used in the image.
+    :param inset: The inset value to use in the sources.Path objects
+        used in the image.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:TilePaths object.
+    :rtype: pjinoise.sources.TilePaths
+    """
     def __init__(self, tile_size: Sequence[float],
                  seeds: Sequence[Any],
                  unit: Sequence[int],
@@ -1613,6 +1854,15 @@ def get_regname_for_class(obj: object) -> str:
     regnames = {registered_sources[k]: k for k in registered_sources}
     clsname = obj.__class__
     return regnames[clsname]
+
+
+# General utility functions.
+def _text_to_int(text: Union[bytes, str, int, None]) -> int:
+    if isinstance(text, (int)) or text is None:
+        return text
+    if isinstance(text, str):
+        text = bytes(text, 'utf_8')
+    return int.from_bytes(text, 'little')
 
 
 if __name__ == '__main__':

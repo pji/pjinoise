@@ -16,9 +16,9 @@ will create.
 
 Usage::
 
-    ```
-    > src = Lines('h', 22.2, 'ios')
-    ```
+    >>> src = Lines('h', 22.2, 'ios')
+    >>> src
+    Lines(direction='h', length=22.2, ease='ios')
 
 
 fill()
@@ -44,12 +44,12 @@ function always adheres to the following protocol:
 
 Usage::
 
-    ```
-    > lines = Lines('h', 22.2, 'ios')
-    > size = (1, 2, 3)
-    > location = (2, 3, 4)
-    > a = lines.fill(size, location)
-    ```
+    >>> lines = Lines('h', 22.2, 'ios')
+    >>> size = (1, 2, 3)
+    >>> location = (2, 3, 4)
+    >>> lines.fill(size, location)
+    array([[[0.45560205, 0.45560205, 0.45560205],
+            [0.60298931, 0.60298931, 0.60298931]]])
 
 
 asdict()
@@ -80,26 +80,22 @@ accomplish this:
 
 Usage:
 
-    ```
-    > lines = Lines('h', 22.2, 'ios')
-    > lines.asdict()
+    >>> lines = Lines('h', 22.2, 'ios')
+    >>> lines.asdict()
     {'direction': 'h', 'length': 22.2, 'type': 'lines', 'ease': 'ios'}
-    ```
 
 
 Serialization Helpers
 =====================
-The source module has a few capabilities to help with serialization.
+The sources module has a few capabilities to help with serialization.
 The get_regname_for_class() function returns a string that represents
-a source class that has been registered with the source module.
+a source class that has been registered with the sources module.
 
 Usage::
 
-    ```
-    > cls = Lines
-    > get_regname_for_class(cls)
+    >>> obj = Lines('h', 22.2, 'ios')
+    >>> get_regname_for_class(obj)
     'lines'
-    ```
 
 New source classes can be registered with the source module by adding
 them to the registered_source dictionary. The key should be the
@@ -107,14 +103,14 @@ short string you want to use as the serialized value of the class.
 
 Usage::
 
-    ```
-    > class Spam(ValueSource):
-    ...     pass
+    >>> class Spam(ValueSource):
+    ...     def fill(*args):
+    ...         pass
     ...
-    > registered_functions['spam'] = Spam
-    > get_regname_for_class(Spam)
+    >>> registered_sources['spam'] = Spam
+    >>> obj = Spam()
+    >>> get_regname_for_class(obj)
     'spam'
-    ```
 
 The primary purpose for this feature is to allow classes to be easily
 deserialized from JSON objects. It also should provide a measure of
@@ -162,6 +158,21 @@ class ValueSource(ABC):
         if not isinstance(other, self.__class__):
             return NotImplemented
         return self.asdict() == other.asdict()
+
+    def __repr__(self):
+        cls = self.__class__.__name__
+        attrs = self.asdict()
+        del attrs['type']
+        params = []
+        for key in attrs:
+            val = attrs[key]
+            if isinstance(val, str):
+                val = f"'{val}'"
+            if isinstance(val, bytes):
+                val = f"b'{val}'"
+            params.append(f'{key}={val}')
+        params_str = ', '.join(params)
+        return f'{cls}({params_str})'
 
     @property
     def ease(self) -> str:
@@ -1866,6 +1877,9 @@ def _text_to_int(text: Union[bytes, str, int, None]) -> int:
 
 
 if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
+
     kwargs = {
         'width': .34,
         'inset': (0, 1, 1),

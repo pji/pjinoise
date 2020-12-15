@@ -14,11 +14,9 @@ filter does.
 
 Usage::
 
-    ```
-    > fltr = BoxBlur(5)
-    > fltr
+    >>> fltr = BoxBlur(5)
+    >>> fltr
     BoxBlur(box_size=5)
-    ```
 
 
 process()
@@ -39,14 +37,13 @@ to the following protocol:
 
 Usage::
 
-    ```
-    > import numpy as np
-    > from pjinoise import common as c
-    > a = [[[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]]
-    > fltr = Flip('v')
-    > fltr.process(a)
-    [[[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]]]
-    ```
+    >>> import numpy as np
+    >>>
+    >>> a = np.array([[[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]])
+    >>> fltr = Flip('v')
+    >>> fltr.process(a)
+    array([[[1., 1., 1.],
+            [0., 0., 0.]]])
 
 
 preprocess() and postprocess()
@@ -56,6 +53,146 @@ data generators (sources) in cases where the filter has specific
 requirements about the data it will alter. The primary use case is
 to change the size of the generated data to avoid undesired artifacts
 of the alteration in the altered image data.
+
+The preprocess() method sets the amount of padding that needs to be
+added to the size of the image in order to avoid the artifacts. It
+also saves the amount of padding internally, so it can be removed by
+the postprocess() method. The preprocess() function always adheres
+to the following protocol:
+
+    :param size: The current size of the image to be created.
+    :param original_size: The original size of the image to be
+        created. This is used in situations where multiple
+        filters are being applied to an array of image data.
+        If a previous filter had added padding to the image,
+        that padding wouldn't need to be added by this filter.
+    :return: The new size of the image as a :class:tuple object.
+    :rtype: tuple
+
+The postprocess() method returns the size the image should be with
+the padding added by the preprocess() method removed. The postprocess()
+method always adheres to the following protocol:
+
+    :param size: The current size of the array of image data.
+    :return: The new size of the image with any padding removed
+        as a :class:tuple object.
+    :rtype: tuple
+
+Usage::
+
+    >>> fltr = Skew(.5)
+    >>> size = (1, 720, 1280)
+    >>> new_size = fltr.preprocess(size, size)
+    >>> new_size
+    (1, 720, 2718)
+    >>> old_size = fltr.postprocess(new_size)
+    >>> old_size
+    (1, 720, 1280)
+
+
+asdict()
+--------
+The asdict() method is primarily used to make serializing source
+objects to JSON easier. It also can be used in testing to compare
+two source objects. The following is true of the output of asdict():
+
+*   The "type" key contains the serialization name for the object's
+    class.
+*   The other keys are the parameters for creating a new instance
+    of the objects class that is a copy of the object.
+*   The values of those parameters are data types that can be
+    serialized by the json module.
+
+Note: When creating subclasses of Filter, care should be taken to
+ensure the subclass's asdict() method only returns data that can
+be serialized by the json module. There are a couple of ways to
+accomplish this:
+
+*   Filter.asdict() won't return private attributes in the output
+    dictionary, so the serialized version can be stored in the
+    public attribute (or at least returned by calls to the public
+    attribute) and the deserialized version stored in a private
+    attribute.
+*   The asdict() method can be subclassed to serialize the value of
+    the attribute before the output dictionary is returned.
+
+Usage:
+
+    >>> glow = Glow(50)
+    >>> glow.asdict()
+    {'start_sigma': 50, 'type': 'glow'}
+
+
+Processing Helpers
+==================
+The filters module has a few capabilities to help with processing
+filters. The preprocess(), process(), and postprocess() functions
+are used to handle a sequence of filters that will be applied to
+an array of image data.
+
+Usage::
+
+    >>> import numpy as np
+    >>>
+    >>> size = (1, 4, 4)
+    >>> fltrs = [Skew(.5), Inverse(),]
+    >>> new_size = preprocess(size, fltrs)
+    >>> new_size
+    (1, 4, 10)
+    >>>
+    >>> a = np.zeros(new_size, dtype=float)
+    >>> a
+    array([[[0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+            [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+            [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+            [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]]])
+    >>>
+    >>> a = process(a, fltrs)
+    >>> a
+    array([[[1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+            [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+            [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+            [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]]])
+    >>>
+    >>> a = postprocess(a, fltrs)
+    >>> a
+    array([[[1., 1., 1., 1.],
+            [1., 1., 1., 1.],
+            [1., 1., 1., 1.],
+            [1., 1., 1., 1.]]])
+
+
+Serialization Helpers
+=====================
+The filters module has a few capabilities to help with serialization.
+The get_regname_for_class() function returns a string that represents
+a filter class that has been registered with the filters module.
+
+Usage::
+
+    >>> obj = Color(colorkey='b')
+    >>> get_regname_for_class(obj)
+    'color'
+
+New source classes can be registered with the source module by adding
+them to the registered_filters dictionary. The key should be the
+short string you want to use as the serialized value of the class.
+
+Usage::
+
+    >>> class Spam(Filter):
+    ...     def process(*args):
+    ...         pass
+    ...
+    >>> registered_filters['spam'] = Spam
+    >>> spam = Spam()
+    >>> get_regname_for_class(spam)
+    'spam'
+
+The primary purpose for this feature is to allow classes to be easily
+deserialized from JSON objects. It also should provide a measure of
+input validation at deserialization to reduce the risk of remote code
+execution vulnerabilities though deserialization.
 """
 from abc import ABC, abstractmethod
 from functools import wraps
@@ -947,6 +1084,9 @@ def get_regname_for_class(obj: object) -> str:
 
 
 if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
+
     a = [
         [
             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],

@@ -306,11 +306,12 @@ class Filter(ABC):
             del attrs[key]
         return attrs
 
-    def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
+    def preprocess(self, size: Sequence[int],
+                   original_size: Sequence[int]) -> Tuple[int]:
         """Determine the size the filter needs the image to be during
         processing.
         """
-        return size
+        return tuple(size)
 
     @abstractmethod
     def process(self, values: np.array) -> np.array:
@@ -324,6 +325,15 @@ class Filter(ABC):
 
 
 class BoxBlur(Filter):
+    """Blur each pixel in an image based on the values of a box of
+    the surrounding pixels.
+
+    :param box_size: The size of the box to use in the blur. Since
+        the box is centered on the pixel being blurred, this needs
+        to be an odd, positive integer.
+    :return: :class:BoxBlur object.
+    :rtype: pjinoise.filters.BoxBlur
+    """
     def __init__(self, box_size: Union[str, int]) -> None:
         self.box_size = int(box_size)
 

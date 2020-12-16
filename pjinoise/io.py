@@ -107,7 +107,14 @@ def save_image(a: np.ndarray,
         if len(a.shape) == 4:
             a = a[0].copy()
 
-        image = Image.fromarray(a, mode=mode)
+        try:
+            image = Image.fromarray(a, mode=mode)
+        except ValueError as e:
+            if mode == 'RGB' and len(a.shape) == 2:
+                msg = 'Cannot create RGB image with grayscale data.'
+                raise ValueError(msg)
+            raise e
+
         image.save(filename, format)
 
     else:

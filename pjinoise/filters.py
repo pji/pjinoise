@@ -285,25 +285,9 @@ class Filter(ABC):
         attrs['type'] = get_regname_for_class(self)
         if 'ease' in attrs:
             attrs['ease'] = e.get_regname_for_func(attrs['ease'])
-
-        # This is to address a problem with the Pinch filter. It
-        # likely be fixed in the Pinch filter instead.
-        for key in attrs:
-            if isinstance(attrs[key], np.float32):
-                attrs[key] = float(attrs[key])
-            if (isinstance(attrs[key], Sequence)
-                    and not isinstance(attrs[key], str)):
-                try:
-                    if isinstance(attrs[key][0], np.float32):
-                        attrs[key] = [float(n) for n in attrs[key]]
-                except IndexError:
-                    raise TypeError(type(attrs[key]))
         if 'padding' in attrs:
             del attrs['padding']
-
-        pvt_keys = [key for key in attrs if key.startswith('_')]
-        for key in pvt_keys:
-            del attrs[key]
+        attrs = c.remove_private_attrs(attrs)
         return attrs
 
     def preprocess(self, size: Sequence[int],
@@ -764,6 +748,22 @@ class MotionBlur(Filter):
 
 
 class Pinch(Filter):
+    """Distort an image to make it appear as though it is being
+    pinched or swelling.
+
+    :param amount: How much the image should be distorted. Best results
+        seem to be with numbers in the range of -1 <= x <= 1.
+    :param radius: Sets the outside edge of the distortion, measured
+        from the center of the distortion.
+    :param scale: Adjusts the scale of the distortion. I'm not exactly
+        clear on the math, but values less than one seem to increase
+        the distortion. Values greater than one seem to decrease the
+        distortion.
+    :param offset: (Optional.) Sets how far the center of the
+        distortion should be offset from the center of the image.
+    :return: A :class:Pinch object.
+    :rtype: pjinoise.filters.Pinch
+    """
     def __init__(self, amount: Union[float, str],
                  radius: Union[float, str],
                  scale: Union[Tuple[float], str],
@@ -777,6 +777,14 @@ class Pinch(Filter):
         self.offset = tuple(np.float32(n) for n in offset)
 
     # Public methods.
+    def asdict(self) -> Mapping:
+        attrs = super().asdict()
+        attrs['amount'] = float(attrs['amount'])
+        attrs['radius'] = float(attrs['radius'])
+        attrs['scale'] = [float(n) for n in attrs['scale']]
+        attrs['offset'] = [float(n) for n in attrs['offset']]
+        return attrs
+
     def preprocess(self, size: Sequence[int],
                    original_size: Sequence[int],
                    *args) -> Sequence[int]:
@@ -800,17 +808,19 @@ class Pinch(Filter):
     @channeled
     def process(self, a: np.ndarray, *args) -> np.ndarray:
         """Based on logic found here:
-        https://stackoverflow.com/questions/64067196/pinch-bulge-distortion-using-python-opencv
+        https://stackoverflow.com/questions/64067196/pinch-bulge-
+        distortion-using-python-opencv
         """
         scale = self.scale
         amount = self.amount
         radius = self.radius
         center = tuple((n) / 2 + o for n, o in zip(a.shape, self.offset))
 
-        # set up the x and y maps as float32
+        # Set up the x and y maps as float32.
         flex_x = np.zeros(a.shape[Y:], np.float32)
         flex_y = np.zeros(a.shape[Y:], np.float32)
 
+        # Create maps with the barrel/pincushion formula.
         indices = np.indices(a.shape)
         y = indices[Y][0]
         x = indices[X][0]
@@ -835,12 +845,18 @@ class Pinch(Filter):
         flex_x[~pmask] = 1.0 * delta_x[~pmask] / scale[X] + center[X]
         flex_y[~pmask] = 1.0 * delta_y[~pmask] / scale[Y] + center[Y]
 
+        # Remap the image.
         for i in range(a.shape[Z]):
             a[i] = cv2.remap(a[i], flex_x, flex_y, cv2.INTER_LINEAR)
         return a
 
 
 class PolarToLinear(Filter):
+    """Convert the polar coordinates of the image data to linear.
+
+    :return: A :class:PolarToLinear object.
+    :rtype: pjinoise.filters.PolarToLinear
+    """
     # Filter Protocol.
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
@@ -878,6 +894,14 @@ class Resize(Filter):
     """Generate layers at a different size than the final image
     size. This can be used to reduce the generation time of expensive
     generators or crop out awkward edges of generated images.
+
+    :param new_size: The size you want the sources to use when
+        generating image data.
+    :param crop: (Optional.) Whether you want the filter to crop
+        the image data back to the original size or resize it. It
+        defaults to resizing.
+    :return: A :class:Resize object.
+    :rtype: pjinoise.filters.Resize
     """
     def __init__(self, new_size: Sequence[int], crop: bool = False) -> None:
         if crop == 'false':
@@ -928,6 +952,20 @@ class Resize(Filter):
 
 
 class Ripple(Filter):
+    """Create wave-like distortions in image data.
+
+    :param wavelength: The distance between the crests of the waves.
+    :param amplitude: The height of each wave.
+    :param distort_axis: (Optional.) Sets whether the distortion occurs
+        with the axis (looks like you are looking down at the wave) or
+        across the axis (looks like a cross-section of the wave). The
+        value "cross" will give the cross-section, and all other values
+        will look down on the wave. The default value is "cross".
+    :param offset: (Optional.) How far to offset the distortion from
+        the center of the image.
+    :return: A :class:Ripple object.
+    :rtype: pjinoise.filters.Ripple
+    """
     def __init__(self, wavelength: Union[Sequence[float], str],
                  amplitude: Union[Sequence[float], str],
                  distort_axis: str = 'cross',
@@ -1018,7 +1056,13 @@ class Ripple(Filter):
 
 
 class Rotate90(Filter):
-    """Rotate the image ninety degrees in the given direction."""
+    """Rotate the image ninety degrees in the given direction.
+
+    :param direction: Sets the direction of the rotation. 'r' to
+        rotate to the right. 'l' to rotate to the left.
+    :return: A :class:Rotate90 object.
+    :rtype: pjinoise.filters.Rotate90
+    """
     def __init__(self, direction: str) -> None:
         self.direction = direction
 
@@ -1044,7 +1088,12 @@ class Rotate90(Filter):
 
 
 class Skew(Filter):
-    """Skew the image."""
+    """Skew the image.
+
+    :param slope: The slope of the Y axis of the image after the skew.
+    :return: A :class:Skew object.
+    :rtype: pjinoise.filters.Skew
+    """
     def __init__(self, slope: Union[float, str]) -> None:
         self.slope = float(slope)
 
@@ -1113,6 +1162,18 @@ class Skew(Filter):
 
 
 class Twirl(Filter):
+    """Swirl the image data.
+
+    :param radius: The location of the edge of the distortion. This
+        is measured from the center of the distortion.
+    :param strength: The amount of the distortion. Its roughly
+        equivalent to the number of rotations the distortion makes
+        around the center of the distortion.
+    :param offset: How far to offset the center of the distortion
+        from the center of the image.
+    :return: A :class:Twirl object.
+    :rtype: pjinoise.filters.Twirl
+    """
     def __init__(self, radius: Union[str, float],
                  strength: Union[str, float],
                  offset: Union[str, Sequence[int]] = (0, 0, 0)) -> None:
@@ -1151,6 +1212,16 @@ class Twirl(Filter):
 # Layer filter processing functions.
 def preprocess(size: Sequence[int],
                filters: Sequence[Sequence[Filter]]) -> Tuple[int]:
+    """Given an image size and a sequence of filters, determine
+    the amount of image data that needs to be generated to avoid
+    unwanted artifacts from the filters in the final image.
+
+    :param size: The size of the final image.
+    :param filters: A sequence of filters that will be run on
+        the image.
+    :return: A :class:tuple of :class:integers.
+    :rtype: tuple
+    """
     if not filters:
         return size
     new_size = size[:]
@@ -1161,6 +1232,13 @@ def preprocess(size: Sequence[int],
 
 def process(a: np.ndarray,
             filters: Sequence[Filter]) -> np.ndarray:
+    """Run the filters on the given image.
+
+    :param a: The image data.
+    :param filters: A sequence of filter objects to run on the image.
+    :return: A :class:ndarray object.
+    :rtype: numpy.ndarray
+    """
     if not filters:
         return a
     for filter in filters:
@@ -1170,6 +1248,16 @@ def process(a: np.ndarray,
 
 def postprocess(a: np.ndarray,
                 filters: Sequence[Filter]) -> np.ndarray:
+    """Crop the image to remove unwanted artifacts from filters that
+    were run on the image.
+
+    :param a: The image data.
+    :param filters: The sequence of filters that were run on the image.
+        This needs to be the same filter objects the were used to
+        preprocess the image.
+    :return: A :class:ndarray object.
+    :rtype: numpy.ndarray
+    """
     # If there are no layer filters, bounce out.
     if not filters:
         return a
@@ -1217,18 +1305,39 @@ registered_filters = {
 
 # Registration and deserialization utility functions.
 def make_filter(name: str, args: Sequence = ()) -> Filter:
+    """Deserialize a filter from an argument list.
+
+    :param name: The registered shortcut name of the object's class.
+    :param args: A sequence of arguments for that class.
+    :return: A :Filter: object.
+    :rtype: pjinoise.filters.Filter
+    """
     name = name.casefold()
     cls = registered_filters[name]
     return cls(*args)
 
 
 def deserialize_filter(attrs: Mapping) -> Filter:
+    """Deserialize a filter from a serialization dictionary.
+
+    :param attrs: The serialized filter object as created by the
+        object's asdict() method.
+    :return: A :class:Filter object.
+    :rtype: pjinoise.filters.Filter
+    """
     cls = registered_filters[attrs['type']]
     del attrs['type']
     return cls(**attrs)
 
 
 def get_regname_for_class(obj: object) -> str:
+    """The the registered shortname for the object. This is used when
+    filter objects are serialized.
+
+    :param obj: The filter object being serialized.
+    :return: A :class:string object.
+    :rtype: str
+    """
     regnames = {registered_filters[k]: k for k in registered_filters}
     clsname = obj.__class__
     return regnames[clsname]
@@ -1265,10 +1374,12 @@ if __name__ == '__main__':
     a = np.array(a, dtype=float)
     a = a / 0xff
     kwargs = {
-        'scale': .1,
-        'seed': 'spam',
+        'amount': .5,
+        'radius': 4,
+        'scale': (1, 1, 1),
+        'offset': (0, 0, 0),
     }
-    obj = Grain(**kwargs)
+    obj = Pinch(**kwargs)
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)
     res = postprocess(res, [obj,])

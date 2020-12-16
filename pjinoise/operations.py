@@ -4,6 +4,103 @@ operations
 
 Array operations for use when combining two layers of an image or
 animation.
+
+
+Basic Usage: Blending Operations
+================================
+The blending operation functions are used to blend two sets of image
+data together. Using a blending operation (an "operation") works like
+any other function all. The parameters follow the Blending Operation
+protocol.
+
+Usage::
+
+    >>> import numpy as np
+    >>> a = np.array([[[0., .25, .5, .75, 1.], [0., .25, .5, .75, 1.]]])
+    >>> b = np.array([[[1., 75, .5, .25, 0.], [1., 75, .5, .25, 0.]]])
+    >>> darker(a, b)
+    array([[[0.  , 0.25, 0.5 , 0.25, 0.  ],
+            [0.  , 0.25, 0.5 , 0.25, 0.  ]]])
+
+While the functions themselves are fairly simple, they are given some
+extra functionality by decorators. Ultimately the true protocol for the
+operations is:
+
+    :param a: The image data from the first image.
+    :param b: The image data from the second image.
+    :param amount: (Optional.) (From @faded.) How much the blend should
+        impact the final output. This is a percentage, so the range of
+        valid values are 0 <= x <= 1.
+    :param mask: (Optional.) (From @masked.) An array of data used to
+        mask the blending operation. This is also a percentage, so a
+        value of one in the mask means that pixel is fully affected by
+        the operation. A value of zero means the pixel is not affected
+        by the operation.
+    :return: A :class:numpy.ndarray object.
+    :rtype: numpy.ndarray
+
+
+Operations and Color Space
+==========================
+Images created by pjinoise tend to be in one of two color spaces while
+pjinoise is creating them:
+
+*   pjinoise grayscale: Color is one float within the range 0 <= x <= 1.
+*   RGB: Color is three unsigned, eight-bit integers within the range
+        0 <= x <= 255
+
+Two images of different color spaces can be blended, but the result
+will always be an RGB image. This feature is handled in the @mixed
+decorator.
+
+
+Clipped Operations
+------------------
+Occasionally, an operator may cause a pixel value to fall outside 
+the range of the color space. This is handled through the clipped()
+decorator, which sets all values that fall outside of the range to the 
+closest value at the edge of the range.
+
+
+Scaled Operations
+-----------------
+Certain operations, such as multiply() require the image data to be
+within the range of 0 <= x <= 1 in order to would. The scaled decorator
+handles this. It should be largely invisible when operations are used.
+However, when new operations are created that involve multiplication
+they should be given this decorator.
+
+
+Serialization Helpers
+=====================
+The operations module has a few capabilities to help with
+serialization. The get_regname_for_function() function returns
+a string that represents a filter class that has been registered
+with the operations module.
+
+Usage::
+
+    >>> fn = overlay
+    >>> get_regname_for_function(fn)
+    'overlay'
+
+New operations functions can be registered with the source module by
+adding them to the registered_filters dictionary. The key should be the
+short string you want to use as the serialized value of the class.
+
+Usage::
+
+    >>> def spam():
+    ...     pass
+    ...
+    >>> registered_ops['spam'] = spam
+    >>> get_regname_for_function(spam)
+    'spam'
+
+The primary purpose for this feature is to allow classes to be easily
+deserialized from JSON objects. It also should provide a measure of
+input validation at deserialization to reduce the risk of remote code
+execution vulnerabilities though deserialization.
 """
 from functools import wraps
 from typing import Callable, Union
@@ -114,6 +211,7 @@ def scaled(fn: Callable) -> Callable:
     return wrapper
 
 
+# Blending operations.
 # Non-blends.
 @mixed
 @masked
@@ -425,8 +523,23 @@ color_only_ops = [
 op_names = {registered_ops[k]: k for k in registered_ops}
 
 
+def get_regname_for_function(fn: Callable) -> str:
+    """The the registered shortname for the object. This is used when
+    operations objects are serialized.
+
+    :param fn: The operations function being serialized.
+    :return: A :class:string object.
+    :rtype: str
+    """
+    regnames = {registered_ops[k]: k for k in registered_ops}
+    return regnames[fn]
+
+
 if __name__ == '__main__':
+    import doctest
     from pjinoise.common import print_array
+    doctest.testmod()
+
     a = [
         [
             [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],

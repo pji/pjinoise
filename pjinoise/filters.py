@@ -611,6 +611,10 @@ class Grain(Filter):
 class Glow(Filter):
     """Use gaussian blurs to create a halo around brighter objects
     in the image.
+
+    :param start_sigma: The sigma value of the first blur.
+    :return: A :class:Glow object.
+    :rtype: pjinoise.filters.Glow
     """
     def __init__(self, start_sigma: float) -> None:
         self.start_sigma = start_sigma
@@ -632,6 +636,12 @@ class Glow(Filter):
 class Grow(Filter):
     """Expand the generated image and then crop back to the original
     image size.
+
+    :param factor: The scaling factor to use when increasing the
+        size of the image.
+    :param center: (Optional.) The center of the image for rescaling.
+    :return: A :class:Grow object.
+    :rtype: pjinoise.filters.Glow
     """
     def __init__(self, factor: float,
                  center: Union[None, Sequence[int]] = None) -> None:
@@ -661,6 +671,11 @@ class Grow(Filter):
 
 
 class Inverse(Filter):
+    """Invert the colors of the image data.
+
+    :return: A :class:Inverse object.
+    :rtype: pjinoise.filters.Inverse
+    """
     def __init__(self, ease: str = '') -> None:
         self.ease = e.registered_functions[ease]
 
@@ -671,6 +686,12 @@ class Inverse(Filter):
 
 
 class LinearToPolar(Filter):
+    """Convert the linear coordinates of an image into polar
+    coordinates.
+
+    :return: A :class:LinearToPolar object.
+    :rtype: pjinoise.filters.LinearToPolar
+    """
     # Filter protocol.
     def preprocess(self, size: Sequence[int], *args) -> Sequence[int]:
         """Determine the size the filter needs the image to be during
@@ -706,6 +727,12 @@ class LinearToPolar(Filter):
 class MotionBlur(Filter):
     """Apply a blur in a given direction to give the appearance of
     motion.
+
+    :param size: The size of the blur to apply.
+    :param direction: The direction of the blur. The options are
+        'h' to blur horizontally and 'v' to blur vertically.
+    :return: A :class:LinearToPolar object.
+    :rtype: pjinosie.filters.LinearToPolar
     """
     def __init__(self, size: Union[str, int],
                  direction: str) -> None:

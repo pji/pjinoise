@@ -10,10 +10,7 @@ from typing import Any, List, Mapping, Sequence, Tuple, Union
 import numpy as np
 from PIL import Image
 
-from pjinoise.constants import SUPPORTED_FORMATS
-
-
-X, Y, Z = 2, 1, 0
+from pjinoise.constants import SUPPORTED_FORMATS, X, Y, Z
 
 
 # General purpose functions.

@@ -12,8 +12,14 @@ from pjinoise import sources as s
 from pjinoise.base import Serializable
 
 
+# Defined types.
+# The typing for Layers gets complex. These types are used in the
+# signatures to try and keep it more readable.
+_Deserialized = t.Union[Serializable, t.Sequence[Serializable]]
 _Source = t.Union[s.ValueSource, 'Layer']
-_SerializedSource = t.Union[t.Mapping, t.Sequence[t.Mapping]]
+_SourceSequence = t.Union[_Source, t.Sequence[_Source]]
+_Serialized = t.Union[t.Dict[str, t.Any], t.Sequence[t.Dict[str, t.Any]]]
+_FilterParam = t.Union[None, t.Sequence[f.Filter], _Serialized]
 
 
 # Classes.
@@ -51,64 +57,38 @@ class Layer(Serializable):
         >>>
         >>> layer = Layer(s.Solid(.5), op.replace)
         >>> layer                                       #doctest: +ELLIPSIS
-        Layer(blend='replace'...mask=None)
+        Layer(source={'color'...blend_amount=1)
 
     """
     def __init__(self,
-                 source: t.Union[_Source,
-                                 t.Sequence[_Source],
-                                 _SerializedSource],
+                 source: t.Union[_SourceSequence, _Serialized],
                  blend: t.Union[str, t.Callable],
                  blend_amount: float = 1,
                  location: t.Sequence[int] = (0, 0, 0),
-                 filters: t.Sequence[f.Filter] = None,
-                 mask: t.Union[None, s.ValueSource] = None,
-                 mask_filters: t.Sequence[f.Filter] = None) -> None:
-        self.source = source
+                 filters: _FilterParam = None,
+                 mask: t.Union[None, _SourceSequence, _Serialized] = None,
+                 mask_filters: _FilterParam = None) -> None:
+        # Attributes for generating the image data.
+        self.source = self._deserialize_obj(source)
+        self.filters = self._deserialize_obj(filters)
+        self.location = location
+
+        # Attributes for generating the layer mask.
+        self.mask = self._deserialize_obj(mask)
+        self.mask_filters = self._deserialize_obj(mask_filters)
+
+        # Attributes for setting up the layer blend.
         if isinstance(blend, str):
             blend = op.registered_ops[blend]
         self.blend = blend
         self.blend_amount = blend_amount
-        self.location = location
-        if not filters:
-            filters = []
-        elif isinstance(filters[0], t.Mapping):
-            filters = [f.deserialize_filter(filter) for filter in filters]
-        self.filters = filters
-        self.mask = mask
-        if not mask_filters:
-            mask_filters = []
-        elif isinstance(mask_filters[0], t.Mapping):
-            mask_filters = [f.deserialize_filter(f_) for f_ in mask_filters]
-        self.mask_filters = mask_filters
-
-    @property
-    def source(self) -> _Source:
-        return self._source
-
-    @source.setter
-    def source(self, value) -> None:
-        self._source = self._process_source(value)
-
-    @property
-    def mask(self) -> _Source:
-        return self._mask
-
-    @mask.setter
-    def mask(self, value) -> None:
-        if value is None:
-            self._mask = None
-        else:
-            self._mask = self._process_source(value)
 
     # Public methods.
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
-        source = self._serialize_object(self._source)
-        mask = self._serialize_object(self._mask)
         attrs = super().asdict()
-        attrs['source'] = source
-        attrs['mask'] = mask
+        attrs['source'] = self._serialize_object(attrs['source'])
+        attrs['mask'] = self._serialize_object(attrs['mask'])
         attrs['filters'] = self._serialize_object(self.filters)
         attrs['mask_filters'] = self._serialize_object(self.mask_filters)
         attrs['blend'] = op.get_regname_for_function(attrs['blend'])
@@ -116,24 +96,21 @@ class Layer(Serializable):
         return attrs
 
     # Private methods.
-    def _process_source(self, value) -> t.Union[_Source, t.Sequence[_Source]]:
-        # If passed a sequence, process recursively.
-        if isinstance(value, t.Sequence):
-            return tuple(self._process_source(item) for item in value)
-
-        # If passed a valid object, return it.
-        if isinstance(value, (s.ValueSource, self.__class__)):
+    def _deserialize_obj(self, value: _Serialized) -> _Deserialized:
+        if not value:
+            return None
+        if isinstance(value, Serializable):
             return value
-
-        # Duck type for a serialized source.ValueSource. If that's
-        # it, then deserialize and return.
+        if isinstance(value, t.Sequence):
+            return [self._deserialize_obj(item) for item in value]
         if 'type' in value:
-            return s.deserialize_source(value)
-
-        # Otherwise, assume it's a Layer, deserialize, and return.
+            try:
+                return s.deserialize_source(value)
+            except KeyError:
+                return f.deserialize_filter(value)
         return self.__class__(**value)
 
-    def _serialize_object(self, obj) -> _SerializedSource:
+    def _serialize_object(self, obj) -> _Serialized:
         if not obj:
             return None
         if isinstance(obj, t.Sequence):
@@ -141,9 +118,50 @@ class Layer(Serializable):
         return obj.asdict()
 
 
-class Image():
+class Image(Serializable):
+    """An image to create and save to file.
+
+    :param source: The layer(s) or source(s) that will make up the
+        image.
+    :param size: The size in pixels of the final image. The order
+        of the dimensions is Z, Y, X, which is the reverse of the
+        usual way to write them. This allows each frame of an
+        animation to be stored as a plane in the array storing the
+        data. This also allows anything that processes the array,
+        such as printing it for debugging, to handle the rows of
+        pixels as rows and the columns of pixels as columns.
+    :param filename: The name of the file the data will be
+        saved to.
+    :param format: The file format of the destination file. Allowed
+        options are defined by pjinoise.constants.SUPPORTED_FORMATS.
+    :param mode: The color mode of the destination file. This is a
+        mode as defined by the PIL library. Valid values can be found
+        here: https://pillow.readthedocs.io/en/stable/handbook/concepts.html
+    :param framerate: (Optional.) If the image is an animation, this
+        sets the frame rate of that animation.
+    :return: A :class:Image object.
+    :rtype: pjinoise.model.Image
+
+    Usage::
+
+        >>> from pjinoise import model as m
+        >>> from pjinoise import operations as op
+        >>> from pjinoise import sources as s
+        >>> layer = m.Layer(s.Solid(.5), op.replace)
+        >>> kwargs = {
+        ...     'source': layer,
+        ...     'size': (1, 720, 1280),
+        ...     'filename': 'work.jpg',
+        ...     'format': 'JPEG',
+        ...     'mode': 'RGB',
+        ... }
+        >>> image = m.Image(**kwargs)
+        >>> image                                       #doctest: +ELLIPSIS
+        Image(size=(1, 720, 1280),...'blend_amount': 1})
+
+    """
     def __init__(self,
-                 source: t.Union[Layer, t.Sequence[Layer], _SerializedSource],
+                 source: t.Union[_SourceSequence, _Serialized],
                  size: t.Sequence[int],
                  filename: str,
                  format: str,
@@ -156,11 +174,6 @@ class Image():
         self.mode = mode
         self.framerate = framerate
 
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return NotImplemented
-        return self.asdict() == other.asdict()
-
     @property
     def source(self) -> _Source:
         return self._source
@@ -172,12 +185,10 @@ class Image():
     # Public methods.
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
-        attrs = self.__dict__.copy()
-        try:
-            attrs['source'] = attrs['_source'].asdict()
-        except AttributeError:
-            attrs['source'] = [item.asdict() for item in attrs['_source']]
-        del attrs['_source']
+        source = self._serialize_object(self._source)
+        attrs = super().asdict()
+        attrs['source'] = source
+        del attrs['type']
         return attrs
 
     def count_sources(self) -> int:
@@ -196,6 +207,13 @@ class Image():
 
         # Otherwise, assume it's a serialized Layer, deserialize, and return.
         return Layer(**value)
+
+    def _serialize_object(self, obj) -> _Serialized:
+        if not obj:
+            return None
+        if isinstance(obj, t.Sequence):
+            return tuple(self._serialize_object(item) for item in obj)
+        return obj.asdict()
 
 
 # Utility functions.

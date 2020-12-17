@@ -128,10 +128,11 @@ import cv2
 import numpy as np
 from numpy.random import default_rng
 
-from pjinoise.constants import P, TEXT, X, Y, Z
 from pjinoise import common as c
 from pjinoise import ease as e
 from pjinoise import operations as op
+from pjinoise.base import Serializable
+from pjinoise.constants import P, TEXT, X, Y, Z
 
 
 # Common decorators.
@@ -143,7 +144,7 @@ def eased(fn: Callable) -> Callable:
 
 
 # Base classes.
-class ValueSource(ABC):
+class ValueSource(Serializable):
     """Base class to define common features of noise classes.
 
     :param ease: (Optional.) The easing function to use on the
@@ -153,26 +154,6 @@ class ValueSource(ABC):
     """
     def __init__(self, ease: str = 'l', *args, **kwargs) -> None:
         self.ease = ease
-
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return NotImplemented
-        return self.asdict() == other.asdict()
-
-    def __repr__(self):
-        cls = self.__class__.__name__
-        attrs = self.asdict()
-        del attrs['type']
-        params = []
-        for key in attrs:
-            val = attrs[key]
-            if isinstance(val, str):
-                val = f"'{val}'"
-            if isinstance(val, bytes):
-                val = f"b'{val}'"
-            params.append(f'{key}={val}')
-        params_str = ', '.join(params)
-        return f'{cls}({params_str})'
 
     @property
     def ease(self) -> str:
@@ -212,6 +193,28 @@ class ValueSource(ABC):
 
 
 # Pattern generators.
+class Box(ValueSource):
+    def __init__(self, origin: Sequence[int],
+                 dimensions: Sequence[int],
+                 color: float = 1.0,
+                 *args, **kwargs) -> None:
+        self.origin = origin
+        self.dimensions = dimensions
+        self.color = color
+        super().__init__()
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Return a space filled with noise."""
+        a = np.zeros(size)
+        start = [n + o for n, o in zip(loc, self.origin)]
+        end = [s + d for s, d in zip(start, self.dimensions)]
+        slices = [slice(s, e) for s, e in zip(start, end)]
+        a[tuple(slices)] = self.color
+        return a
+
+
 class Gradient(ValueSource):
     """Generate a simple gradient.
 
@@ -227,8 +230,7 @@ class Gradient(ValueSource):
     :return: :class:Gradient object.
     :rtype: pjinoise.sources.Gradient
     """
-    def __init__(self,
-                 direction: str = 'h',
+    def __init__(self, direction: str = 'h',
                  stops: Union[Sequence[float], str] = (0, 0, 1, 1),
                  *args, **kwargs) -> None:
         self.direction = direction
@@ -380,11 +382,11 @@ class Rays(ValueSource):
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         # Determine the center of the effect.
-        center = [(n - 1) / 2 + o for n, o in zip(size[Y:], loc[Y:])]
+        center = [(n - 1) / 2 + o for n, o in zip(size, loc)]
 
         # Determine the angle from center for every point
         # in the array.
-        indices = np.indices(size[Y:], dtype=float)
+        indices = np.indices(size, dtype=float)
         for axis in X, Y:
             indices[axis] -= center[axis]
         x, y = indices[X], indices[Y]
@@ -1881,14 +1883,12 @@ if __name__ == '__main__':
     doctest.testmod()
 
     kwargs = {
-        'width': .34,
-        'inset': (0, 1, 1),
-        'unit': (1, 3, 3),
-        'seed': 'spam',
-        'ease': 'l',
+        'origin': (0, 1, 1),
+        'dimensions': (1, 2, 3),
+        'color': .5,
     }
-    cls = Path
-    size = (2, 10, 10)
+    cls = Box
+    size = (2, 8, 8)
     obj = cls(**kwargs)
     val = obj.fill(size)
     c.print_array(val)

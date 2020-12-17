@@ -22,7 +22,7 @@ class Serializable(ABC):
     def __repr__(self) -> str:
         cls = self.__class__.__name__
         attrs = self.asdict()
-        if type in attrs:
+        if 'type' in attrs:
             del attrs['type']
         params = []
         for key in attrs:

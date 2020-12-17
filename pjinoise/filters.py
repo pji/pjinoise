@@ -204,11 +204,12 @@ from PIL import Image, ImageChops, ImageFilter, ImageOps
 import numpy as np
 from skimage.transform import swirl
 
-from pjinoise.constants import COLOR, X, Y, Z
 from pjinoise import common as c
 from pjinoise import ease as e
 from pjinoise import operations as op
 from pjinoise import sources as s
+from pjinoise.constants import COLOR, X, Y, Z
+from pjinoise.base import Serializable
 
 
 # Decorators
@@ -254,29 +255,9 @@ def scaled(fn: Callable) -> Callable:
 
 
 # Layer filter classes.
-class Filter(ABC):
+class Filter(Serializable):
     """The base class for filter objects."""
     padding = None
-
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return NotImplemented
-        return self.asdict() == other.asdict()
-
-    def __repr__(self):
-        cls = self.__class__.__name__
-        attrs = self.asdict()
-        del attrs['type']
-        params = []
-        for key in attrs:
-            val = attrs[key]
-            if isinstance(val, str):
-                val = f"'{val}'"
-            if isinstance(val, bytes):
-                val = f"b'{val}'"
-            params.append(f'{key}={val}')
-        params_str = ', '.join(params)
-        return f'{cls}({params_str})'
 
     # Public methods.
     def asdict(self) -> dict:
@@ -1132,6 +1113,7 @@ class Skew(Filter):
 
         original_type = values.dtype
         values = values.astype(np.float32)
+        x, y = 1, 0
 
         # Create the transform matrix by defining three points in the
         # original image, and then showing where they move to in the
@@ -1140,13 +1122,13 @@ class Skew(Filter):
         # This is due to the implementation of OpenCV.
         original = np.array([
             [0, 0],
-            [values.shape[X] - 1, 0],
-            [0, values.shape[Y] - 1],
+            [values.shape[x] - 1, 0],
+            [0, values.shape[y] - 1],
         ]).astype(np.float32)
         new = np.array([
             [0, 0],
-            [values.shape[X] - 1, 0],
-            [(values.shape[Y] - 1) * self.slope, values.shape[Y] - 1],
+            [values.shape[x] - 1, 0],
+            [(values.shape[y] - 1) * self.slope, values.shape[y] - 1],
         ]).astype(np.float32)
 
         # Perform the transform on the image by first creating a warp
@@ -1156,7 +1138,7 @@ class Skew(Filter):
         matrix = cv2.getAffineTransform(original, new)
         values = cv2.warpAffine(values,
                                 matrix,
-                                (values.shape[X], values.shape[Y]),
+                                (values.shape[x], values.shape[y]),
                                 borderMode=cv2.BORDER_WRAP)
         return values.astype(original_type)
 

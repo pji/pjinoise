@@ -1086,10 +1086,10 @@ class Rotate90TestCase(ut.TestCase):
         are equal and store how much padding the filter added, and
         on which axis.
         """
-        exp_size = (4, 128, 1280, 1280)
-        exp_stored = (0, 0, 560, 0)
+        exp_size = (128, 1280, 1280)
+        exp_stored = (0, 560, 0)
 
-        size = (4, 128, 720, 1280)
+        size = (128, 720, 1280)
         f = filters.Rotate90('r')
         act_size = f.preprocess(size)
         act_stored = f.padding
@@ -1149,11 +1149,11 @@ class SkewTestCase(ut.TestCase):
         artifacts from appearing in the final image, and store the
         amount of padding added.
         """
-        exp_size = (6, 128, 5, 9)
-        exp_padding = (0, 0, 0, 2)
+        exp_size = (128, 5, 9)
+        exp_padding = (0, 0, 2)
 
-        original_size = (6, 128, 5, 5)
-        size = (6, 128, 5, 7)
+        original_size = (128, 5, 5)
+        size = (128, 5, 7)
         slope = 1
         f = filters.Skew(slope)
         act_size = f.preprocess(size, original_size)
@@ -1202,10 +1202,10 @@ class ProcessTestCase(ut.TestCase):
         image size.
         """
         # Expected value.
-        exp = (6, 128, 9, 9)
+        exp = (128, 9, 9)
 
         # Set up test data and state.
-        size = (6, 128, 5, 5)
+        size = (128, 5, 5)
         fs = [
             filters.Skew(1),
             filters.Rotate90('r'),

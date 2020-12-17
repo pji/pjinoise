@@ -5,7 +5,7 @@ io
 Input/output for the pjinoise module.
 """
 import json
-from typing import Mapping, MutableMapping, Sequence, Union
+from typing import Any, Mapping, MutableMapping, Sequence, Union
 
 import cv2
 import numpy as np
@@ -14,14 +14,10 @@ from PIL import Image
 from pjinoise import model as m
 from pjinoise.__version__ import __version__
 from pjinoise.common import get_format
-from pjinoise.constants import VIDEO_FORMATS
+from pjinoise.constants import VIDEO_FORMATS, X, Y, Z
 
 
-# Constants.
-X, Y, Z = 2, 1, 0
-
-
-def _update_location(map: MutableMapping, loc: Sequence) -> None:
+def _update_location(map: MutableMapping[str, Any], loc: Sequence) -> None:
     """Offset the location of the image generation for a given
     amount across every layer used to make the image. This only
     works on mutable mappings because it changes the data in place.

@@ -17,12 +17,9 @@ from pjinoise import io
 from pjinoise import ui
 from pjinoise.__version__ import __version__
 from pjinoise.common import convert_color_space as _convert_color_space
+from pjinoise.constants import X, Y, Z
 from pjinoise.model import Image, Layer
 from pjinoise.sources import ValueSource
-
-
-# Constants.
-X, Y, Z = 2, 1, 0
 
 
 # Image generation functions.

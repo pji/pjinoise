@@ -56,9 +56,9 @@ decorator.
 
 Clipped Operations
 ------------------
-Occasionally, an operator may cause a pixel value to fall outside 
+Occasionally, an operator may cause a pixel value to fall outside
 the range of the color space. This is handled through the clipped()
-decorator, which sets all values that fall outside of the range to the 
+decorator, which sets all values that fall outside of the range to the
 closest value at the edge of the range.
 
 
@@ -493,7 +493,7 @@ def rgb_hue(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ab
 
 
-# Registration.
+# Registration and deserialization utility functions.
 registered_ops = {
     '': replace,
     'colorburn': color_burn,

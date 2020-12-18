@@ -1133,8 +1133,8 @@ class Path(UnitNoise):
         values = np.take(self.table, unit_indices[X])
         values += unit_indices[Y]
         values = np.take(self.table, values)
-        values += unit_indices[Z]
-        values = np.take(self.table, values)
+#         values += unit_indices[Z]
+#         values = np.take(self.table, values)
         unit_dim = np.array(unit_dim)
 
         # The cursor will be used to determine our current position
@@ -1197,6 +1197,10 @@ class Path(UnitNoise):
                 cursor = path[index][0]
 
         # Fill the requested space with the path.
+        return self._draw_path(path, size)
+
+    # Private methods.
+    def _draw_path(self, path, size):
         a = np.zeros(size, dtype=float)
         width = int(self.unit[-1] * self.width)
         for step in path:
@@ -1206,8 +1210,7 @@ class Path(UnitNoise):
             slice_x = self._get_slice(start[X], end[X], width)
             a[:, slice_y, slice_x] = 1.0
         return a
-
-    # Private methods.
+    
     def _get_slice(self, start, end, width):
         if start > end:
             start, end = end, start
@@ -1231,6 +1234,29 @@ class Path(UnitNoise):
         pixel_loc = np.array(unit_loc) * unit
         pixel_loc += np.array(self.inset) * unit
         return tuple(pixel_loc)
+
+
+class AnimatedPath(Path):
+    def _draw_path(self, path, size):
+        a = np.zeros(size, dtype=float)
+        width = int(self.unit[-1] * self.width)
+        index = 0
+        frame = None
+        while index < size[Z] - 1:
+            if frame is None:
+                frame = a[0].copy()
+            try:
+                step = path[index]
+                start = self._unit_to_pixel(step[0])
+                end = self._unit_to_pixel(step[1])
+                slice_y = self._get_slice(start[Y], end[Y], width)
+                slice_x = self._get_slice(start[X], end[X], width)
+                frame[slice_y, slice_x] = 1.0
+            except IndexError:
+                pass
+            a[index + 1] = frame.copy()
+            index += 1
+        return a
 
 
 class Perlin(UnitNoise):
@@ -1837,6 +1863,8 @@ registered_sources = {
     'curtains': Curtains,
     'cosinecurtains': CosineCurtains,
     'embers': Embers,
+    'path': Path,
+    'animatedpath': AnimatedPath,
     'perlin': Perlin,
     'random': Random,
     'seededrandom': SeededRandom,

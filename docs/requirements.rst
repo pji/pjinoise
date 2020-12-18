@@ -88,15 +88,13 @@ During step 6 of the core image creation, pjinoise needs to know:
 The layers are determined by the order they appear in the iterable 
 they are stored in. The operation can also be done that way, but it 
 it's a little awkward to store them in separate iterables. So, the 
-iterable that contains the layers should be structured as:
+iterable that contains the layers should be structured as::
 
-    ```
     [
         [operation, layer],
         [operation, layer],
         ...
     ]
-    ```
 
 Then when iterating through the layers to perform the combinations, 
 the first combination should be a replace operation on a zeros array.
@@ -122,32 +120,26 @@ However, I don't want to completely foreclose on the possibility of a
 useful CLI. So, what would a CLI for core look like?
 
 Setting general configuration like the size of the output image and 
-the filename I want to save to doesn't change:
+the filename I want to save to doesn't change::
 
-    ```
     pjinoise.py -s 1280 720 50 -l 0 0 50 -o spam.mp4
-    ```
 
 The append action in argparse can be used to allow multiple generators 
 to be configured from the command line. The arguments for the generator 
-would be passed as a colon delimited list with the type of generator:
+would be passed as a colon delimited list with the type of generator::
 
-    ```
     pjinoise.py -s 1280 720 50 -l 0 0 50 -n LineNoise_255:0:h:128:
     ioq_replace -n LineNoise_255:0:v:128:iq_difference -o spam.mp4
-    ```
 
 The difficulty is how to handle the filters for the layer. Since I'm 
 defining them with the generator, I don't need to colon to determine 
 which layers the filter applies to any more. Bang probably isn't doing 
 anything, so that can be a delimiter character within the filter 
-definition. So, maybe something like:
+definition. So, maybe something like::
 
-    ```
     pjinoise.py -s 1280 720 50 -l 0 0 50 -n LineNoise_255:0:h:128:
     ioq_replace -n LineNoise_255:0:v:128:iq_skew:.1!rotate90:r_
     difference -o spam.mp4
-    ```
 
 There the underscore is delimiting the filter section from the 
 generator argument and blend mode argument. It's a bear to type, but 
@@ -158,13 +150,11 @@ There is one last argument to add: location. Since it contains multiple
 elements, it needs two layers of delimiting, too. It's not a part of 
 the attributes of the generator, so it doesn't make sense in the 
 attributes section. So, I guess it's also underscore delimited, with 
-colons doing internal delimiting.
+colons doing internal delimiting::
 
-    ```
     pjinoise.py -s 1280 720 50 -l 0 0 50 -n LineNoise_255:0:h:128:
     ioq_0:0:50__replace -n LineNoise_255:0:v:128:iq_0:0:0_skew:.1!
     rotate90:r_difference -o spam.mp4
-    ```
 
 In this example empty fields are still marked with underscores. That's 
 easier to parse, but harder to type and read. I'll probably start by 
@@ -203,15 +193,13 @@ only updated when an action was complete, and it quickly rolled off
 the screen. I'd like the UI for core to avoid those problems.
 
 First, though, what do I want the UI for core to look like? How about 
-this:
+this::
 
-    ```
     PJINOISE: Pattern and Noise Generation
     ┌       ┐
     │██░░░░░│
     └       ┘
     00:01:23 Generating images...
-    ```
 
 That seems doable. I might be able to write that on my own, but I do 
 have the interfaces from blackjack and life that I can look at, too. 
@@ -237,11 +225,9 @@ do these things based on messages:
 *   Update progress bar.
 *   Terminate.
 
-The messages should be tuples with the structure:
+The messages should be tuples with the structure::
 
-    ```
     (command, args)
-    ```
 
 The arguments will vary depending on the command. The breakdown is as 
 follows:
@@ -326,9 +312,8 @@ That means there are a couple of problems to solve:
 1.  How do I indicate how to group the images for blending?
 2.  How do I indicate the filters that should apply to that group?
 
-I think the following JSON configuration would solve both.
+I think the following JSON configuration would solve both::
 
-    ```
     {
         "Version": "0.1.1",
         "ImageConfig": {
@@ -396,7 +381,6 @@ I think the following JSON configuration would solve both.
             "framerate": 12
         }
     }
-    ```
 
 OK, great, but what's the difference there? The differences are:
 
@@ -500,9 +484,8 @@ each of the blending operations to allow for masking at all. No need
 to complicate things.
 
 OK, what does the image creation loop need to look like with the new 
-requirements?
+requirements? Maybe::
 
-    ```
     size = get_image_size()
     loc = get_image_location()
     image = get_black(size)
@@ -532,7 +515,6 @@ requirements?
         m = filters.postprocess(m, group.mfilters)
         
         image = group.blend(image_g, image, m)
-    ```
 
 That would imply the following objects for the data model:
 

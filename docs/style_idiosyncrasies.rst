@@ -6,17 +6,15 @@ My goal is to follow PEP-8 as much as seems reasonable. However, I am
 the only person writing this and I'm using BBEdit rather than a 
 dedicated Python IDE like PyCharm, so there may be a few weird things. 
 
-1.  Argument expansion of dicts built in calls
-2.  Extraneous __main__ checks
-3.  Working tests in __main__ checks
-4.  Color values as hexadecimal integers
+1.  Argument expansion of dicts built within calls
+2.  Working tests in __main__ checks
+3.  Color values as hexadecimal integers
 
 
-Argument Expansion of Dicts Built in Calls
-------------------------------------------
-This looks like:
+Argument Expansion of Dicts Built within Calls
+----------------------------------------------
+This looks like::
 
-    ```
     exp = m.Layer(**{
         'source': s.Spot(**{
             'radius': 128,
@@ -24,7 +22,6 @@ This looks like:
         }),
         'blend': op.difference,
     })
-    ```
 
 That's weird. Why in the hell am I doing it?
 
@@ -32,20 +29,6 @@ The main reason is that BBEdit doesn't fold function calls. However,
 it will fold the dictionary definition within the function call. So, 
 defining the dictionary in the call and passing it as keyword 
 arguments allows me to fold calls with several parameters.
-
-
-Extraneous __main__ Checks
---------------------------
-These look like this:
-
-    ```
-    if __name__ == '__main__':
-        raise NotImplementedError
-    ```
-
-These were created due to a bug in BBEdit that prevented it from 
-folding the last block in Python files. Barebones Software has since 
-fixed the bug, and I'll be removing these going forward.
 
 
 Working Tests in __main__ Checks
@@ -72,6 +55,27 @@ loose code sitting at the bottom of modules.
 
 Color Values as Hexadecimal Integers
 ------------------------------------
-This is mainly because color values in files tend to be stored as 
-eight or higher bit numbers, and I like columns of numbers to line 
-up neatly where possible. 
+The pjinoise module tries, as much as possible, to work with color
+values as floats in the range of 0 <= x <= 1. The reason for this is
+some blending operations and easing functions only work with data in
+that range, so it seemed more efficient to keep the data as floats
+rather than having to convert it from 8-bit unsigned integers to
+floats and back to 8-bit unsigned integers every time one of those
+operations or functions was used.
+
+However, an array of 8-bit integers sure looks a lot cleaner than an
+array of floats when written out as test data. So, in most cases, test
+data will present arrays of image data as array of hexadecimal integers
+rather than an array of floats, and then will convert the data to
+floats. This looks like::
+
+    a = np.array([
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+        [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+    ], dtype=float)
+    a = a / 0xff
+
+It's unlikely this will ever change.

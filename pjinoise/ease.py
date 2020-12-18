@@ -26,12 +26,10 @@ Easing functions follow the easing protocol, which is the following:
 
 Usage::
 
-    ```
-    > import numpy as np
-    > a = np.array([0x40, 0xa0, 0xc0], astype=float)
-    > a = a / 0xff
-    > out = in_quint(a)
-    ```
+    >>> import numpy as np
+    >>> a = np.array([0x40, 0xa0, 0xc0], dtype=float)
+    >>> a = a / 0xff
+    >>> out = in_quint(a)
 
 
 Overflowing Eases
@@ -57,12 +55,10 @@ The following actions are available within this module:
 
 Usage::
 
-    ```
-    > import numpy as np
-    > a = np.array([0x40, 0xa0, 0xc0], astype=float)
-    > a = a / 0xff
-    > out = in_out_back(a, clip)
-    ```
+    >>> import numpy as np
+    >>> a = np.array([0x40, 0xa0, 0xc0], dtype=float)
+    >>> a = a / 0xff
+    >>> out = in_out_back(a, clip)
 
 
 Serialization Helpers
@@ -73,11 +69,9 @@ easing function that has been registered with the ease module.
 
 Usage::
 
-    ```
-    > fn = in_out_circ
-    > get_regname_for_func(fn)
+    >>> fn = in_out_circ
+    >>> get_regname_for_func(fn)
     'ior'
-    ```
 
 New easing functions can be registered with the ease module by adding
 them to the registered_functions dictionary. The key should be the
@@ -85,15 +79,12 @@ short string you want to use as the serialized value of the function.
 
 Usage::
 
-    ```
-    > @overflows
-    > def spam(a):
-    ...     return a + .5
+    >>> def spam(a):
+    ...     return a / .5
     ...
-    > registered_functions['sp'] = spam
-    > get_regname_for_func(spam)
+    >>> registered_functions['sp'] = spam
+    >>> get_regname_for_func(spam)
     'sp'
-    ```
 
 The primary purpose for this feature is to allow classes that hold
 easing values as attributes to be serialized with the short name of
@@ -369,6 +360,9 @@ def get_regname_for_func(func: Callable) -> str:
 
 if __name__ == '__main__':
     from pjinoise.common import print_array
+    import doctest
+    doctest.testmod()
+
     a = [
         [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
         [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],

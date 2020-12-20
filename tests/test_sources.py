@@ -684,6 +684,54 @@ class RandomTestCase(ut.TestCase):
 
 
 class UnitNoiseTestCase(ut.TestCase):
+    def test_animatedpath_draw_branches_at_same_time(self):
+        """Given a path that branches in two directions in places,
+        draw those branches at the same time.
+        """
+        # Expected value.
+        exp = [
+            [
+                ((0, 0, 0), (0, 1, 0)),
+                ((0, 1, 0), (0, 1, 1)),
+                ((0, 1, 1), (0, 1, 2)),
+                ((0, 1, 2), (0, 0, 2)),
+                ((0, 0, 2), (0, 0, 1)),
+            ],
+            [
+                None,
+                None,
+                ((0, 1, 2), (0, 2, 2)),
+                ((0, 2, 2), (0, 2, 1)),
+                ((0, 2, 1), (0, 2, 0)),
+            ]
+        ]
+
+        # Set up test data and state.
+        kwargs = {
+            'width': .4,
+            'unit': (1, 16, 16),
+            'seed': 'testa-',
+        }
+        cls = s.AnimatedPath
+        size = (1, 64, 64)
+        obj = cls(**kwargs)
+        path = [
+            ((0, 0, 0), (0, 1, 0)),
+            ((0, 1, 0), (0, 1, 1)),
+            ((0, 1, 1), (0, 1, 2)),
+            ((0, 1, 2), (0, 0, 2)),
+            ((0, 0, 2), (0, 0, 1)),
+            ((0, 1, 2), (0, 2, 2)),
+            ((0, 2, 2), (0, 2, 1)),
+            ((0, 2, 1), (0, 2, 0)),
+        ]
+
+        # Run test.
+        act = obj._find_branches(path)
+
+        # Determine if test passed.
+        self.assertListEqual(exp, act)
+
     def test_curtains_fill(self):
         """Given a size and location, CosineCurtains.fill should
         return a space filled with randomized vertical stripes.

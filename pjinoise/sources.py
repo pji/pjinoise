@@ -1120,22 +1120,7 @@ class Path(UnitNoise):
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Fill a space with image data."""
-        # Create a grid of values. This uses the same technique Perlin
-        # noise uses to add randomness to the noise. A table of values
-        # was shuffled, and we use the coordinate of each vertex within
-        # the grid as part of the process to lookup the table value
-        # for that vertex. This grid will be used to determine the
-        # route the path follows through the space.
-        unit_dim = [int(s / u) for s, u in zip(size, self.unit)]
-        unit_dim = tuple(np.array(unit_dim) + np.array((0, 1, 1)))
-        unit_dim = tuple(np.array(unit_dim) - np.array(self.inset) * 2)
-        unit_indices = np.indices(unit_dim)
-        values = np.take(self.table, unit_indices[X])
-        values += unit_indices[Y]
-        values = np.take(self.table, values)
-#         values += unit_indices[Z]
-#         values = np.take(self.table, values)
-        unit_dim = np.array(unit_dim)
+        values, unit_dim = self._build_grid(size, loc)
 
         # The cursor will be used to determine our current position
         # on the grid as we create the path.
@@ -1197,9 +1182,33 @@ class Path(UnitNoise):
                 cursor = path[index][0]
 
         # Fill the requested space with the path.
+#         return path
         return self._draw_path(path, size)
 
     # Private methods.
+    def _build_grid(self, size, loc):
+        """Create a grid of values. This uses the same technique
+        Perlin noise uses to add randomness to the noise. A table of
+        values was shuffled, and we use the coordinate of each vertex
+        within the grid as part of the process to lookup the table
+        value for that vertex. This grid will be used to determine the
+        route the path follows through the space.
+        """
+        unit_dim = [int(s / u) for s, u in zip(size, self.unit)]
+        unit_dim = tuple(np.array(unit_dim) + np.array((0, 1, 1)))
+        unit_dim = tuple(np.array(unit_dim) - np.array(self.inset) * 2)
+        unit_indices = np.indices(unit_dim)
+        for axis in X, Y:
+            unit_indices[axis] += loc[axis]
+        unit_indices[Z].fill(loc[Z])
+        values = np.take(self.table, unit_indices[X])
+        values += unit_indices[Y]
+        values = np.take(self.table, values % len(self.table))
+        values += unit_indices[Z]
+        values = np.take(self.table, values & len(self.table))
+        unit_dim = np.array(unit_dim)
+        return values, unit_dim
+
     def _draw_path(self, path, size):
         a = np.zeros(size, dtype=float)
         width = int(self.unit[-1] * self.width)
@@ -1210,7 +1219,7 @@ class Path(UnitNoise):
             slice_x = self._get_slice(start[X], end[X], width)
             a[:, slice_y, slice_x] = 1.0
         return a
-    
+
     def _get_slice(self, start, end, width):
         if start > end:
             start, end = end, start
@@ -1237,16 +1246,25 @@ class Path(UnitNoise):
 
 
 class AnimatedPath(Path):
+    def __init__(self, delay=0, linger=0, trace=True, *args, **kwargs) -> None:
+        self.delay = delay
+        self.linger = linger
+        self.trace = trace
+        super().__init__(*args, **kwargs)
+
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        a = super().fill(size, loc)
+        for _ in range(self.delay):
+            a = np.insert(a, 0, np.zeros_like(a[0]), 0)
+        for _ in range(self.linger):
+            a = np.insert(a, -1, a[-1], 0)
+        return a
+
     def _draw_path(self, path, size):
-        a = np.zeros(size, dtype=float)
-        width = int(self.unit[-1] * self.width)
-        index = 0
-        frame = None
-        while index < size[Z] - 1:
-            if frame is None:
-                frame = a[0].copy()
+        def _take_step(branch, frame):
             try:
-                step = path[index]
+                step = branch[index]
                 start = self._unit_to_pixel(step[0])
                 end = self._unit_to_pixel(step[1])
                 slice_y = self._get_slice(start[Y], end[Y], width)
@@ -1254,9 +1272,61 @@ class AnimatedPath(Path):
                 frame[slice_y, slice_x] = 1.0
             except IndexError:
                 pass
+            except TypeError:
+                pass
+            return frame
+
+        a = np.zeros(size, dtype=float)
+        path = self._find_branches(path)
+        width = int(self.unit[-1] * self.width)
+        index = 0
+        frame = a[0].copy()
+        while index < size[Z] - 1:
+            for branch in path:
+                frame = _take_step(branch, frame)
             a[index + 1] = frame.copy()
             index += 1
+            if not self.trace:
+                frame.fill(0)
         return a
+
+    def _find_branches(self, path):
+        """Find the spots where the path starts from the same location
+        and split those out into branches, so they can be animated to
+        be walked at the same time.
+        """
+        branches = []
+        index = 1
+        starts = [step[0] for step in path]
+        branch = [path[0],]
+        while index < len(path):
+            start = path[index][0]
+            if start in starts[:index]:
+                branches.append(branch)
+                for item in branches:
+                    bstarts = []
+                    for step in item:
+                        if step:
+                            bstarts.append(step[0])
+                        else:
+                            bstarts.append(step)
+                    if start in bstarts:
+                        delay = bstarts.index(start) - 1
+                        branch = [None for _ in range(delay)]
+                        break
+                else:
+                    msg = "Couldn't find branch with start."
+                    raise ValueError(msg)
+            branch.append(path[index])
+            index += 1
+        branches.append(branch)
+
+        # Make sure all the branches are the same length.
+        biggest = max(len(branch) for branch in branches)
+        for branch in branches:
+            if len(branch) < biggest:
+                branch.append(None)
+        return branches
 
 
 class Perlin(UnitNoise):
@@ -1911,11 +1981,11 @@ if __name__ == '__main__':
     doctest.testmod()
 
     kwargs = {
-        'origin': (0, 1, 1),
-        'dimensions': (1, 2, 3),
-        'color': .5,
+        'width': .4,
+        'unit': (1, 3, 3),
+        'seed': 'testa-',
     }
-    cls = Box
+    cls = Path
     size = (2, 8, 8)
     obj = cls(**kwargs)
     val = obj.fill(size)

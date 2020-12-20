@@ -3,6 +3,37 @@ pjinoise
 ~~~~~~~~
 
 Core image generation and mainline for the pjinoise module.
+
+
+Basic Usage
+===========
+The pjinoise.main() function drives the rendering of images and
+animations made with objects from the pjinoise module. Calling
+main() works like calling any other Python function. To create an
+image, it needs to be passed configuration through a model.Image
+object.
+
+Usage::
+
+    >>> from pjinoise import model as m
+    >>> from pjinoise import operations as op
+    >>> from pjinoise import pjinoise as pn
+    >>> from pjinoise import sources as s
+    >>>
+    >>> src = s.Solid(.5)
+    >>> layer = m.Layer(src, op.replace)
+    >>> image = m.Image(layer, (1, 8, 8), '_test.jpg', 'JPEG', 'L')
+    >>>
+    >>> pn.main(False, image)
+    PJINOISE: Pattern and Noise Generation
+    ┌   ┐
+    │███│
+    └   ┘
+    00:00:00 Image generated.
+    00:00:00 Saving...
+    00:00:01 Saved as _test.jpg.
+    00:00:01 Good-bye.
+
 """
 from queue import Queue
 from threading import Thread
@@ -181,8 +212,8 @@ def main(silent: bool = True, conf: Image = None) -> None:
             status.put((ui.END, 'Good-bye.'))
 
     # Since the status updates run in an independent thread, letting
-    # exceptions bubble up from this thread clobbers causes the last
-    # status updates to clobber the last few lines of the exception.
+    # exceptions bubble up from this thread causes the last status
+    # updates to clobber the last few lines of the exception.
     # To avoid that, send the exception through the status update
     # thread. This also ensures the status update thread is terminated.
     except Exception as e:

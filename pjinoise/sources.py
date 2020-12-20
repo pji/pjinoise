@@ -1246,12 +1246,47 @@ class Path(UnitNoise):
 
 
 class AnimatedPath(Path):
+    """Animate the creation of a path.
+
+    :param delay: (Optional.) The number of frames to wait before
+        starting the animation.
+    :param linger: (Optional.) The number of frames to hold on the
+        last image of the animation.
+    :param trace: (Optional.) Whether to show all of the path that
+        had been walked to this point (True) or just show this step
+        (False).
+    :param width: (Optional.) The width of the path. This is the
+        percentage of the width of the X axis length of the size
+        of the fill. Values over one will probably be weird, but
+        not in a great way.
+    :param inset: (Optional.) Sets how many units from the end of
+        the image to draw the path. Units here refers to the unit
+        parameter from the UnitNoise parent class.
+    :param unit: The number of pixels between vertices along an
+        axis. The vertices are the locations where colors for
+        the gradient are set.
+    :param table: (Optional.) The colors to set for the vertices.
+        They will repeat if there are more units along the axis
+        in an image then there are colors defined for that axis.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:AnimatedPath object.
+    :rtype: pjinoise.sources.AnimatedPath
+    """
     def __init__(self, delay=0, linger=0, trace=True, *args, **kwargs) -> None:
         self.delay = delay
         self.linger = linger
         self.trace = trace
         super().__init__(*args, **kwargs)
 
+    # Public methods.
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         a = super().fill(size, loc)
@@ -1261,6 +1296,7 @@ class AnimatedPath(Path):
             a = np.insert(a, -1, a[-1], 0)
         return a
 
+    # Private methods.
     def _draw_path(self, path, size):
         def _take_step(branch, frame):
             try:

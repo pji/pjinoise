@@ -3,6 +3,23 @@ model
 ~~~~~
 
 Data objects to used to construct an image.
+
+
+Basic Usage
+===========
+The objects in this module provide the basic structure for how images
+are constructed using the pjinoise module. In general, the following
+is true:
+
+*   Source objects (pjinoise.sources) create the initial raw image
+    data.
+*   Operations (pjinoise.operations) determine how two sets of image
+    data are blended into a single set of image data.
+*   Layer objects (model.Layer) link source objects to operations and
+    set the order in which the image data from the sources are blended.
+*   Image objects (model.Image) link the image's layer(s) with the
+    information for how it should be saved to disk as an image or
+    video file.
 """
 import typing as t
 

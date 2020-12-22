@@ -615,13 +615,12 @@ class Grow(Filter):
 
     # Public methods.
     def process(self, a: np.ndarray) -> np.ndarray:
-        X, Y, Z = 2, 1, 0
-
         resized = np.zeros_like(a)
         slices = None
-        dim = list(a.shape[1:])
-        dim[0] = int(dim[0] * self.factor)
-        dim[1] = int(dim[1] * self.factor)
+        dim = list(a.shape[Y:])
+        y, x = 0, 1
+        dim[y] = int(dim[y] * self.factor)
+        dim[x] = int(dim[x] * self.factor)
         for i in range(a.shape[Z]):
             frame = cv2.resize(a[i], tuple(dim[::-1]))
             if not slices:
@@ -1356,12 +1355,9 @@ if __name__ == '__main__':
     a = np.array(a, dtype=float)
     a = a / 0xff
     kwargs = {
-        'amount': .5,
-        'radius': 4,
-        'scale': (1, 1, 1),
-        'offset': (0, 0, 0),
+        'factor': 3,
     }
-    obj = Pinch(**kwargs)
+    obj = Grow(**kwargs)
     size = preprocess(a.shape, [obj,])
     res = obj.process(a)
     res = postprocess(res, [obj,])

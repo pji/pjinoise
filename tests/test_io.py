@@ -356,9 +356,12 @@ class IOTestCase(ut.TestCase):
             ],
         ]).astype(np.uint8)
         size = (a.shape[-1], a.shape[-2])
+        a_exp = a.copy()
+        a_exp = np.reshape(a_exp, (*a_exp.shape, 1))
+        a_exp = np.tile(a_exp, (1, 1, 1, 3))
 
         # Expected value.
-        a_exp = np.flip(a, -1)
+        a_exp = np.flip(a_exp, -1)
         exp = [
             call(filename, fourcc, framerate, size, True),
             ['().write', (a_exp[0].tolist()),],

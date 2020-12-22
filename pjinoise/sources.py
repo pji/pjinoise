@@ -194,6 +194,15 @@ class ValueSource(Serializable):
 
 # Pattern generators.
 class Box(ValueSource):
+    """Draw a box.
+
+    :param origin: The location of the upper left corner of the box.
+    :param dimensions: The size of the box in three dimensions.
+    :param color: The color of the box. This is a float within the
+        range 0 <= x <= 1.
+    :return: A :class:Box object.
+    :rtype: pjinoise.sources.Box
+    """
     def __init__(self, origin: Sequence[int],
                  dimensions: Sequence[int],
                  color: float = 1.0,
@@ -213,6 +222,30 @@ class Box(ValueSource):
         slices = [slice(s, e) for s, e in zip(start, end)]
         a[tuple(slices)] = self.color
         return a
+
+
+class Data(ValueSource):
+    """Provide stored image data.
+
+    :param data: The image data for this object.
+    :return: A :class:Data object.
+    :rtype: pjinoise.sources.Data
+    """
+    def __init__(self, data: np.ndarray) -> None:
+        self.data = np.array(data)
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Return a space filled with noise."""
+        shape = self.data.shape
+        if size == shape:
+            return self.data
+        if any(dshape < s + l for dshape, s, l in zip(shape, size, loc)):
+            msg = 'Cannot get a fill greater than the size of the data.'
+            raise ValueError(msg)
+        slices = tuple(slice(l, s + l) for s, l in zip(size, loc))
+        return self.data[slices]
 
 
 class Gradient(ValueSource):

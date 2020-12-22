@@ -13,7 +13,7 @@ from PIL import Image
 
 from pjinoise import model as m
 from pjinoise.__version__ import __version__
-from pjinoise.common import get_format
+from pjinoise.common import convert_color_space, get_format
 from pjinoise.constants import VIDEO_FORMATS, X, Y, Z
 
 
@@ -113,18 +113,36 @@ def save_image(a: np.ndarray,
 
         image.save(filename, format)
 
+    # Save a video.
     else:
+        # OpenCV's VideoWriter requires the frame dimensions of the
+        # video be given with the X axis measurement first.
         dim = (a.shape[X], a.shape[Y])
+
+        # If the image data only has X, Y, and Z axes, assume it is
+        # in the pjinoise grayscale color space. The VideoWriter will
+        # need three color channels, so convert it to RGB.
         if len(a.shape) == 3:
-            a = a * 0xff
-        a = a.astype(np.uint8)
+            a = convert_color_space(a, '', 'RGB')
+
+        # Color in video is stored in BGR. Assume the image data is
+        # in the RGB color space and flip the order of the colors to
+        # get BGR.
         a = np.flip(a, -1)
+
+        # Set up the VideoWriter with the codec used to encode the
+        # video.
         codec = VIDEO_FORMATS[format]
         videowriter = cv2.VideoWriter(*[filename,
                                         cv2.VideoWriter_fourcc(*codec),
                                         framerate,
                                         dim,
                                         True])
+
+        # The image data is an array where each Z axis slice is a
+        # frame of the animation. VideoWriter writes the data one
+        # frame at a time. Remember to release the VideoWriter to
+        # close the file.
         for i in range(a.shape[Z]):
             videowriter.write(a[i])
         videowriter.release()

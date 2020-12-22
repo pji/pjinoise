@@ -9,7 +9,7 @@ Basic Usage
 ===========
 The objects in this module provide the basic structure for how images
 are constructed using the pjinoise module. In general, the following
-is true:
+are true:
 
 *   Source objects (pjinoise.sources) create the initial raw image
     data.
@@ -20,6 +20,7 @@ is true:
 *   Image objects (model.Image) link the image's layer(s) with the
     information for how it should be saved to disk as an image or
     video file.
+
 """
 import typing as t
 
@@ -44,7 +45,10 @@ class Layer(Serializable):
     """A layer of image data to blend with other layers.
 
     :param source: The image source(s) used to create the image data
-        of the layer.
+        of the layer. Images sources can include Layer objects, so
+        Layers can be nested. It can also include sequences of Layer
+        objects, that will be blended together to create the image
+        data.
     :param blend: The blending operation used to blend this layer into
         the image.
     :param blend_amount: (Optional.) How much this layer's blend should

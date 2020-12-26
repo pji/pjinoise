@@ -2098,12 +2098,11 @@ if __name__ == '__main__':
     doctest.testmod()
 
     kwargs = {
-        'points': 10,
+        'points': 8,
+        'seed': 'spam'
     }
     cls = Worley
-#     size = (1, 8, 8)
-    size = (1, 50, 50)
+    size = (1, 8, 8)
     obj = cls(**kwargs)
     val = obj.fill(size)
-    print(val)
-#     c.print_array(val)
+    c.print_array(val)

@@ -865,6 +865,38 @@ class RandomTestCase(ut.TestCase):
         # Run test.
         source_fill_test(self, exp, cls, kwargs, size)
 
+    def test_worley_fill(self):
+        """Given a size and a location, Worley.fill should fill the
+        space with Worley noise. Worley noise is a cellular noise
+        algorithm, where the color value is determined by the pixel's
+        distance from the closest of a number of randomly placed
+        points.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0x33, 0x00, 0x33, 0x66, 0x90, 0xb8, 0xe4, 0xff],
+                [0x48, 0x33, 0x33, 0x48, 0x72, 0xa1, 0xb8, 0xd8],
+                [0x66, 0x33, 0x00, 0x33, 0x66, 0x72, 0x90, 0xb8],
+                [0x48, 0x33, 0x33, 0x48, 0x33, 0x48, 0x72, 0x90],
+                [0x33, 0x00, 0x33, 0x33, 0x00, 0x33, 0x48, 0x72],
+                [0x00, 0x00, 0x33, 0x48, 0x33, 0x00, 0x33, 0x66],
+                [0x33, 0x00, 0x33, 0x66, 0x48, 0x33, 0x48, 0x72],
+                [0x48, 0x33, 0x48, 0x72, 0x72, 0x66, 0x72, 0x90],
+            ],
+        ]
+
+        # Set up test data and state.
+        kwargs = {
+            'points': 8,
+            'seed': 'spam'
+        }
+        cls = s.Worley
+        size = (1, 8, 8)
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size)
+
 
 class UnitNoiseTestCase(ut.TestCase):
     def test_animatedpath_draw_branches_at_same_time(self):

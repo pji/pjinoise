@@ -233,6 +233,7 @@ class Data(ValueSource):
     """
     def __init__(self, data: np.ndarray) -> None:
         self.data = np.array(data)
+        self._shape = self.data.shape
 
     # Public methods.
     def fill(self, size: Sequence[int],
@@ -241,9 +242,19 @@ class Data(ValueSource):
         shape = self.data.shape
         if size == shape:
             return self.data
-        if any(dshape < s + l for dshape, s, l in zip(shape, size, loc)):
-            msg = 'Cannot get a fill greater than the size of the data.'
-            raise ValueError(msg)
+        if any(n < s + l for n, s, l in zip(shape, size, loc)):
+            # Find the needed magnification factor along the axis with
+            # the largest difference.
+            diffs = [(s + l) / n for n, s, l in zip(shape, size, loc)]
+            mag_factor = max(diffs)
+
+            # Magnify the seeded data through trilinear interpolation.
+            out = c.trilinear_interpolation(self.data, mag_factor)
+
+            # Slice the magnified data to the fill size.
+            slices = tuple(slice(0, s) for s in size)
+            return out[slices]
+
         slices = tuple(slice(l, s + l) for s, l in zip(size, loc))
         return self.data[slices]
 
@@ -859,6 +870,42 @@ class Embers(SeededRandom):
             mag = mag * 1.5
 
         return out
+
+
+class Worley(SeededRandom):
+    """Based on code from:
+    https://code.activestate.com/recipes/578459-worley-noise-generator/
+    """
+    def __init__(self, points: int, *args, **kwargs) -> None:
+        self.points = int(points)
+        super().__init__(*args, **kwargs)
+
+    # Public methods.
+    @eased
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = None) -> np.ndarray:
+        """Return a space filled with noise."""
+        m = 0
+        a = np.zeros(size, dtype=float)
+        seedsY = self._rng.random((self.points))
+        seedsX = self._rng.random((self.points))
+        seedsY = np.round(seedsY * (size[Y] - 1))
+        seedsX = np.round(seedsX * (size[X] - 1))
+
+        # Map the distances to the points.
+        indices = np.indices(size[Y:])
+        y, x = indices[0], indices[1]
+        max_dist = np.sqrt(size[Y] ** 2 + size[X] ** 2)
+        dist = np.zeros(size[Y:], dtype=float)
+        dist.fill(max_dist)
+        for i in range(self.points):
+            work = np.hypot(seedsX[i] - x, seedsY[i] - y)
+            dist[work < dist] = work[work < dist]
+
+        act_max_dist = np.max(dist)
+        dist = dist / act_max_dist
+        a = np.tile(dist, (size[Z], 1, 1))
+        return a
 
 
 # Random noise using unit cubes.
@@ -2002,6 +2049,7 @@ registered_sources = {
     'curtains': Curtains,
     'cosinecurtains': CosineCurtains,
     'embers': Embers,
+    'worley': Worley,
     'path': Path,
     'animatedpath': AnimatedPath,
     'perlin': Perlin,
@@ -2050,12 +2098,12 @@ if __name__ == '__main__':
     doctest.testmod()
 
     kwargs = {
-        'width': .4,
-        'unit': (1, 3, 3),
-        'seed': 'testa-',
+        'points': 10,
     }
-    cls = Path
-    size = (2, 8, 8)
+    cls = Worley
+#     size = (1, 8, 8)
+    size = (1, 50, 50)
     obj = cls(**kwargs)
     val = obj.fill(size)
-    c.print_array(val)
+    print(val)
+#     c.print_array(val)

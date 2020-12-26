@@ -605,16 +605,38 @@ class Grow(Filter):
     :param factor: The scaling factor to use when increasing the
         size of the image.
     :param center: (Optional.) The center of the image for rescaling.
+    :param only_2d: (Optional.) Determines whether the filter only
+        expands on the Y and X axes, or if it expands the image on all
+        three dimensions.
     :return: A :class:Grow object.
     :rtype: pjinoise.filters.Glow
     """
     def __init__(self, factor: float,
-                 center: Union[None, Sequence[int]] = None) -> None:
+                 center: Union[None, Sequence[int]] = None,
+                 only_2d: bool = True) -> None:
         self.factor = factor
         self.center = center
+        self.only_2d = only_2d
 
     # Public methods.
     def process(self, a: np.ndarray) -> np.ndarray:
+        if not self.only_2d:
+            size = a.shape
+            resized = c.trilinear_interpolation(a, self.factor)
+
+            # Determine how the resized array needs to be sliced to
+            # return to the original size.
+            padding = [n - o for n, o in zip(resized.shape, size)]
+            slices = []
+            for axis in Z, Y, X:
+                start = padding[axis] // 2
+                end = resized.shape[axis] - (padding[axis] - start)
+                slice_ = slice(start, end)
+                slices.append(slice_)
+
+            # Crop the resized array back down to the original size.
+            return resized[slices]
+
         resized = np.zeros_like(a)
         slices = None
         dim = list(a.shape[Y:])

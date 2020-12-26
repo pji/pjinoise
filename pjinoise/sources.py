@@ -873,8 +873,31 @@ class Embers(SeededRandom):
 
 
 class Worley(SeededRandom):
-    """Based on code from:
+    """Fill a space with Worley noise.
+
+    Worley noise is a type of cellular noise. The color value of each
+    pixel within the space is determined by the distance from the pixel
+    to the nearest of a set of randomly located points within the
+    image. This creates structures within the noise that look like
+    cells or pits.
+
+    This implementation is heavily optimized from code found here:
     https://code.activestate.com/recipes/578459-worley-noise-generator/
+
+    :param points: The number of cells in the image. A cell is a
+        randomly placed point and the range of pixels that are
+        closer to it than any other point.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:Worley object.
+    :rtype: pjinoise.sources.Worley
     """
     def __init__(self, points: int, *args, **kwargs) -> None:
         self.points = int(points)

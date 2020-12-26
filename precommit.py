@@ -36,6 +36,9 @@ files = glob.glob('pjinoise/*')
 files = [name for name in files if name.endswith('.py')]
 for file in files:
     remove_whitespace(file)
+
+remove_whitespace('mazer.py')
+remove_whitespace('template.py')
 print('Whitespace removed.')
 
 # Run the unit tests.
@@ -64,4 +67,6 @@ print('Checking style...')
 style = pcs.StyleGuide(config_file='setup.cfg')
 style.check_files(['pjinoise/',])
 style.check_files(['tests/',])
+style.check_files(['mazer.py',])
+style.check_files(['template.py',])
 print('Style checked.')

@@ -12,7 +12,7 @@ from pjinoise import sources as s
 
 
 # pjinoise version check.
-assert pn.__version__ == '0.3.0'
+assert pn.__version__ == '0.3.1'
 
 
 size = (1, 720, 1280)

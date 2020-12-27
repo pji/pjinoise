@@ -16,7 +16,7 @@ from pjinoise import sources as s
 
 def main(seed=None):
     # Make sure the version of pjinoise supports mazer.
-    assert pn.__version__ == '0.3.0'
+    assert pn.__version__ == '0.3.1'
 
     # Set up the size and structure of the maze.
     size = (1, 720, 560)

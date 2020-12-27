@@ -899,8 +899,15 @@ class Worley(SeededRandom):
     :return: :class:Worley object.
     :rtype: pjinoise.sources.Worley
     """
-    def __init__(self, points: int, *args, **kwargs) -> None:
+    def __init__(self, points: int,
+                 is_3d: bool = False,
+                 volume: Sequence[int] = None,
+                 origin: Sequence[int] = (0, 0, 0),
+                 *args, **kwargs) -> None:
         self.points = int(points)
+        self.is_3d = is_3d
+        self.volume = volume
+        self.origin = origin
         super().__init__(*args, **kwargs)
 
     # Public methods.
@@ -910,25 +917,54 @@ class Worley(SeededRandom):
         """Return a space filled with noise."""
         m = 0
         a = np.zeros(size, dtype=float)
-        seedsY = self._rng.random((self.points))
-        seedsX = self._rng.random((self.points))
-        seedsY = np.round(seedsY * (size[Y] - 1))
-        seedsX = np.round(seedsX * (size[X] - 1))
+        volume = self.volume
+        if volume is None:
+            volume = size
+        volume = np.array(volume)
+
+        # Place the seeds in the overall volume of noise.
+        if self.is_3d:
+            seeds = self._rng.random((self.points, 3))
+            seeds = np.round(seeds * (volume - 1))
+            seeds += np.array(self.origin)
+        else:
+            seeds_by_axis = self._rng.random((2, self.points))
+            seeds = np.zeros((self.points, 2))
+            seeds[:, 0] = seeds_by_axis[0, ...]
+            seeds[:, 1] = seeds_by_axis[1, ...]
+            seeds = np.round(seeds * (volume[Y:] - 1))
+            seeds += np.array(self.origin[Y:])
 
         # Map the distances to the points.
-        indices = np.indices(size[Y:])
-        y, x = indices[0], indices[1]
-        max_dist = np.sqrt(size[Y] ** 2 + size[X] ** 2)
-        dist = np.zeros(size[Y:], dtype=float)
-        dist.fill(max_dist)
-        for i in range(self.points):
-            work = np.hypot(seedsX[i] - x, seedsY[i] - y)
-            dist[work < dist] = work[work < dist]
+        if not self.is_3d:
+            indices = np.indices(size[Y:])
+            max_dist = np.sqrt(size[Y] ** 2 + size[X] ** 2)
+            dist = np.zeros(size[Y:], dtype=float)
+            dist.fill(max_dist)
+            for i in range(self.points):
+                point = seeds[i]
+                work = self._hypot(point, indices)
+                dist[work < dist] = work[work < dist]
+        else:
+            indices = np.indices(size)
+            max_dist = np.sqrt(sum(n ** 2 for n in size))
+            dist = np.zeros(size, dtype=float)
+            dist.fill(max_dist)
+            for i in range(self.points):
+                point = seeds[i]
+                work = self._hypot(point, indices)
+                dist[work < dist] = work[work < dist]
 
         act_max_dist = np.max(dist)
-        dist = dist / act_max_dist
-        a = np.tile(dist, (size[Z], 1, 1))
+        a = dist / act_max_dist
+        if not self.is_3d:
+            a = np.tile(a, (size[Z], 1, 1))
         return a
+
+    # Private methods.
+    def _hypot(self, point: Sequence[int], indices: np.ndarray) -> np.ndarray:
+        axis_dist = [p - i for p, i in zip(point, indices)]
+        return np.sqrt(sum(d ** 2 for d in axis_dist))
 
 
 # Random noise using unit cubes.
@@ -2122,10 +2158,11 @@ if __name__ == '__main__':
 
     kwargs = {
         'points': 8,
+        'is_3d': True,
         'seed': 'spam'
     }
     cls = Worley
-    size = (1, 8, 8)
+    size = (2, 8, 8)
     obj = cls(**kwargs)
     val = obj.fill(size)
     c.print_array(val)

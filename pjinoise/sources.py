@@ -928,10 +928,7 @@ class Worley(SeededRandom):
             seeds = np.round(seeds * (volume - 1))
             seeds += np.array(self.origin)
         else:
-            seeds_by_axis = self._rng.random((2, self.points))
-            seeds = np.zeros((self.points, 2))
-            seeds[:, 0] = seeds_by_axis[0, ...]
-            seeds[:, 1] = seeds_by_axis[1, ...]
+            seeds = self._rng.random((self.points, 2))
             seeds = np.round(seeds * (volume[Y:] - 1))
             seeds += np.array(self.origin[Y:])
 
@@ -2158,11 +2155,11 @@ if __name__ == '__main__':
 
     kwargs = {
         'points': 8,
-        'is_3d': True,
+        'is_3d': False,
         'seed': 'spam'
     }
     cls = Worley
-    size = (2, 8, 8)
+    size = (1, 8, 8)
     obj = cls(**kwargs)
     val = obj.fill(size)
     c.print_array(val)

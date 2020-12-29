@@ -14,7 +14,7 @@ from pjinoise import sources as s
 from pjinoise.common import get_format
 
 
-def _build_source(name: str, args: str) -> s.ValueSource:
+def _build_source(name: str, args: str) -> s.Source:
     cls = s.registered_sources[name]
     args = args.split(':')
     return cls(*args)

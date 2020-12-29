@@ -7,10 +7,10 @@ Objects that generate values, both patterned and noise.
 
 Basic Usage
 ===========
-A ValueSource object is used to create an array of data that can be
+A Source object is used to create an array of data that can be
 used for various things, but the main use case is the creation of
 still images and video. Creating an instance of a subclass of
-ValueSource (a "source") works like instantiating any other Python
+Source (a "source") works like instantiating any other Python
 class. The specific parameters vary based on what the specifc source
 will create.
 
@@ -70,7 +70,7 @@ to ensure the subclass's asdict() method only returns data that can
 be serialized by the json module. There are a couple of ways to
 accomplish this:
 
-*   ValueSource.asdict() won't return private attributes in the
+*   Source.asdict() won't return private attributes in the
     output dictionary, so the serialized version can be stored in
     the public attribute (or at least returned by calls to the
     public attribute) and the deserialized version stored in a
@@ -103,7 +103,7 @@ short string you want to use as the serialized value of the class.
 
 Usage::
 
-    >>> class Spam(ValueSource):
+    >>> class Spam(Source):
     ...     def fill(*args):
     ...         pass
     ...
@@ -120,6 +120,7 @@ execution vulnerabilities though deserialization.
 from typing import Mapping
 
 from pjinoise.sources.random import *
+from pjinoise.sources.source import *
 from pjinoise.sources.static import *
 
 
@@ -156,7 +157,7 @@ registered_sources = {
 
 
 # Registration utility functions.
-def deserialize_source(attrs: Mapping) -> 'ValueSource':
+def deserialize_source(attrs: Mapping) -> 'Source':
     cls = registered_sources[attrs['type']]
     del attrs['type']
     try:

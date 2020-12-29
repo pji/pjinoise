@@ -9,12 +9,12 @@ from typing import Any, Callable, List, Mapping, Sequence, Tuple, Union
 import numpy as np
 
 from pjinoise import common as c
-from pjinoise.base import ValueSource, eased
 from pjinoise.constants import X, Y, Z
+from .source import Source, eased
 
 
 # Pattern generators.
-class Box(ValueSource):
+class Box(Source):
     """Draw a box.
 
     :param origin: The location of the upper left corner of the box.
@@ -45,7 +45,7 @@ class Box(ValueSource):
         return a
 
 
-class Data(ValueSource):
+class Data(Source):
     """Provide stored image data.
 
     :param data: The image data for this object.
@@ -80,7 +80,7 @@ class Data(ValueSource):
         return self.data[slices]
 
 
-class Gradient(ValueSource):
+class Gradient(Source):
     """Generate a simple gradient.
 
     :param direction: (Optional.) This should be 'h' for a horizontal
@@ -184,7 +184,7 @@ class Gradient(ValueSource):
         return a
 
 
-class Lines(ValueSource):
+class Lines(Source):
     """Generate simple lines.
 
     :param direction: (Optional.) This should be 'h' for a horizontal
@@ -224,7 +224,7 @@ class Lines(ValueSource):
         return values
 
 
-class Rays(ValueSource):
+class Rays(Source):
     """Create rayes that generate from a central point.
 
     :param count: The number of rays to generate.
@@ -280,7 +280,7 @@ class Rays(ValueSource):
         return rays
 
 
-class Ring(ValueSource):
+class Ring(Source):
     """Create a series of concentric circles.
 
     :param radius: The radius of the first ring, which is the ring
@@ -343,7 +343,7 @@ class Ring(ValueSource):
         return a
 
 
-class Solid(ValueSource):
+class Solid(Source):
     """Fill a space with a solid color.
 
     :param color: The color to use for the fill. Zero is black. One
@@ -363,7 +363,7 @@ class Solid(ValueSource):
         return a
 
 
-class Spheres(ValueSource):
+class Spheres(Source):
     """Fill a space with a series of spots.
 
     :param radius: The radius of an individual spot.
@@ -437,7 +437,7 @@ class Spheres(ValueSource):
         return a
 
 
-class Spot(ValueSource):
+class Spot(Source):
     """Fill a space with a spot.
 
     :param radius: The radius of the spot.
@@ -473,7 +473,7 @@ class Spot(ValueSource):
         return a
 
 
-class Waves(ValueSource):
+class Waves(Source):
     """Generates concentric circles.
 
     :param length: The radius of the innermost circle.

@@ -6,7 +6,6 @@ Common constants used within the pjinoise module. These tend to be
 used to add clarity to the code, or at least that's the intention.
 Whether it's successful is a question for the reader.
 """
-# X, Y, Z = -1, -2, -3
 X, Y, Z = 2, 1, 0
 AXES = (X, Y, Z)
 P = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
@@ -27,7 +26,6 @@ P = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
      93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156,
      180]
 P.extend(P)
-WORKERS = 6
 
 # Text for user interaction.
 EN_TEXT = {
@@ -74,7 +72,6 @@ VIDEO_FORMATS = {
     'AVI': 'MJPG',
     'MP4': 'mp4v',
 }
-
 
 # Color lookup.
 COLOR = {

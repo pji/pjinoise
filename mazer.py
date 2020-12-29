@@ -14,7 +14,7 @@ from pjinoise import pjinoise as pn
 from pjinoise import sources as s
 
 
-def main(seed=None):
+def main(seed=None, origin=(0, 0, 0)):
     # Make sure the version of pjinoise supports mazer.
     assert pn.__version__ == '0.3.1'
 
@@ -25,7 +25,7 @@ def main(seed=None):
     # The maze interior.
     path = m.Layer(**{
         'filters': [],
-        'source': s.Path(width=.4, unit=units, seed=seed),
+        'source': s.Path(width=.4, origin=origin, unit=units, seed=seed),
         'blend': op.replace,
     })
 
@@ -51,7 +51,7 @@ def main(seed=None):
     conf = m.Image(**{
         'source': maze,
         'size': size,
-        'filename': f'maze_{seed}.png',
+        'filename': f'maze_{seed}_{origin}.png',
         'format': 'PNG',
         'mode': 'L',
     })
@@ -63,6 +63,15 @@ def main(seed=None):
 if __name__ == '__main__':
     # Define the command line options.
     options = {
+        'origin': {
+            'args': ('-o', '--origin'),
+            'kwargs': {
+                'type': str,
+                'action': 'store',
+                'default': 'tl',
+                'help': 'The seed used to generate the maze.'
+            },
+        },
         'seed': {
             'args': ('seed',),
             'kwargs': {
@@ -86,4 +95,4 @@ if __name__ == '__main__':
 
     # Parse the command line arguments.
     args = p.parse_args()
-    main(args.seed)
+    main(args.seed, args.origin)

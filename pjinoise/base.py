@@ -5,20 +5,11 @@ base
 Core base classes for the pjinoise module.
 """
 from abc import ABC, abstractmethod
-from functools import wraps
 import inspect
 import typing as t
 
 from pjinoise import common as c
 from pjinoise import ease as e
-
-
-# Common decorators.
-def eased(fn: t.Callable) -> t.Callable:
-    @wraps(fn)
-    def wrapper(obj, *args, **kwargs) -> 'numpy.ndarray':
-        return obj._ease(fn(obj, *args, **kwargs))
-    return wrapper
 
 
 # Base classes.
@@ -61,49 +52,33 @@ class Serializable(ABC):
         return attrs
 
 
-class ValueSource(Serializable):
-    """Base class to define common features of noise classes.
-
-    :param ease: (Optional.) The easing function to use on the
-        generated noise.
-    :return: ABCs cannot be instantiated.
-    :rtype: ABCs cannot be instantiated.
-    """
-    def __init__(self, ease: str = 'l', *args, **kwargs) -> None:
-        self.ease = ease
-
-    @property
-    def ease(self) -> str:
-        return e.get_regname_for_func(self._ease)
-
-    @ease.setter
-    def ease(self, value: str) -> None:
-        self._ease = e.registered_functions[value]
+class Filter(Serializable):
+    """The base class for filter objects."""
+    padding = None
 
     # Public methods.
-    def asargs(self) -> t.List[t.Any]:
-        sig = inspect.signature(self.__init__)
-        kwargs = self.asdict()
-        args = [kwargs[key] for key in sig.parameters if key in kwargs]
-        return args
-
     def asdict(self) -> dict:
         """Serialize the object to a dictionary."""
-        attrs = self.__dict__.copy()
-        cls = self.__class__.__name__
-        attrs['type'] = cls.casefold()
-        attrs['ease'] = self.ease
-        attrs = c.remove_private_attrs(attrs)
+        attrs = super().asdict()
+        if 'ease' in attrs:
+            attrs['ease'] = e.get_regname_for_func(attrs['ease'])
+        if 'padding' in attrs:
+            del attrs['padding']
         return attrs
 
-    @abstractmethod
-    def fill(self, size: t.Sequence[int],
-             location: t.Sequence[int] = None) -> 'numpy.ndarray':
-        """Return a space filled with noise."""
+    def preprocess(self, size: t.Sequence[int],
+                   original_size: t.Sequence[int]) -> t.Tuple[int]:
+        """Determine the size the filter needs the image to be during
+        processing.
+        """
+        return tuple(size)
 
-    def noise(self, coords: t.Sequence[float]) -> int:
-        """Generate the noise value for the given coordinates."""
-        size = [1 for n in range(len(coords))]
-        value = self.fill(size, coords)
-        index = [0 for n in range(len(coords))]
-        return value[index]
+    @abstractmethod
+    def process(self, values: 'numpy.array') -> 'numpy.array':
+        """Run the filter over the image."""
+
+    def postprocess(self, size: t.Sequence[int], *args) -> t.Sequence[int]:
+        """Return the original size of the image."""
+        if self.padding is None:
+            return size
+        return tuple(n - pad for n, pad in zip(size, self.padding))

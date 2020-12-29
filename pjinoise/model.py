@@ -34,7 +34,7 @@ from pjinoise.base import Serializable
 # The typing for Layers gets complex. These types are used in the
 # signatures to try and keep it more readable.
 _Deserialized = t.Union[Serializable, t.Sequence[Serializable]]
-_Source = t.Union[s.ValueSource, 'Layer']
+_Source = t.Union[s.Source, 'Layer']
 _SourceSequence = t.Union[_Source, t.Sequence[_Source]]
 _Serialized = t.Union[t.Dict[str, t.Any], t.Sequence[t.Dict[str, t.Any]]]
 _FilterParam = t.Union[None, t.Sequence[f.Filter], _Serialized]
@@ -213,7 +213,7 @@ class Image(Serializable):
         return attrs
 
     def count_sources(self) -> int:
-        """Return the number of ValueSources contained by the Image."""
+        """Return the number of Sources contained by the Image."""
         return count_sources(self.source)
 
     # Private methods.
@@ -239,13 +239,13 @@ class Image(Serializable):
 
 # Utility functions.
 def count_sources(obj: t.Union[_Source, t.Sequence[Layer]]) -> int:
-    """Find the number of ValueSources contained in the object."""
+    """Find the number of Sources contained in the object."""
     if isinstance(obj, t.Sequence):
         counts = [count_sources(item) for item in obj]
         return sum(counts)
     if isinstance(obj, Layer):
         return count_sources(obj.source) + count_sources(obj.mask)
-    if isinstance(obj, s.ValueSource):
+    if isinstance(obj, s.Source):
         return 1
     if obj is None:
         return 0

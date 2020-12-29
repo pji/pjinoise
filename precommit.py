@@ -37,6 +37,11 @@ files = [name for name in files if name.endswith('.py')]
 for file in files:
     remove_whitespace(file)
 
+files = glob.glob('pjinoise/sources/*')
+files = [name for name in files if name.endswith('.py')]
+for file in files:
+    remove_whitespace(file)
+
 remove_whitespace('mazer.py')
 remove_whitespace('template.py')
 print('Whitespace removed.')

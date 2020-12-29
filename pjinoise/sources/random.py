@@ -13,12 +13,13 @@ from numpy.random import default_rng
 
 from pjinoise import common as c
 from pjinoise import operations as op
-from pjinoise.base import ValueSource, eased
 from pjinoise.constants import X, Y, Z, P
+from .caching import CachingMixin
+from .source import Source, eased
 
 
 # Random noise generators.
-class SeededRandom(ValueSource):
+class SeededRandom(Source):
     """Create continuous-uniformly distributed random noise with a
     seed value to allow the noise to be regenerated in a predictable
     way.
@@ -272,7 +273,7 @@ class Worley(SeededRandom):
 
 
 # Random noise using unit cubes.
-class UnitNoise(ValueSource):
+class UnitNoise(Source):
     """An base class for visual noise generated with a unit grid.
 
     :param unit: The number of pixels between vertices along an
@@ -553,11 +554,13 @@ class Path(UnitNoise):
     """
     def __init__(self, width: float = .2,
                  inset: Sequence[int] = (0, 1, 1),
+                 origin: Union[str, Sequence[int]] = (0, 0, 0),
                  *args, **kwargs) -> None:
         """Initialize an instance of Path."""
+        super().__init__(*args, **kwargs)
         self.width = width
         self.inset = inset
-        super().__init__(*args, **kwargs)
+        self.origin = origin
 
     # Public methods.
     def fill(self, size: Sequence[int],
@@ -567,7 +570,7 @@ class Path(UnitNoise):
 
         # The cursor will be used to determine our current position
         # on the grid as we create the path.
-        cursor = (0, 0, 0)
+        cursor = self._calc_origin(self.origin, unit_dim)
 
         # This will be used to track the grid vertices we've already
         # been to as we create the path. It allows us to keep the
@@ -625,7 +628,6 @@ class Path(UnitNoise):
                 cursor = path[index][0]
 
         # Fill the requested space with the path.
-#         return path
         return self._draw_path(path, size)
 
     # Private methods.
@@ -651,6 +653,20 @@ class Path(UnitNoise):
         values = np.take(self.table, values & len(self.table))
         unit_dim = np.array(unit_dim)
         return values, unit_dim
+
+    def _calc_origin(self, origin, unit_dim):
+        "Determine the starting location of the cursor."
+        if origin == 'top-left' or origin == 'tl':
+            origin = (0, 0, 0)
+        if origin == 'top-right' or origin == 'tr':
+            origin = (0, 0, unit_dim[X] - 1)
+        if origin == 'bottom-left' or origin == 'bl':
+            origin = (0, unit_dim[Y] - 1, 0)
+        if origin == 'bottom-right' or origin == 'br':
+            origin = (0, unit_dim[Y] - 1, unit_dim[X] - 1)
+        if origin == 'middle' or origin == 'm':
+            origin = (0, unit_dim[Y] // 2, unit_dim[X] // 2)
+        return origin
 
     def _draw_path(self, path, size):
         a = np.zeros(size, dtype=float)
@@ -1255,31 +1271,6 @@ class OctavePerlin(OctaveMixin, Perlin):
 
 
 # Sources that cache fill data.
-class CachingMixin():
-    """Cache fill results."""
-    # This sets up a cache in the CachingMixin class, which, if used
-    # would cause all instances with the same key to retur the same
-    # cached value regardless of subtype. To avoid this, classes
-    # using the CachingMixin should override this with their own
-    # dictionary.
-    _cache = {}
-
-    def __init__(self, key: str = '_default', *args, **kwargs) -> None:
-        self.key = key
-        super().__init__(*args, **kwargs)
-
-    # Public methods.
-    def fill(self, size: Sequence[int],
-             location: Sequence[int] = (0, 0, 0)) -> np.ndarray:
-        """On first call, generate and return image data, caching
-        the data. On subsequent calls, return the cached data
-        rather than generating the same data again.
-        """
-        if self.key not in self._cache:
-            self._cache[self.key] = super().fill(size, location)
-        return self._cache[self.key].copy()
-
-
 class CachingOctavePerlin(CachingMixin, OctavePerlin):
     """A caching source for octave Perlin noise.
 
@@ -1314,7 +1305,7 @@ class CachingOctavePerlin(CachingMixin, OctavePerlin):
 
 
 # Compound sources.
-class TilePaths(ValueSource):
+class TilePaths(Source):
     """Tile the output of a series of Path objects.
 
     :param tile_size: The size of the fills from the sources.Path

@@ -50,7 +50,7 @@ from pjinoise.__version__ import __version__
 from pjinoise.common import convert_color_space as _convert_color_space
 from pjinoise.constants import X, Y, Z
 from pjinoise.model import Image, Layer
-from pjinoise.sources import ValueSource
+from pjinoise.sources import Source
 
 
 # Image generation functions.
@@ -76,7 +76,7 @@ def _normalize_color_space(*arrays) -> Tuple[np.ndarray]:
 
 
 def process_layers(size: Sequence[int],
-                   layers: Union[ValueSource, Layer, Sequence[Layer]],
+                   layers: Union[Source, Layer, Sequence[Layer]],
                    a: Union[None, np.ndarray] = None,
                    status: Union[None, Queue] = None) -> np.ndarray:
     """Create image data from the layers."""
@@ -98,7 +98,7 @@ def process_layers(size: Sequence[int],
         return a
 
     # If we got a source layer, process it.
-    if isinstance(layers.source, ValueSource):
+    if isinstance(layers.source, Source):
         if status is not None:
             src_name = layers.source.__class__.__name__
             status.put((ui.STATUS, f'Rendering {src_name}...'))
@@ -123,7 +123,7 @@ def process_layers(size: Sequence[int],
 
     # There are two possibilities for how the layers should be
     # blended: masked or unmasked. Masked blends will have a
-    # ValueSource in the mask attribute, which needs to be sent
+    # Source in the mask attribute, which needs to be sent
     # to the blending operation.
     if layers.mask is not None:
         if status is not None:
@@ -146,11 +146,11 @@ def process_layers(size: Sequence[int],
     return layers.blend(a, b, layers.blend_amount)
 
 
-def render_source(source: ValueSource,
+def render_source(source: Source,
                   size: Sequence[int],
                   location: Sequence[int] = (0, 0, 0),
                   filters: Sequence[f.Filter] = None) -> np.ndarray:
-    """Create image data from a ValueSource."""
+    """Create image data from a Source."""
     # You don't want to set the default value for a parameter to a
     # mutable value because it will remember any changes to it leading
     # to unexpected behavior.

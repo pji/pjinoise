@@ -46,7 +46,7 @@ class CachingTestCase(ut.TestCase):
         ]
 
         # Set up test data and state.
-        class Source(s.ValueSource):
+        class Source(s.Source):
             def __init__(self, value):
                 self.value = value
 

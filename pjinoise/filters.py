@@ -208,8 +208,8 @@ from pjinoise import common as c
 from pjinoise import ease as e
 from pjinoise import operations as op
 from pjinoise import sources as s
+from pjinoise.base import Filter
 from pjinoise.constants import COLOR, X, Y, Z
-from pjinoise.base import Serializable
 
 
 # Decorators
@@ -255,40 +255,6 @@ def scaled(fn: Callable) -> Callable:
 
 
 # Layer filter classes.
-class Filter(Serializable):
-    """The base class for filter objects."""
-    padding = None
-
-    # Public methods.
-    def asdict(self) -> dict:
-        """Serialize the object to a dictionary."""
-        attrs = self.__dict__.copy()
-        attrs['type'] = get_regname_for_class(self)
-        if 'ease' in attrs:
-            attrs['ease'] = e.get_regname_for_func(attrs['ease'])
-        if 'padding' in attrs:
-            del attrs['padding']
-        attrs = c.remove_private_attrs(attrs)
-        return attrs
-
-    def preprocess(self, size: Sequence[int],
-                   original_size: Sequence[int]) -> Tuple[int]:
-        """Determine the size the filter needs the image to be during
-        processing.
-        """
-        return tuple(size)
-
-    @abstractmethod
-    def process(self, values: np.array) -> np.array:
-        """Run the filter over the image."""
-
-    def postprocess(self, size: Sequence[int], *args) -> Sequence[int]:
-        """Return the original size of the image."""
-        if self.padding is None:
-            return size
-        return tuple(n - pad for n, pad in zip(size, self.padding))
-
-
 class BoxBlur(Filter):
     """Blur each pixel in an image based on the values of a box of
     the surrounding pixels.

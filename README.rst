@@ -7,12 +7,24 @@ Noise image generation for those not wanting to do it in Photoshop.
 
 How do I run the code?
 ----------------------
-To run pjinoise, clone this repository to your local system and run the 
-following from the repository::
+The best ways to get started is to clone this repository to your
+local system and take a look at the following files in the root of
+the repository:
 
-    python3 pjinoise -h
+*   mazer.py: An example script that creates the image of a maze.
+*   template.py: A generic template for a script to create an image
+    with pjinoise.
 
-That will get you the help information for pjinoise.
+I'll be trying to add more documentation as I go, but this really
+wasn't intended to be used by anyone other than me. I can't promise
+it will ever be fully documented.
+
+
+Can I install this as a package from pip?
+-----------------------------------------
+Not at this point. If someone else ever reads this and would like
+that, let me know. I do plan on doing it eventually just to learn
+how to do it. I'm not in any rush, though.
 
 
 How do I run the tests?
@@ -27,3 +39,15 @@ There is a shortcut script to run the unit tests, style checks, and
 remove trailing whitespace::
 
     python3 precommit.py
+
+
+How do I contribute?
+--------------------
+At this time, this is code is really just me exploring and learning.
+I've made it available in case it helps anyone else, but I'm not really
+intending to turn this into anything other than a personal project.
+
+That said, if other people do find it useful and start using it, I'll
+reconsider. If you do use it and see something you want changed or
+added, go ahead and open an issue. If anyone ever does that, I'll
+figure out how to handle it.

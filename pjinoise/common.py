@@ -164,6 +164,14 @@ def remove_private_attrs(map: Mapping) -> Mapping:
     return map
 
 
+def text_to_int(text: Union[bytes, str, int, None]) -> int:
+    if isinstance(text, (int)) or text is None:
+        return text
+    if isinstance(text, str):
+        text = bytes(text, 'utf_8')
+    return int.from_bytes(text, 'little')
+
+
 def trilinear_interpolation(a: np.ndarray, factor: float) -> np.ndarray:
     """Resize an three dimensional array using trilinear
     interpolation.

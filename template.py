@@ -15,7 +15,12 @@ from pjinoise import sources as s
 assert pn.__version__ == '0.3.1'
 
 
+# Basic image file configuration and other commonly used values.
+filename = 'work.jpg'
+filetype = 'JPEG'
+colorspace = 'RGB'
 size = (1, 720, 1280)
+
 
 # Layers.
 layer = m.Layer(**{
@@ -31,9 +36,9 @@ layer = m.Layer(**{
 conf = m.Image(**{
     'source': layer,
     'size': size,
-    'filename': 'work.jpg',
-    'format': 'JPEG',
-    'mode': 'RGB',
+    'filename': filename,
+    'format': filetype,
+    'mode': colorspace,
 })
 
 # Create image.

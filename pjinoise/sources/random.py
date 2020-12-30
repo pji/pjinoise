@@ -534,6 +534,10 @@ class Path(UnitNoise):
     :param inset: (Optional.) Sets how many units from the end of
         the image to draw the path. Units here refers to the unit
         parameter from the UnitNoise parent class.
+    :param origin: (Optional.) Where in the grid to start the path.
+        This can be either a descriptive string or a three-dimensional
+        coordinate. It defaults to the top-left corner of the first
+        three-dimensional slice of the data.
     :param unit: The number of pixels between vertices along an
         axis. The vertices are the locations where colors for
         the gradient are set.
@@ -551,6 +555,24 @@ class Path(UnitNoise):
         generated noise.
     :return: :class:Path object.
     :rtype: pjinoise.sources.Path
+
+    Descriptive Origins
+    -------------------
+    The origin parameter can accept a description of the location
+    instead of direct coordinates. This string must either be two
+    words delimited by a hyphen or two letters. The first position
+    sets the Y axis location can be one of the following options:
+
+    *   top | t
+    *   middle | m
+    *   bottom | b
+
+    The second position sets the X axis position and can be one of
+    the following options:
+
+    *   left | l
+    *   middle | m
+    *   bottom | b
     """
     def __init__(self, width: float = .2,
                  inset: Sequence[int] = (0, 1, 1),
@@ -656,17 +678,40 @@ class Path(UnitNoise):
 
     def _calc_origin(self, origin, unit_dim):
         "Determine the starting location of the cursor."
-        if origin == 'top-left' or origin == 'tl':
-            origin = (0, 0, 0)
-        if origin == 'top-right' or origin == 'tr':
-            origin = (0, 0, unit_dim[X] - 1)
-        if origin == 'bottom-left' or origin == 'bl':
-            origin = (0, unit_dim[Y] - 1, 0)
-        if origin == 'bottom-right' or origin == 'br':
-            origin = (0, unit_dim[Y] - 1, unit_dim[X] - 1)
+        # If origin isn't a string, no further calculation is needed.
+        if not isinstance(origin, str):
+            return origin
+
+        # Coordinates serialized as strings should be comma delimited.
+        if ',' in origin:
+            return c.text_to_ints(origin)
+
+        # If it's neither of the above, it's a descriptive string.
+        result = [0, 0, 0]
+        if '-' in origin:
+            origin = origin.split('-')
+
+        # Allow middle to be a shortcut for middle-middle.
         if origin == 'middle' or origin == 'm':
-            origin = (0, unit_dim[Y] // 2, unit_dim[X] // 2)
-        return origin
+            origin == 'mm'
+
+        # Set the Y axis coordinate.
+        if origin[0] in ('top', 't'):
+            result[Y] = 0
+        if origin[0] in ('middle', 'm'):
+            result[Y] = unit_dim[Y] // 2
+        if origin[0] in ('bottom', 'b'):
+            result[Y] = unit_dim[Y] - 1
+
+        # Set the X axis coordinate.
+        if origin[1] in ('left', 'l'):
+            result[X] = 0
+        if origin[1] in ('middle', 'm'):
+            result[X] = unit_dim[X] // 2
+        if origin[1] in ('right', 'r'):
+            result[X] = unit_dim[X] - 1
+
+        return result
 
     def _draw_path(self, path, size):
         a = np.zeros(size, dtype=float)

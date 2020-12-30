@@ -178,12 +178,15 @@ if __name__ == '__main__':
     doctest.testmod()
 
     kwargs = {
-        'points': 8,
-        'is_3d': False,
-        'seed': 'spam'
+        'width': .34,
+        'inset': (0, 1, 1),
+        'origin': (0, 1, 1),
+        'unit': (1, 3, 3),
+        'seed': 'spam',
+        'ease': 'l',
     }
-    cls = Worley
-    size = (1, 8, 8)
+    cls = Path
+    size = (2, 10, 10)
     obj = cls(**kwargs)
     val = obj.fill(size)
     c.print_array(val)

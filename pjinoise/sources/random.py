@@ -208,12 +208,10 @@ class Worley(SeededRandom):
     :rtype: pjinoise.sources.Worley
     """
     def __init__(self, points: int,
-                 is_3d: bool = False,
                  volume: Sequence[int] = None,
                  origin: Sequence[int] = (0, 0, 0),
                  *args, **kwargs) -> None:
         self.points = int(points)
-        self.is_3d = is_3d
         self.volume = volume
         self.origin = origin
         super().__init__(*args, **kwargs)
@@ -231,45 +229,86 @@ class Worley(SeededRandom):
         volume = np.array(volume)
 
         # Place the seeds in the overall volume of noise.
-        if self.is_3d:
-            seeds = self._rng.random((self.points, 3))
-            seeds = np.round(seeds * (volume - 1))
-            seeds += np.array(self.origin)
-        else:
-            seeds = self._rng.random((self.points, 2))
-            seeds = np.round(seeds * (volume[Y:] - 1))
-            seeds += np.array(self.origin[Y:])
+        seeds = self._rng.random((self.points, 3))
+        seeds = np.round(seeds * (volume - 1))
+        seeds += np.array(self.origin)
 
         # Map the distances to the points.
-        if not self.is_3d:
-            indices = np.indices(size[Y:])
-            max_dist = np.sqrt(size[Y] ** 2 + size[X] ** 2)
-            dist = np.zeros(size[Y:], dtype=float)
-            dist.fill(max_dist)
-            for i in range(self.points):
-                point = seeds[i]
-                work = self._hypot(point, indices)
-                dist[work < dist] = work[work < dist]
-        else:
-            indices = np.indices(size)
-            max_dist = np.sqrt(sum(n ** 2 for n in size))
-            dist = np.zeros(size, dtype=float)
-            dist.fill(max_dist)
-            for i in range(self.points):
-                point = seeds[i]
-                work = self._hypot(point, indices)
-                dist[work < dist] = work[work < dist]
+        indices = np.indices(size)
+        max_dist = np.sqrt(sum(n ** 2 for n in size))
+        dist = np.zeros(size, dtype=float)
+        dist.fill(max_dist)
+        for i in range(self.points):
+            point = seeds[i]
+            work = self._hypot(point, indices)
+            dist[work < dist] = work[work < dist]
 
         act_max_dist = np.max(dist)
         a = dist / act_max_dist
-        if not self.is_3d:
-            a = np.tile(a, (size[Z], 1, 1))
         return a
 
     # Private methods.
     def _hypot(self, point: Sequence[int], indices: np.ndarray) -> np.ndarray:
         axis_dist = [p - i for p, i in zip(point, indices)]
         return np.sqrt(sum(d ** 2 for d in axis_dist))
+
+
+class WorleyCell(Worley):
+    """Fill a space with Worley noise that fills each cell with a
+    solid color.
+    """
+    def __init__(self, antialias: bool = True, *args, **kwargs) -> None:
+        self.antialias = antialias
+        super().__init__(*args, **kwargs)
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = None) -> np.ndarray:
+        """Return a space filled with noise."""
+        m = 0
+        a = np.zeros(size, dtype=float)
+        volume = self.volume
+        if volume is None:
+            volume = size
+        volume = np.array(volume)
+
+        # Place the seeds in the overall volume of noise.
+        seeds = self._rng.random((self.points, 3))
+        seeds = np.round(seeds * (volume - 1))
+        seeds += np.array(self.origin)
+
+        # Assign a color for each seed.
+        colors = [n / (self.points - 1) for n in range(self.points)]
+
+        # Map the distances to the points.
+        def _hypot(point, indices, i):
+            diffs = (indices - point) ** 2
+            diffs = np.sqrt(np.sum(diffs, -1))
+            result = np.zeros(diffs.shape, dtype=[('d', float), ('i', float)])
+            result['d'] = diffs
+            result['i'].fill(i)
+            return result
+
+        indices = np.indices(size)
+        indices = np.transpose(indices, (1, 2, 3, 0))
+        dist = np.zeros((self.points, *size),
+                        dtype=[('d', float), ('i', float)])
+        for i in range(self.points):
+            dist[i] = _hypot(seeds[i], indices, i)
+        dist = np.transpose(dist, (1, 2, 3, 0))
+        dist.sort(3, order='d')
+        map = dist[:, :, :, 0]['i']
+        a = np.take(colors, map.astype(int))
+
+        if self.antialias:
+            nmap = dist[:, :, :, 1]['i']
+            m = dist[:, :, :, 1]['d'] - dist[:, :, :, 0]['d'] < 1
+            b = np.take(colors, nmap.astype(int))
+            x = dist[:, :, :, 1]['d'] - dist[:, :, :, 0]['d']
+            x[m] = 1 - (x[m] / 2 + .5)
+            a[m] = c.lerp(a[m], b[m], x[m])
+
+        return a
 
 
 # Random noise using unit cubes.
@@ -693,7 +732,7 @@ class Path(UnitNoise):
 
         # Allow middle to be a shortcut for middle-middle.
         if origin == 'middle' or origin == 'm':
-            origin == 'mm'
+            origin = 'mm'
 
         # Set the Y axis coordinate.
         if origin[0] in ('top', 't'):

@@ -866,38 +866,6 @@ class RandomTestCase(ut.TestCase):
         source_fill_test(self, exp, cls, kwargs, size)
 
     def test_worley_fill(self):
-        """Given a size and a location, Worley.fill should fill the
-        space with Worley noise. Worley noise is a cellular noise
-        algorithm, where the color value is determined by the pixel's
-        distance from the closest of a number of randomly placed
-        points.
-        """
-        # Expected value.
-        exp = [
-            [
-                [0x72, 0x51, 0x72, 0x51, 0x00, 0x51, 0xa1, 0xf2],
-                [0x51, 0x00, 0x51, 0x72, 0x51, 0x72, 0xb4, 0xff],
-                [0x00, 0x00, 0x51, 0xa1, 0xa1, 0xb4, 0xe4, 0xff],
-                [0x51, 0x51, 0x72, 0xb4, 0xa1, 0xb4, 0xa1, 0xb4],
-                [0x72, 0x51, 0x72, 0x72, 0x51, 0x72, 0x51, 0x72],
-                [0x51, 0x00, 0x51, 0x51, 0x00, 0x51, 0x00, 0x51],
-                [0x72, 0x51, 0x72, 0x72, 0x51, 0x72, 0x51, 0x72],
-                [0xb4, 0xa1, 0xb4, 0xb4, 0xa1, 0xb4, 0xa1, 0xb4],
-            ],
-        ]
-
-        # Set up test data and state.
-        kwargs = {
-            'points': 8,
-            'seed': 'spam'
-        }
-        cls = s.Worley
-        size = (1, 8, 8)
-
-        # Run test.
-        source_fill_test(self, exp, cls, kwargs, size)
-
-    def test_worley_3d_fill(self):
         """Given a size and a location and whether the points should
         be scattered over the Z axis, Worley.fill should fill the
         space with Worley noise. Worley noise is a cellular noise
@@ -937,6 +905,39 @@ class RandomTestCase(ut.TestCase):
         }
         cls = s.Worley
         size = (2, 8, 8)
+
+        # Run test.
+        source_fill_test(self, exp, cls, kwargs, size)
+
+    def test_worleycell_fill(self):
+        """Given a size and a location and whether the points should
+        be scattered over the Z axis, Worley.fill should fill the
+        space with Worley noise. Worley noise is a cellular noise
+        algorithm, where the color value is determined by the pixel's
+        distance from the closest of a number of randomly placed
+        points.
+        """
+        # Expected value.
+        exp = [
+            [
+                [0xdc, 0xff, 0xff, 0xff, 0xfd, 0xcf, 0xab, 0xaa],
+                [0xaa, 0xff, 0xff, 0xff, 0xdb, 0xaa, 0xaa, 0xaa],
+                [0x55, 0xaa, 0xdc, 0xee, 0xad, 0xaa, 0xaa, 0xaa],
+                [0x55, 0x78, 0xaa, 0xbb, 0xaa, 0xaa, 0xaa, 0xaa],
+                [0x55, 0x69, 0x78, 0x9b, 0xaa, 0xaa, 0xaa, 0x9b],
+                [0x55, 0x63, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55],
+                [0x55, 0x25, 0x22, 0x0f, 0x00, 0x00, 0x00, 0x0f],
+                [0x2f, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            ],
+        ]
+
+        # Set up test data and state.
+        kwargs = {
+            'points': 4,
+            'seed': 'spam',
+        }
+        cls = s.WorleyCell
+        size = (1, 8, 8)
 
         # Run test.
         source_fill_test(self, exp, cls, kwargs, size)

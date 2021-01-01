@@ -481,16 +481,11 @@ def rgb_hue(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """
     if len(a.shape) != 4:
         raise ValueError('Given arrays must be RGB images.')
-    ab = np.zeros_like(a)
-    for i in range(a.shape[0]):
-        a_hsv = cv2.cvtColor(a[i].astype(np.float32), cv2.COLOR_RGB2HSV)
-        b_hsv = cv2.cvtColor(b[i].astype(np.float32), cv2.COLOR_RGB2HSV)
-        ab_hsv = a_hsv.copy()
-        ab_hsv[:, :, 0] = b_hsv[:, :, 0] * (b_hsv[:, :, 2] / 0xff)
-        ab_hsv[:, :, 0] += a_hsv[:, :, 0] * (1 - (b_hsv[:, :, 2] / 0xff))
-        ab_rgb = cv2.cvtColor(ab_hsv, cv2.COLOR_HSV2RGB)
-        ab[i] = ab_rgb
-    return ab
+    a_hsv = convert_color_space(a, 'RGB', 'HSV')
+    b_hsv = convert_color_space(b, 'RGB', 'HSV')
+    ab = b_hsv.copy()
+    ab[:, :, :, 2] = a_hsv[:, :, :, 2]
+    return convert_color_space(ab, 'HSV', 'RGB')
 
 
 # Registration and deserialization utility functions.

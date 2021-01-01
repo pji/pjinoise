@@ -149,6 +149,20 @@ def print_array(a: np.ndarray, depth: int = 0) -> None:
         print(' ' * (4 * depth) + '[' + ', '.join(nums) + '],')
 
 
+def print_float_array(a: np.ndarray, depth: int = 0) -> None:
+    """Write the values of the given array to stdout."""
+    if len(a.shape) > 1:
+        print(' ' * (4 * depth) + '[')
+        for i in range(a.shape[0]):
+            print_float_array(a[i], depth + 1)
+        print(' ' * (4 * depth) + '],')
+
+    else:
+        tmp = '{:05.2f}'
+        nums = [tmp.format(n) for n in a]
+        print(' ' * (4 * depth) + '[' + ', '.join(nums) + '],')
+
+
 def print_seq(seq: Sequence[Any], depth: int = 0) -> None:
     """Write the values of the given sequence to stdout."""
     print_array(np.array(seq))

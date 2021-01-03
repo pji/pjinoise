@@ -7,6 +7,7 @@ Sources for the pjinoise module that create non-random patterns.
 from typing import Any, Callable, List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 from pjinoise import common as c
 from pjinoise.constants import X, Y, Z
@@ -470,6 +471,94 @@ class Spot(Source):
         a = 1 - (a / np.sqrt(2 * self.radius ** 2))
         a[a > 1] = 1
         a[a < 0] = 0
+        return a
+
+
+class Text(Source):
+    """Place text within the image."""
+    def __init__(self, text: str,
+                 font: str = 'Verdana',
+                 size: float = 10,
+                 face: int = 0,
+                 encoding: str = 'unic',
+                 layout_engine: Union[str, None] = None,
+                 origin: Tuple[int] = (0, 0),
+                 start: int = 0,
+                 duration: Union[int, None] = None,
+                 fill_color: float = 1,
+                 bg_color: float = 0,
+                 spacing: Union[float] = .2,
+                 spacing_mode: str = 'proportional',
+                 align: str = 'left',
+                 stroke_width: float = 0,
+                 stroke_fill: float = 0,
+                 *args, **kwargs) -> None:
+        self.text = text
+        self.font = font
+        self.size = size
+        self.face = face
+        self.encoding = encoding
+
+        if not layout_engine:
+            self.layout_engine = None
+        elif layout_engine == 'basic':
+            self.layout_engine = ImageFont.LAYOUT_BASIC
+        elif layout_engine == 'raqm':
+            self.layout_engine = ImageFont.LAYOUT_RAQM
+        else:
+            msg = f'{layout_engine} is not a valid value for layout_engine.'
+            raise ValueError(msg)
+
+        self.origin = origin
+        self.start = start
+        self.duration = duration
+        self.fill_color = int(fill_color * 0xff)
+        self.bg_color = int(bg_color * 0xff)
+
+        if spacing_mode == 'proportional' or spacing_mode == 'p':
+            self.spacing = self.size * spacing
+        else:
+            self.spacing = spacing
+
+        self.align = align
+        self.stroke_width = stroke_width
+        self.stroke_fill = stroke_fill
+        super().__init__(*args, **kwargs)
+
+        self._font = ImageFont.truetype(self.font, self.size, self.face,
+                                        self.encoding, self.layout_engine)
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Return a space filled with noise."""
+        a = np.zeros(size, float)
+        origin = [o + l for o, l in zip(self.origin, loc[Y:])]
+        start = self.start - loc[Z]
+        if self.duration is None:
+            end = size[Z]
+        else:
+            end = start + self.duration
+
+        img = Image.new('L', (size[X], size[Y]), self.bg_color)
+        draw = ImageDraw.Draw(img)
+        draw.text(
+            xy=origin,
+            text=self.text,
+            fill=self.fill_color,
+            font=self._font,
+            anchor=None,
+            spacing=self.spacing,
+            align=self.align,
+            stroke_width=self.stroke_width,
+            stroke_fill=self.stroke_fill
+        )
+        for i in range(a.shape[Z]):
+            if i >= end:
+                break
+            if i >= start:
+                a[i] = (np.array(img).astype(float) / 0xff)
+
         return a
 
 

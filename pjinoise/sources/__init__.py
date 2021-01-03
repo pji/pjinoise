@@ -133,12 +133,14 @@ registered_sources = {
     'solid': Solid,
     'spheres': Spheres,
     'spot': Spot,
+    'text': Text,
     'waves': Waves,
 
     'curtains': Curtains,
     'cosinecurtains': CosineCurtains,
     'embers': Embers,
     'worley': Worley,
+    'worleycell': WorleyCell,
     'path': Path,
     'animatedpath': AnimatedPath,
     'perlin': Perlin,
@@ -178,11 +180,12 @@ if __name__ == '__main__':
     doctest.testmod()
 
     kwargs = {
-        'points': 4,
-        'seed': 'spam',
+        'text': 's',
+        'size': 6,
+        'origin': (3, 0),
     }
-    cls = WorleyCell
-    size = (1, 8, 8)
+    cls = Text
+    size = (1, 10, 10)
     obj = cls(**kwargs)
     val = obj.fill(size)
     c.print_array(val)

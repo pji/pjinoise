@@ -21,6 +21,7 @@ def main(seed=None, origin=(0, 0, 0)):
     # Set up the size and structure of the maze.
     size = (1, 720, 560)
     units = (1, 20, 20)
+    title = seed.replace('_', ' ').upper()
 
     # The maze interior.
     path = m.Layer(**{
@@ -40,10 +41,15 @@ def main(seed=None, origin=(0, 0, 0)):
         'source': s.Box((0, 692, 540), (1, 16, 20), 1.0),
         'blend': op.lighter,
     })
+    
+    title = m.Layer(**{
+        'source': s.Text(title, origin=(12, 1), font='Helvetica', face=1),
+        'blend': op.lighter,
+    })
 
     # Put it all together and you get the maze.
     maze = m.Layer(**{
-        'source': [path, entrance, exit],
+        'source': [path, entrance, exit, title],
         'blend': op.replace,
     })
 

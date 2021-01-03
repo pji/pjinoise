@@ -4,13 +4,13 @@ static
 
 Sources for the pjinoise module that create non-random patterns.
 """
-from typing import Any, Callable, List, Mapping, Sequence, Tuple, Union
+from typing import Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from pjinoise import common as c
-from pjinoise.constants import X, Y, Z
+from pjinoise.constants import TEXT, X, Y, Z
 from .source import Source, eased
 
 
@@ -32,7 +32,7 @@ class Box(Source):
         self.origin = origin
         self.dimensions = dimensions
         self.color = color
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
     # Public methods.
     def fill(self, size: Sequence[int],
@@ -598,12 +598,12 @@ class Waves(Source):
         # Perform a spherical interpolation on the points in the
         # volume and run the easing function on the results.
         c = np.sqrt(c[X] ** 2 + c[Y] ** 2)
-        if self.growth == 'l' or growth == 'linear':
+        if self.growth == 'l' or self.growth == 'linear':
             a = c % self.length
             a /= self.length
             a = abs(a - .5) * 2
 
-        elif self.growth == 'g' or growth == 'geometric':
+        elif self.growth == 'g' or self.growth == 'geometric':
             in_length = 0
             out_length = self.length
             while in_length < np.max(c):

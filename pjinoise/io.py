@@ -5,7 +5,7 @@ io
 Input/output for the pjinoise module.
 """
 import json
-from typing import Any, Mapping, MutableMapping, Sequence, Union
+from typing import Any, MutableMapping, Sequence, Union
 
 import cv2
 import numpy as np

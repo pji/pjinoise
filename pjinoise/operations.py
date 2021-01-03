@@ -105,9 +105,7 @@ execution vulnerabilities though deserialization.
 from functools import wraps
 from typing import Callable, Union
 
-import cv2
 import numpy as np
-from PIL import Image
 
 from pjinoise.common import convert_color_space
 

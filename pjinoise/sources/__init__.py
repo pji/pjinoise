@@ -117,7 +117,7 @@ deserialized from JSON objects. It also should provide a measure of
 input validation at deserialization to reduce the risk of remote code
 execution vulnerabilities though deserialization.
 """
-from typing import Mapping
+from typing import Dict
 
 from pjinoise.sources.random import *
 from pjinoise.sources.source import *
@@ -159,7 +159,7 @@ registered_sources = {
 
 
 # Registration utility functions.
-def deserialize_source(attrs: Mapping) -> 'Source':
+def deserialize_source(attrs: Dict) -> 'Source':
     cls = registered_sources[attrs['type']]
     del attrs['type']
     try:

@@ -10,8 +10,6 @@ import sys
 import time
 from typing import Tuple
 
-from pjinoise.constants import TEXT
-
 
 # Shortcut names for writing to standard output.
 write, flush = sys.stdout.write, sys.stdout.flush
@@ -24,7 +22,7 @@ KILL = 0xe
 END = 0xf
 
 
-def split_time(duration: float) -> Tuple[int]:
+def split_time(duration: float) -> Tuple[int, int, int]:
     s = duration % 60
     duration -= s
     m = duration % 3600
@@ -35,7 +33,7 @@ def split_time(duration: float) -> Tuple[int]:
     return h, m, s
 
 
-def update_progress(progress: str, stages_done: int, status: deque) -> None:
+def update_progress(progress: str, stages_done: int, status: deque) -> str:
     progress = list(progress)
     progress[stages_done] = '\u2588'
     progress = ''.join(progress)

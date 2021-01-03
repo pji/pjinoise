@@ -77,7 +77,7 @@ def build_config(args: argparse.Namespace) -> m.Image:
     })
 
 
-def parse_cli_args() -> None:
+def parse_cli_args() -> argparse.Namespace:
     """Parse the command line arguments."""
     # Define the command line options.
     options = {

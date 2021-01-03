@@ -41,7 +41,7 @@ def main(seed=None, origin=(0, 0, 0)):
         'source': s.Box((0, 692, 540), (1, 16, 20), 1.0),
         'blend': op.lighter,
     })
-    
+
     title = m.Layer(**{
         'source': s.Text(title, origin=(12, 1), font='Helvetica', face=1),
         'blend': op.lighter,

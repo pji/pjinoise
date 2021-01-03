@@ -40,15 +40,12 @@ from threading import Thread
 from typing import Sequence, Tuple, Union
 
 import numpy as np
-from PIL import Image
 
 from pjinoise import cli
 from pjinoise import filters as f
 from pjinoise import io
 from pjinoise import ui
-from pjinoise.__version__ import __version__
 from pjinoise.common import convert_color_space as _convert_color_space
-from pjinoise.constants import X, Y, Z
 from pjinoise.model import Image, Layer
 from pjinoise.sources import Source
 
@@ -158,7 +155,7 @@ def render_source(source: Source,
         filters = []
 
     # Pad the image size and adjust the location so that the padding
-    # doesn't change where the image data is generaterated within the
+    # doesn't change where the image data is generated within the
     # source.
     new_size = f.preprocess(size, filters)
     if new_size != size:
@@ -182,8 +179,8 @@ def render_source(source: Source,
 # Mainline.
 def main(silent: bool = True, conf: Image = None) -> None:
     """Mainline."""
+    status = None
     try:
-        status = None
         if not conf:
             args = cli.parse_cli_args()
             if args.load_config:

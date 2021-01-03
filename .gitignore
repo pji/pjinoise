@@ -21,8 +21,9 @@
 # Ignore macOS files.
 .DS_Store
 
-# Ignore virtual environments.
+# Ignore virtual environments and IDE files.
 .venv
+.idea
 
 # Ignore experiments.
 audio.py

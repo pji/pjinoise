@@ -5,7 +5,7 @@ random
 Sources for the pjinoise module that involve random generation.
 """
 from operator import itemgetter
-from typing import Any, List, Mapping, Sequence, Tuple, Union
+from typing import Any, List, Sequence, Tuple, Union
 
 import cv2
 import numpy as np
@@ -64,9 +64,9 @@ class SeededRandom(Source):
         # then accept. Then we need to burn again until we get to
         # the second row, and so on. This implementation isn't very
         # memory efficient, but it should do the trick.
-        new_size = [s + l for s, l in zip(size, loc)]
+        new_size = [s + l for s, l in zip(size, new_loc)]
         a = self._rng.random(new_size)
-        slices = tuple(slice(n, None) for n in loc)
+        slices = tuple(slice(n, None) for n in new_loc)
         a = a[slices]
         return a
 
@@ -443,7 +443,7 @@ class UnitNoise(Source):
         return hash_table
 
     def _measure_units(self, indices: np.ndarray,
-                       axes: Sequence[int]) -> Tuple[np.ndarray]:
+                       axes: Sequence[int]) -> Tuple[np.ndarray, np.ndarray]:
         """Split the noise volume into unit cubes/squares.
 
         :param indices: An array that indexes each pixel in the
@@ -754,7 +754,7 @@ class Path(UnitNoise):
 
         # Coordinates serialized as strings should be comma delimited.
         if ',' in origin:
-            return c.text_to_ints(origin)
+            return c.text_to_int(origin)
 
         # If it's neither of the above, it's a descriptive string.
         result = [0, 0, 0]
@@ -1438,7 +1438,7 @@ class TilePaths(Source):
     :return: :class:TilePaths object.
     :rtype: pjinoise.sources.TilePaths
     """
-    def __init__(self, tile_size: Sequence[float],
+    def __init__(self, tile_size: Sequence[int],
                  seeds: Sequence[Any],
                  unit: Sequence[int],
                  line_width: float = .2,
@@ -1474,7 +1474,7 @@ class TilePaths(Source):
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         a = np.zeros(size, dtype=float)
         cursor = [0, 0, 0]
-        seeds = self.seeds[:]
+        seeds = list(self.seeds)
         while cursor[Y] < size[Y]:
             while cursor[X] < size[X]:
                 if seeds:

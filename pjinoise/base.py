@@ -49,7 +49,7 @@ class Serializable(ABC):
         cls = self.__class__.__name__
         attrs['type'] = cls.casefold()
         attrs = c.remove_private_attrs(attrs)
-        return attrs
+        return dict(attrs)
 
 
 class Filter(Serializable):

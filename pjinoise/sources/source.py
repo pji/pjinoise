@@ -8,7 +8,6 @@ from abc import abstractmethod
 from functools import wraps
 import typing as t
 
-from pjinoise import common as c
 from pjinoise import ease as e
 from pjinoise.base import Serializable
 
@@ -53,9 +52,9 @@ class Source(Serializable):
              location: t.Sequence[int] = None) -> 'numpy.ndarray':
         """Return a space filled with noise."""
 
-    def noise(self, coords: t.Sequence[float]) -> int:
+    def noise(self, coords: t.Sequence[int]) -> int:
         """Generate the noise value for the given coordinates."""
-        size = [1 for n in range(len(coords))]
+        size = [1 for _ in range(len(coords))]
         value = self.fill(size, coords)
-        index = [0 for n in range(len(coords))]
+        index = [0 for _ in range(len(coords))]
         return value[index]

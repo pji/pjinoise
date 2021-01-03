@@ -4,8 +4,7 @@ common
 
 Utilities and other commonly reused functions for pjinoise.
 """
-from functools import wraps
-from typing import Any, List, Mapping, Sequence, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image
@@ -63,7 +62,7 @@ def convert_color_space(a: np.ndarray,
 
     # PIL.image.convert can only convert two-dimensional (or three,
     # with color channel being the third) images. So, for animations
-    # we have to iterate through the Z axis, coverting one frame at
+    # we have to iterate through the Z axis, converting one frame at
     # a time. Since pjinoise thinks of still images as single frame
     # animations, this means we're always going to have to handle
     # the Z axis like this.
@@ -165,10 +164,10 @@ def print_float_array(a: np.ndarray, depth: int = 0) -> None:
 
 def print_seq(seq: Sequence[Any], depth: int = 0) -> None:
     """Write the values of the given sequence to stdout."""
-    print_array(np.array(seq))
+    print_array(np.array(seq), depth)
 
 
-def remove_private_attrs(map: Mapping) -> Mapping:
+def remove_private_attrs(map: Dict) -> Dict:
     """Remove the keys for private attributes from an object that
     has been serialized as an mapping.
     """
@@ -178,8 +177,8 @@ def remove_private_attrs(map: Mapping) -> Mapping:
     return map
 
 
-def text_to_int(text: Union[bytes, str, int, None]) -> int:
-    if isinstance(text, (int)) or text is None:
+def text_to_int(text: Union[bytes, str, int, None]) -> Union[int, None]:
+    if isinstance(text, int) or text is None:
         return text
     if isinstance(text, str):
         text = bytes(text, 'utf_8')
@@ -250,7 +249,6 @@ def trilinear_interpolation(a: np.ndarray, factor: float) -> np.ndarray:
         # map the three dimensional indices of the original array to
         # the one dimensional indices used by the raveled version of
         # that array.
-        raveled_indices = np.zeros(mag_size)
         raveled_indices = hash_whole[Z] * a.shape[Y] * a.shape[X]
         raveled_indices += hash_whole[Y] * a.shape[X]
         raveled_indices += hash_whole[X]

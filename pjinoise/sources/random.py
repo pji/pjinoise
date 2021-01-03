@@ -195,6 +195,13 @@ class Worley(SeededRandom):
     :param points: The number of cells in the image. A cell is a
         randomly placed point and the range of pixels that are
         closer to it than any other point.
+    :param volume: (Optional.) The size of the volume that the points
+        will be placed in. The default is for them to be evenly spread
+        through the space generated during the fill.
+    :param origin: (Optional.) The location of the upper-top-left
+        corner of the volume that contains the points. This defaults
+        to the upper-top-left corner of the space generated during the
+        fill.
     :param seed: (Optional.) An int, bytes, or string used to seed
         therandom number generator used to generate the image data.
         If no value is passed, the RNG will not be seeded, so
@@ -256,6 +263,30 @@ class Worley(SeededRandom):
 class WorleyCell(Worley):
     """Fill a space with Worley noise that fills each cell with a
     solid color.
+
+    :param antialias: (Optional.) Soften the edges of the cell
+        boundaries. Defaults to true.
+    :param points: The number of cells in the image. A cell is a
+        randomly placed point and the range of pixels that are
+        closer to it than any other point.
+    :param volume: (Optional.) The size of the volume that the points
+        will be placed in. The default is for them to be evenly spread
+        through the space generated during the fill.
+    :param origin: (Optional.) The location of the upper-top-left
+        corner of the volume that contains the points. This defaults
+        to the upper-top-left corner of the space generated during the
+        fill.
+    :param seed: (Optional.) An int, bytes, or string used to seed
+        therandom number generator used to generate the image data.
+        If no value is passed, the RNG will not be seeded, so
+        serialized versions of this source will not product the
+        same values. Note: strings that are passed to seed will
+        be converted to UTF-8 bytes before being converted to
+        integers for seeding.
+    :param ease: (Optional.) The easing function to use on the
+        generated noise.
+    :return: :class:WorleyCell object.
+    :rtype: pjinoise.sources.WorleyCell
     """
     def __init__(self, antialias: bool = True, *args, **kwargs) -> None:
         self.antialias = antialias

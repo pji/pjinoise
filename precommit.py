@@ -7,6 +7,7 @@ Things that should be done before committing changes to the repo.
 """
 import doctest
 import glob
+from itertools import zip_longest
 import pycodestyle as pcs
 import unittest as ut
 import sys
@@ -72,10 +73,28 @@ print('Unit tests complete.')
 
 # Only continue with precommit checks if the unit tests passed.
 if not result.errors and not result.failures:
-    # Freeze requirements.
-    print('Freezing requirements...')
-    os.system('python -m pip freeze > requirements.txt')
-    print('Requirements frozen...')
+    # Check requirements.
+    print('Checking requirements...')
+    current = os.popen('.venv/bin/python -m pip freeze').readlines()
+    with open('requirements.txt') as fh:
+        old = fh.readlines()
+    
+    # If the packages installed don't match the requirements, it's
+    # likely the requirements need to be updated. Display the two
+    # lists to the user, and let them make the decision whether
+    # to freeze the new requirements.
+    if current != old:
+        print('requirements.txt out of date.')
+        print()
+        tmp = '{:<30} {:<30}'
+        print(tmp.format('old', 'current'))
+        for c, o in zip_longest(current, old, fillvalue=''):
+            print(tmp.format(c[:-1], o[:-1]))
+        print()
+        update = input('Update? [y/N]: ')
+        if update.casefold() == 'y':
+            os.system('.venv/bin/python -m pip freeze > requirements.txt')
+    print('Requirements checked...')
 
     # Run documentation tests.
     print('Running doctests...')

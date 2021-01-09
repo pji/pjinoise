@@ -707,12 +707,6 @@ class PatternTestCase(ut.TestCase):
         cls = s.Text
         size = (1, 10, 10)
 
-#         obj = cls(**kwargs)
-#         act = obj.fill(size)
-#         act = grayscale_to_ints_list(act)
-#         print_array(np.array(exp))
-#         print_array(np.array(act))
-
         # Run test.
         source_fill_test(self, exp, cls, kwargs, size)
 

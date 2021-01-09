@@ -8,13 +8,15 @@ Things that should be done before committing changes to the repo.
 import doctest
 import glob
 from itertools import zip_longest
-import unittest as ut
-import sys
 import os
+import sys
+import unittest as ut
+from textwrap import wrap
 
 import pycodestyle as pcs
 import rstcheck
 
+from pjinoise import common
 from pjinoise import ease
 from pjinoise import filters
 from pjinoise import model
@@ -23,33 +25,35 @@ from pjinoise import sources
 
 
 # Script configuration.
+doctest_modules = [
+    common,
+    ease,
+    filters,
+    model,
+    operations,
+    sources,
+]
+ignore = []
 python_files = [
+    './*',
     'tests/*',
     'pjinoise/*',
     'pjinoise/sources/*',
-    'mazer.py',
-    'template.py',
-    'precommit.py',
+]
+rst_files = [
+    './*',
+    'docs/*',
 ]
 unit_tests = 'tests'
 
 
 # Checks.
-def check_venv():
-    """Ensure this is running from the virtual environment for
-    pjinoise. I know this is a little redundant with the shebang
-    line at the top, but debugging issues caused by running from
-    the wrong venv are a giant pain.
-    """
-    venv_path = '.venv/bin/python'
-    dir_delim = '/'
-    cwd = os.getcwd()
-    exp_path = cwd + dir_delim + venv_path
-    act_path = sys.executable
-    if exp_path != act_path:
-        msg = (f'precommit run from unexpected python: {act_path}. '
-               f'Run from {exp_path} instead.')
-        raise ValueError(msg)
+def check_doctests(modules):
+    """Run documentation tests."""
+    print('Running doctests...')
+    for mod in modules:
+        doctest.testmod(mod)
+    print('Doctests complete.')
 
 
 def check_requirements():
@@ -77,6 +81,56 @@ def check_requirements():
     print('Requirements checked...')
 
 
+def check_rst(file_paths):
+    """Remove trailing whitespace."""
+    def action(files):
+        results = []
+        for file in files:
+            with open(file) as fh:
+                lines = fh.read()
+            result = list(rstcheck.check(lines))
+            if result:
+                results.append(file, *result)
+        return results
+
+    def result_handler(result):
+        if result:
+            for line in result:
+                print(' ' * 4 + line)
+
+    title = 'Checking RSTs'
+    file_ext = '.rst'
+    run_check_on_files(title, action, file_paths, file_ext, result_handler)
+
+
+def check_style(file_paths):
+    """Remove trailing whitespace."""
+    def result_handler(result):
+        if result.get_count():
+            for msg in result.result_messages:
+                lines = wrap(msg, 78)
+                print(' ' * 4 + lines[0])
+                for line in lines[1:]:
+                    print(' ' * 6 + line)
+            result.result_messages = []
+
+    class StyleReport(pcs.BaseReport):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.result_messages = []
+
+        def error(self, line_number, offset, text, check):
+            super().error(line_number, offset, text, check)
+            msg = (f'{self.filename} {line_number}:{offset} {text}')
+            self.result_messages.append(msg)
+
+    title = 'Checking style'
+    style = pcs.StyleGuide(config_file='setup.cfg', reporter=StyleReport)
+    action = style.check_files
+    file_ext = '.py'
+    run_check_on_files(title, action, file_paths, file_ext, result_handler)
+
+
 def check_unit_tests(path):
     """Run the unit tests."""
     print('Running unit tests...')
@@ -88,72 +142,92 @@ def check_unit_tests(path):
     return result
 
 
-def check_whitespace(check_list):
+def check_venv():
+    """Ensure this is running from the virtual environment for
+    pjinoise. I know this is a little redundant with the shebang
+    line at the top, but debugging issues caused by running from
+    the wrong venv are a giant pain.
+    """
+    venv_path = '.venv/bin/python'
+    dir_delim = '/'
+    cwd = os.getcwd()
+    exp_path = cwd + dir_delim + venv_path
+    act_path = sys.executable
+    if exp_path != act_path:
+        msg = (f'precommit run from unexpected python: {act_path}. '
+               f'Run from {exp_path} instead.')
+        raise ValueError(msg)
+
+
+def check_whitespace(file_paths):
     """Remove trailing whitespace."""
-    print('Checking whitespace...')
-    for path in check_list:
-        print(f'Removing whitespace from {path}...', end='')
-        files = glob.glob(path)
-        files = [name for name in files if name.endswith('.py')]
-        for file in files:
-            remove_whitespace(file)
-        print('. Done.')
-    print('Whitespace checked.')
+    title = 'Checking whitespace'
+    action = remove_whitespace
+    file_ext = '.py'
+    run_check_on_files(title, action, file_paths, file_ext)
 
 
 # Utility functions.
+def in_ignore(name):
+    for item in ignore:
+        if name.endswith(item):
+            return True
+    return False
+
+
+def run_check_on_files(title, action, file_paths,
+                       file_ext=None, result_handler=None):
+    print(f'{title}...')
+    for file_path in file_paths:
+        print(' ' * 2 + f'Checking {file_path}...', end='')
+        files = glob.glob(file_path)
+        if file_ext:
+            files = [name for name in files if name.endswith(file_ext)]
+        if ignore:
+            files = [name for name in files if not in_ignore(name)]
+        result = action(files)
+        print('. Done.')
+        if result and result_handler:
+            result_handler(result)
+    print(f'{title} complete.')
+    return result
+
+
 def remove_whitespace(filename):
-    with open(filename, 'r') as fh:
+    if isinstance(filename, (list, tuple)):
+        for item in filename:
+            remove_whitespace(item)
+    else:
+        with open(filename, 'r') as fh:
+            lines = fh.readlines()
+        newlines = [line.rstrip() for line in lines]
+        newlines = [line + '\n' for line in newlines]
+        with open(filename, 'w') as fh:
+            fh.writelines(newlines)
+
+
+def main():
+    with open('./.gitignore') as fh:
         lines = fh.readlines()
-    newlines = [line.rstrip() for line in lines]
-    newlines = [line + '\n' for line in newlines]
-    with open(filename, 'w') as fh:
-        fh.writelines(newlines)
+    for line in lines:
+        if line.endswith('\n'):
+            line = line[:-1]
+        if line:
+            ignore.append(line)
+
+    check_venv()
+    check_whitespace(python_files)
+    result = check_unit_tests(unit_tests)
+
+    # Only continue with precommit checks if the unit tests passed.
+    if not result.errors and not result.failures:
+        check_requirements()
+        check_doctests(doctest_modules)
+        check_style(python_files)
+        check_rst(rst_files)
+
+    else:
+        print('Unit tests failed. Precommit checks aborted. Do not commit.')
 
 
-# Main.
-check_venv()
-check_whitespace(python_files)
-result = check_unit_tests(unit_tests)
-
-# Only continue with precommit checks if the unit tests passed.
-if not result.errors and not result.failures:
-    check_requirements()
-
-    # Run documentation tests.
-    print('Running doctests...')
-    mods = [
-        ease,
-        filters,
-        model,
-        operations,
-        sources,
-    ]
-    for mod in mods:
-        doctest.testmod(mod)
-    print('Doctests complete.')
-
-    # Check the code style.
-    print('Checking style...')
-    style = pcs.StyleGuide(config_file='setup.cfg')
-    style.check_files(['pjinoise/',])
-    style.check_files(['tests/',])
-    style.check_files(['mazer.py',])
-    style.check_files(['template.py',])
-    print('Style checked.')
-
-    # Check the style of the RST docs.
-    print('Checking RSTs...')
-    files = glob.glob('docs/*')
-    files = [name for name in files if name.endswith('.rst')]
-    for file in files:
-        with open(file) as fh:
-            lines = fh.read()
-        results = list(rstcheck.check(lines))
-        for result in results:
-            print(file, *result)
-    print('RSTs checked.')
-
-
-else:
-    print('Unit tests failed. Precommit checks aborted. Do not commit.')
+main()

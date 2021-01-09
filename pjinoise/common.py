@@ -4,7 +4,7 @@ common
 
 Utilities and other commonly reused functions for pjinoise.
 """
-from typing import Any, Dict, List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image
@@ -82,17 +82,6 @@ def convert_color_space(a: np.ndarray,
     return out
 
 
-def deserialize_sequence(value: Union[Sequence[float], str]) -> Tuple[float]:
-    """Deserialize a set of coordinates that could have come from
-    command line input.
-    """
-    if not value:
-        return (0, 0, 0)
-    if isinstance(value, str):
-        value = value.split(',')[::-1]
-    return tuple(float(n) for n in value)
-
-
 def grayscale_to_ints_list(a: np.ndarray,
                            astype: type = np.uint8) -> List[int]:
     """pjinoise grayscale stores color values as floats between
@@ -119,19 +108,7 @@ def get_format(filename: str) -> str:
         raise SystemExit
 
 
-def lerp(a: np.ndarray, b: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """Perform a linear interpolation on the values of two arrays
-
-    :param a: The "left" values.
-    :param b: The "right" values.
-    :param x: An array of how close the location of the final value
-        should be to the "left" value.
-    :return: A :class:ndarray object
-    :rtype: numpy.ndarray
-    """
-    return a.astype(float) * (1 - x.astype(float)) + b.astype(float) * x
-
-
+# Diagnostic output functions.
 def print_array(a: np.ndarray, depth: int = 0) -> None:
     """Write the values of the given array to stdout."""
     if len(a.shape) > 1:
@@ -167,14 +144,26 @@ def print_seq(seq: Sequence[Any], depth: int = 0) -> None:
     print_array(np.array(seq), depth)
 
 
-def remove_private_attrs(map: Dict) -> Dict:
+# Serialization/deserialization functions.
+def deserialize_sequence(value: Union[Sequence[float], str]) -> Tuple[float]:
+    """Deserialize a set of coordinates that could have come from
+    command line input.
+    """
+    if not value:
+        return (0, 0, 0)
+    if isinstance(value, str):
+        value = value.split(',')[::-1]
+    return tuple(float(n) for n in value)
+
+
+def remove_private_attrs(mapping: Mapping) -> Mapping:
     """Remove the keys for private attributes from an object that
     has been serialized as an mapping.
     """
-    pvt_keys = [key for key in map if key.startswith('_')]
-    for key in pvt_keys:
-        del map[key]
-    return map
+    cls = type(mapping)
+    public_keys = [key for key in mapping if not key.startswith('_')]
+    dict_ = {key: mapping[key] for key in public_keys}
+    return cls(dict_)
 
 
 def text_to_int(text: Union[bytes, str, int, None]) -> Union[int, None]:
@@ -185,9 +174,75 @@ def text_to_int(text: Union[bytes, str, int, None]) -> Union[int, None]:
     return int.from_bytes(text, 'little')
 
 
+# Interpolation functions.
+def lerp(a: np.ndarray, b: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """Perform a linear interpolation on the values of two arrays
+
+    :param a: The "left" values.
+    :param b: The "right" values.
+    :param x: An array of how close the location of the final value
+        should be to the "left" value.
+    :return: A :class:ndarray object
+    :rtype: numpy.ndarray
+
+    Usage::
+
+        >>> import numpy as np
+        >>>
+        >>> a = np.array([1, 2, 3])
+        >>> b = np.array([3, 4, 5])
+        >>> x = np.array([.5, .5, .5])
+        >>> lerp(a, b, x)
+        array([2., 3., 4.])
+    """
+    return a.astype(float) * (1 - x.astype(float)) + b.astype(float) * x
+
+
 def trilinear_interpolation(a: np.ndarray, factor: float) -> np.ndarray:
     """Resize an three dimensional array using trilinear
     interpolation.
+
+    :param a: The array to resize. The array is expected to have at
+        least three dimensions.
+    :param factor: The amount to resize the array. The value must be
+        greater than or equal to one.
+    :return: A :class:ndarray object.
+    :rtype: numpy.ndarray
+
+    Usage::
+
+        >>> import numpy as np
+        >>>
+        >>> a = np.array([
+        ...     [
+        ...             [0, 1],
+        ...             [1, 0],
+        ...     ],
+        ...     [
+        ...             [1, 0],
+        ...             [0, 1],
+        ...     ],
+        ... ])
+        >>> trilinear_interpolation(a, 2)
+        array([[[0. , 0.5, 1. , 1. ],
+                [0.5, 0.5, 0.5, 0.5],
+                [1. , 0.5, 0. , 0. ],
+                [1. , 0.5, 0. , 0. ]],
+        <BLANKLINE>
+               [[0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.5, 0.5]],
+        <BLANKLINE>
+               [[1. , 0.5, 0. , 0. ],
+                [0.5, 0.5, 0.5, 0.5],
+                [0. , 0.5, 1. , 1. ],
+                [0. , 0.5, 1. , 1. ]],
+        <BLANKLINE>
+               [[1. , 0.5, 0. , 0. ],
+                [0.5, 0.5, 0.5, 0.5],
+                [0. , 0.5, 1. , 1. ],
+                [0. , 0.5, 1. , 1. ]]])
     """
     # This trilinear interpolation algorithm cannot shrink arrays.
     if factor < 1:
@@ -278,3 +333,27 @@ def trilinear_interpolation(a: np.ndarray, factor: float) -> np.ndarray:
     # And stage three is along the Z axis. Since this is the last step
     # we can just return the result.
     return lerp(y1, y2, parts[Z])
+
+
+if __name__ == '__main__':
+    a = np.array([
+        [
+            [0x00, 0x80, 0xff,],
+            [0x00, 0x80, 0xff,],
+            [0x00, 0x80, 0xff,],
+        ],
+        [
+            [0x80, 0xff, 0x80,],
+            [0x80, 0xff, 0x80,],
+            [0x80, 0xff, 0x80,],
+        ],
+        [
+            [0xff, 0x80, 0x00,],
+            [0xff, 0x80, 0x00,],
+            [0xff, 0x80, 0x00,],
+        ],
+    ], float)
+    a /= 0xff
+    factor = 1.5
+    result = trilinear_interpolation(a, factor)
+    print_array(result)

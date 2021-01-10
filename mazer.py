@@ -14,7 +14,7 @@ from pjinoise import pjinoise as pn
 from pjinoise import sources as s
 
 
-def main(seed=None, origin=(0, 0, 0)):
+def main(seed=None, origin=(0, 0, 0), solve=False):
     # Make sure the version of pjinoise supports mazer.
     assert pn.__version__ == '0.3.1'
 
@@ -27,6 +27,16 @@ def main(seed=None, origin=(0, 0, 0)):
     path = m.Layer(**{
         'filters': [],
         'source': s.Path(width=.4, origin=origin, unit=units, seed=seed),
+        'blend': op.replace,
+    })
+
+    # The solution.
+    sol = m.Layer(**{
+        'source': s.Solid(1),
+        'filters': [
+            f.Color('s'),
+        ],
+        'mask': s.SolvedPath(width=.1, origin=origin, unit=units, seed=seed),
         'blend': op.replace,
     })
 
@@ -48,18 +58,26 @@ def main(seed=None, origin=(0, 0, 0)):
     })
 
     # Put it all together and you get the maze.
+    layers = [path, entrance, exit, title,]
+    if solve:
+        layers.append(sol)
     maze = m.Layer(**{
-        'source': [path, entrance, exit, title],
+        'source': layers,
         'blend': op.replace,
     })
 
     # Image output configuration.
+    mode = 'L'
+    name = f'maze_{seed}_{origin}.png'
+    if solve:
+        mode = 'RGB'
+        name = f'maze_{seed}_{origin}_solved.png'
     conf = m.Image(**{
         'source': maze,
         'size': size,
-        'filename': f'maze_{seed}_{origin}.png',
+        'filename': name,
         'format': 'PNG',
-        'mode': 'L',
+        'mode': mode,
     })
 
     # Create image.
@@ -75,7 +93,7 @@ if __name__ == '__main__':
                 'type': str,
                 'action': 'store',
                 'default': 'tl',
-                'help': 'The seed used to generate the maze.'
+                'help': 'Where in the maze generation should start.'
             },
         },
         'seed': {
@@ -85,6 +103,13 @@ if __name__ == '__main__':
                 'action': 'store',
                 'default': None,
                 'help': 'The seed used to generate the maze.'
+            },
+        },
+        'solve': {
+            'args': ('-s', '--solve',),
+            'kwargs': {
+                'action': 'store_true',
+                'help': 'Add the solution to the maze.'
             },
         },
     }
@@ -101,4 +126,4 @@ if __name__ == '__main__':
 
     # Parse the command line arguments.
     args = p.parse_args()
-    main(args.seed, args.origin)
+    main(args.seed, args.origin, args.solve)

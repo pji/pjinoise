@@ -180,12 +180,17 @@ if __name__ == '__main__':
     doctest.testmod()
 
     kwargs = {
-        'text': 's',
-        'size': 6,
-        'origin': (3, 0),
+        'start': 'tl',
+        'end': 'br',
+        'width': .34,
+        'inset': (0, 1, 1),
+        'origin': 'm',
+        'unit': (1, 3, 3),
+        'seed': 'spam',
+        'ease': 'l',
     }
-    cls = Text
-    size = (1, 10, 10)
+    cls = SolvedPath
+    size = (2, 10, 10)
     obj = cls(**kwargs)
     val = obj.fill(size)
     c.print_array(val)

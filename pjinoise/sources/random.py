@@ -658,7 +658,8 @@ class Path(UnitNoise):
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Fill a space with image data."""
-        path = self._build_path(size, loc)
+        values, unit_dim = self._build_grid(size, loc)
+        path = self._build_path(values, unit_dim)
         return self._draw_path(path, size)
 
     # Private methods.
@@ -685,11 +686,9 @@ class Path(UnitNoise):
         unit_dim = np.array(unit_dim)
         return values, unit_dim
 
-    def _build_path(self, size: Sequence[int],
-             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+    def _build_path(self, values: np.ndarray,
+             unit_dim: Sequence[int]) -> np.ndarray:
         """Create the steps in the path."""
-        values, unit_dim = self._build_grid(size, loc)
-
         # The cursor will be used to determine our current position
         # on the grid as we create the path.
         cursor = self._calc_origin(self.origin, unit_dim)
@@ -942,6 +941,70 @@ class AnimatedPath(Path):
             if len(branch) < biggest:
                 branch.append(None)
         return branches
+
+
+class SolvedPath(Path):
+    def __init__(self, start: Union[str, Sequence[int]] = 'tl',
+                 end: Union[str, Sequence[int]] = 'br',
+                 *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.start = start
+        self.end = end
+
+    # Public methods.
+    def fill(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Fill a space with image data."""
+        values, unit_dim = self._build_grid(size, loc)
+        path = self._build_path(values, unit_dim)
+        solution = self._solve_path(path, unit_dim)
+        return self._draw_path(solution, size)
+
+    # Private methods.
+    def _solve_path(self, path, unit_dim):
+        been_there = np.zeros(unit_dim, int)
+
+        steps = {}
+        for step in path:
+            if step[0] not in steps:
+                steps[step[0]] = set([step[1],])
+            else:
+                steps[step[0]].add(step[1])
+
+            if step[1] not in steps:
+                steps[step[1]] = set([step[0],])
+            else:
+                steps[step[1]].add(step[0])
+
+        steps = {k: list(steps[k]) for k in steps}
+
+        solution = []
+        start = tuple(self._calc_origin(self.start, unit_dim))
+        end = tuple(self._calc_origin(self.end, unit_dim))
+        cursor = start
+        last = None
+
+        while True:
+            try:
+                if cursor == end:
+                    break
+            except ValueError:
+                raise ValueError(cursor, end)
+            been_there[cursor] += 1
+            options = steps[cursor]
+            times_hit = [been_there[option] for option in options]
+            sort_options = sorted(zip(times_hit, options))
+            next = sort_options[0][1]
+            if next == last:
+                cursor = start
+                last = None
+                solution = []
+            else:
+                solution.append((cursor, next))
+                last = cursor
+                cursor = next
+
+        return solution
 
 
 class Perlin(UnitNoise):

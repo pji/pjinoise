@@ -658,6 +658,36 @@ class Path(UnitNoise):
     def fill(self, size: Sequence[int],
              loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
         """Fill a space with image data."""
+        path = self._build_path(size, loc)
+        return self._draw_path(path, size)
+
+    # Private methods.
+    def _build_grid(self, size, loc):
+        """Create a grid of values. This uses the same technique
+        Perlin noise uses to add randomness to the noise. A table of
+        values was shuffled, and we use the coordinate of each vertex
+        within the grid as part of the process to lookup the table
+        value for that vertex. This grid will be used to determine the
+        route the path follows through the space.
+        """
+        unit_dim = [int(s / u) for s, u in zip(size, self.unit)]
+        unit_dim = tuple(np.array(unit_dim) + np.array((0, 1, 1)))
+        unit_dim = tuple(np.array(unit_dim) - np.array(self.inset) * 2)
+        unit_indices = np.indices(unit_dim)
+        for axis in X, Y:
+            unit_indices[axis] += loc[axis]
+        unit_indices[Z].fill(loc[Z])
+        values = np.take(self.table, unit_indices[X])
+        values += unit_indices[Y]
+        values = np.take(self.table, values % len(self.table))
+        values += unit_indices[Z]
+        values = np.take(self.table, values & len(self.table))
+        unit_dim = np.array(unit_dim)
+        return values, unit_dim
+
+    def _build_path(self, size: Sequence[int],
+             loc: Sequence[int] = (0, 0, 0)) -> np.ndarray:
+        """Create the steps in the path."""
         values, unit_dim = self._build_grid(size, loc)
 
         # The cursor will be used to determine our current position
@@ -719,32 +749,7 @@ class Path(UnitNoise):
                     break
                 cursor = path[index][0]
 
-        # Fill the requested space with the path.
-        return self._draw_path(path, size)
-
-    # Private methods.
-    def _build_grid(self, size, loc):
-        """Create a grid of values. This uses the same technique
-        Perlin noise uses to add randomness to the noise. A table of
-        values was shuffled, and we use the coordinate of each vertex
-        within the grid as part of the process to lookup the table
-        value for that vertex. This grid will be used to determine the
-        route the path follows through the space.
-        """
-        unit_dim = [int(s / u) for s, u in zip(size, self.unit)]
-        unit_dim = tuple(np.array(unit_dim) + np.array((0, 1, 1)))
-        unit_dim = tuple(np.array(unit_dim) - np.array(self.inset) * 2)
-        unit_indices = np.indices(unit_dim)
-        for axis in X, Y:
-            unit_indices[axis] += loc[axis]
-        unit_indices[Z].fill(loc[Z])
-        values = np.take(self.table, unit_indices[X])
-        values += unit_indices[Y]
-        values = np.take(self.table, values % len(self.table))
-        values += unit_indices[Z]
-        values = np.take(self.table, values & len(self.table))
-        unit_dim = np.array(unit_dim)
-        return values, unit_dim
+        return path
 
     def _calc_origin(self, origin, unit_dim):
         "Determine the starting location of the cursor."

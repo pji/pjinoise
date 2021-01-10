@@ -17,3 +17,5 @@ core.addTest(tc.CommonTestCase('test_convert_color_to_pjinoise_grayscale'))
 core.addTest(tc.CommonTestCase('test_linear_interpolation'))
 core.addTest(tc.CommonTestCase('test_remove_private_attrs'))
 core.addTest(tc.TerpTestCase('test_increase_size'))
+core.addTest(tc.TerpTestCase('test_decrease_size'))
+

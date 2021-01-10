@@ -109,18 +109,20 @@ def get_format(filename: str) -> str:
 
 
 # Diagnostic output functions.
-def print_array(a: np.ndarray, depth: int = 0) -> None:
+def print_array(a: np.ndarray, depth: int = 0, color: bool = True) -> None:
     """Write the values of the given array to stdout."""
     if len(a.shape) > 1:
         print(' ' * (4 * depth) + '[')
         for i in range(a.shape[0]):
-            print_array(a[i], depth + 1)
+            print_array(a[i], depth + 1, color)
         print(' ' * (4 * depth) + '],')
 
     else:
-        if a.dtype != np.uint8:
+        if a.dtype != np.uint8 and color:
             a = np.around(a.copy() * 0xff).astype(np.uint8)
-        tmp = '0x{:02x}'
+            tmp = '0x{:02x}'
+        else:
+            tmp = '{}'
         nums = [tmp.format(n) for n in a]
         print(' ' * (4 * depth) + '[' + ', '.join(nums) + '],')
 
@@ -141,7 +143,7 @@ def print_float_array(a: np.ndarray, depth: int = 0) -> None:
 
 def print_seq(seq: Sequence[Any], depth: int = 0) -> None:
     """Write the values of the given sequence to stdout."""
-    print_array(np.array(seq), depth)
+    print_array(np.array(seq), depth, False)
 
 
 # Serialization/deserialization functions.
@@ -204,8 +206,10 @@ def trilinear_interpolation(a: np.ndarray, factor: float) -> np.ndarray:
 
     :param a: The array to resize. The array is expected to have at
         least three dimensions.
-    :param factor: The amount to resize the array. The value must be
-        greater than or equal to one.
+    :param factor: The amount to resize the array. Given how the
+        interpolation works, you probably don't get great results
+        with factor less than or equal to .5. Consider multiple
+        passes of interpolation with larger factors in those cases.
     :return: A :class:ndarray object.
     :rtype: numpy.ndarray
 
@@ -244,11 +248,6 @@ def trilinear_interpolation(a: np.ndarray, factor: float) -> np.ndarray:
                 [0. , 0.5, 1. , 1. ],
                 [0. , 0.5, 1. , 1. ]]])
     """
-    # This trilinear interpolation algorithm cannot shrink arrays.
-    if factor < 1:
-        msg = 'Trilinear interpolation requires a factor > 1.'
-        raise ValueError(msg)
-
     # Return the array unchanged if the array won't be magnified.
     if factor == 1:
         return a
@@ -261,11 +260,24 @@ def trilinear_interpolation(a: np.ndarray, factor: float) -> np.ndarray:
     # will increase by the magnification factor.
     mag_size = tuple(int(s * factor) for s in a.shape)
 
-    # Map out the relationship between the old, smaller space and the
-    # new, larger space.
+    # Map out the relationship between the old space and the
+    # new space.
     indices = np.indices(mag_size)
-    whole = (indices // factor).astype(int)
-    parts = (indices / factor - whole).astype(float)
+    if factor > 1:
+        whole = (indices // factor).astype(int)
+        parts = (indices / factor - whole).astype(float)
+    else:
+        new_ends = [s - 1 for s in mag_size]
+        old_ends = [s - 1 for s in a.shape]
+        true_factors = [n / o for n, o in zip(new_ends, old_ends)]
+        for i in range(len(true_factors)):
+            if true_factors[i] == 0:
+                true_factors[i] = .5
+        whole = indices.copy()
+        parts = indices.copy()
+        for i in Z, Y, X:
+            whole[i] = (indices[i] // true_factors[i]).astype(int)
+            parts[i] = (indices[i] / true_factors[i] - whole[i]).astype(float)
     del indices
 
     # Trilinear interpolation determines the value of a new pixel by
@@ -336,24 +348,32 @@ def trilinear_interpolation(a: np.ndarray, factor: float) -> np.ndarray:
 
 
 if __name__ == '__main__':
-    a = np.array([
+    a = [
         [
-            [0x00, 0x80, 0xff,],
-            [0x00, 0x80, 0xff,],
-            [0x00, 0x80, 0xff,],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0],
+            [0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0],
+            [0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0],
+            [0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80],
+            [0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60],
+            [0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40],
+            [0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20],
+            [0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20, 0x00],
         ],
         [
-            [0x80, 0xff, 0x80,],
-            [0x80, 0xff, 0x80,],
-            [0x80, 0xff, 0x80,],
+            [0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff],
+            [0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0],
+            [0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0],
+            [0x60, 0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0],
+            [0x80, 0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80],
+            [0xa0, 0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60],
+            [0xc0, 0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40],
+            [0xe0, 0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20],
+            [0xff, 0xe0, 0xc0, 0xa0, 0x80, 0x60, 0x40, 0x20, 0x00],
         ],
-        [
-            [0xff, 0x80, 0x00,],
-            [0xff, 0x80, 0x00,],
-            [0xff, 0x80, 0x00,],
-        ],
-    ], float)
-    a /= 0xff
-    factor = 1.5
+    ]
+    a = np.array(a, dtype=float)
+    a = a / 0xff
+    factor = .5
     result = trilinear_interpolation(a, factor)
     print_array(result)

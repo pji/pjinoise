@@ -119,9 +119,11 @@ execution vulnerabilities though deserialization.
 """
 from typing import Dict
 
+from pjinoise.sources.path import *
 from pjinoise.sources.random import *
 from pjinoise.sources.source import *
 from pjinoise.sources.static import *
+from pjinoise.sources.unit import *
 
 
 # Registration.
@@ -143,6 +145,7 @@ registered_sources = {
     'worleycell': WorleyCell,
     'path': Path,
     'animatedpath': AnimatedPath,
+    'solvedpath': SolvedPath,
     'perlin': Perlin,
     'random': Random,
     'seededrandom': SeededRandom,

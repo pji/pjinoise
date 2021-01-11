@@ -194,13 +194,11 @@ deserialized from JSON objects. It also should provide a measure of
 input validation at deserialization to reduce the risk of remote code
 execution vulnerabilities though deserialization.
 """
-from abc import ABC, abstractmethod
 from functools import wraps
-from itertools import chain
 from typing import Callable, Mapping, Sequence, Tuple, Union
 
 import cv2
-from PIL import Image, ImageChops, ImageFilter, ImageOps
+from PIL import Image, ImageOps
 import numpy as np
 from skimage.transform import swirl
 
@@ -908,7 +906,6 @@ class Resize(Filter):
         if self.crop:
             return a
         X, Y, Z = 2, 1, 0
-        current_size = a.shape[:3]
         old_size = [n - p for n, p in zip(self.new_size, self.padding)]
         resized = np.zeros(old_size, dtype=a.dtype)
         for i in range(a.shape[Z]):
@@ -1003,10 +1000,8 @@ class Ripple(Filter):
 
         import math
 
-        # Grab the dimensions of the image and calculate the center
-        # of the image  (center not needed at this time)
+        # Grab the dimensions of the image.
         (t, h, w) = a.shape
-        center = (w // 2, h // 2)
 
         # set up the x and y maps as float32
         flex_x = np.zeros((h,w),np.float32)

@@ -4,7 +4,7 @@ common
 
 Utilities and other commonly reused functions for pjinoise.
 """
-from typing import Any, Dict, List, Mapping, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image

@@ -9,10 +9,11 @@ from pjinoise import model as m
 from pjinoise import operations as op
 from pjinoise import pjinoise as pn
 from pjinoise import sources as s
+from pjinoise.__version__ import __version__
 
 
 # pjinoise version check.
-assert pn.__version__ == '0.3.1'
+assert __version__ == '0.3.1'
 
 
 # Basic image file configuration and other commonly used values.

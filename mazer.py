@@ -12,11 +12,12 @@ from pjinoise import model as m
 from pjinoise import operations as op
 from pjinoise import pjinoise as pn
 from pjinoise import sources as s
+from pjinoise.__version__ import __version__
 
 
 def main(seed=None, origin=(0, 0, 0), solve=False):
     # Make sure the version of pjinoise supports mazer.
-    assert pn.__version__ == '0.3.1'
+    assert __version__ == '0.3.1'
 
     # Set up the size and structure of the maze.
     size = (1, 720, 560)

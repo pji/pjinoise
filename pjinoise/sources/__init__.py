@@ -119,7 +119,7 @@ execution vulnerabilities though deserialization.
 """
 from typing import Dict
 
-from pjinoise.sources.path import *
+from pjinoise.sources.path import AnimatedPath, Path, SolvedPath, TilePaths
 from pjinoise.sources.random import *
 from pjinoise.sources.source import *
 from pjinoise.sources.static import *

@@ -429,10 +429,14 @@ class SolvedPath(Path):
     """
     def __init__(self, start: Union[str, Sequence[int]] = 'tl',
                  end: Union[str, Sequence[int]] = 'br',
+                 algorithm: str = 'branches',
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.start = start
         self.end = end
+        self._solve_path = self._solve_path_branches
+        if algorithm == 'breadcrumb':
+            self._solve_path = self._solve_path_breadcrumbs
 
     # Public methods.
     def fill(self, size: Sequence[int],
@@ -467,7 +471,7 @@ class SolvedPath(Path):
         # The sets are returned as lists to allow for future sorting.
         return {k: list(steps[k]) for k in steps}
 
-    def _solve_path(self, path, unit_dim):
+    def _solve_path_breadcrumbs(self, path, unit_dim):
         """Determine the steps needed to move from one location in the
         path to another.
         """
@@ -520,6 +524,40 @@ class SolvedPath(Path):
         # Return the list of steps to go from the start of the path
         # to the end of the path.
         return solution
+
+    def _solve_path_branches(self, path, unit_dim):
+        """Determine the steps needed to move from one location in the
+        path to another.
+        """
+        max_steps = unit_dim[Y] * unit_dim[X]
+        available_steps = self._map_available_steps(path)
+        start_ = tuple(self._calc_origin(self.start, unit_dim))
+        end = tuple(self._calc_origin(self.end, unit_dim))
+
+        paths = []
+        for option in available_steps[start_]:
+            step = (start_, option)
+            path = [step,]
+            paths.append(path)
+
+        step_count = 0
+        found = False
+        while step_count <= max_steps:
+            new_paths = []
+            for path in paths:
+                step = path[-1]
+                options = available_steps[step[1]]
+                options = [option for option in options if option != step[0]]
+                for option in options:
+                    new_path = path[:]
+                    new_step = (step[1], option)
+                    new_path.append(new_step)
+                    new_paths.append(new_path)
+                    if option == end:
+                        return new_path
+            paths = new_paths
+        else:
+            raise ValueError('No solution exists for path.')
 
 
 # Compound sources.

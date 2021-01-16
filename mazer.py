@@ -6,6 +6,8 @@ mazer
 Create a printable maze using the pjinoise module.
 """
 import argparse
+from datetime import date
+from os import path
 
 from pjinoise import filters as f
 from pjinoise import model as m
@@ -15,7 +17,13 @@ from pjinoise import sources as s
 from pjinoise.__version__ import __version__
 
 
-def main(seed=None, origin=(0, 0, 0), solve=False):
+def get_today(delim='.'):
+    today = date.today()
+    year, month, day, *_ = today.timetuple()
+    return f'{year}{delim}{month:02d}{delim}{day:02d}'
+
+
+def main(seed=None, origin=(0, 0, 0), solve=False, save_dir=''):
     # Make sure the version of pjinoise supports mazer.
     assert __version__ == '0.3.1'
 
@@ -69,10 +77,10 @@ def main(seed=None, origin=(0, 0, 0), solve=False):
 
     # Image output configuration.
     mode = 'L'
-    name = f'maze_{seed}_{origin}.png'
+    name = f'{save_dir}maze_{seed}_{origin}.png'
     if solve:
         mode = 'RGB'
-        name = f'maze_{seed}_{origin}_solved.png'
+        name = f'{save_dir}maze_{seed}_{origin}_solved.png'
     conf = m.Image(**{
         'source': maze,
         'size': size,
@@ -88,6 +96,13 @@ def main(seed=None, origin=(0, 0, 0), solve=False):
 if __name__ == '__main__':
     # Define the command line options.
     options = {
+        'middle': {
+            'args': ('-m', '--middle',),
+            'kwargs': {
+                'action': 'store_true',
+                'help': 'Start generation in the middle of the maze.'
+            },
+        },
         'origin': {
             'args': ('-o', '--origin'),
             'kwargs': {
@@ -97,8 +112,17 @@ if __name__ == '__main__':
                 'help': 'Where in the maze generation should start.'
             },
         },
+        'save_dir': {
+            'args': ('-d', '--save_dir',),
+            'kwargs': {
+                'type': str,
+                'action': 'store',
+                'default': '',
+                'help': 'Where to save the image file.'
+            },
+        },
         'seed': {
-            'args': ('seed',),
+            'args': ('-s', '--seed',),
             'kwargs': {
                 'type': str,
                 'action': 'store',
@@ -107,10 +131,17 @@ if __name__ == '__main__':
             },
         },
         'solve': {
-            'args': ('-s', '--solve',),
+            'args': ('-S', '--solve',),
             'kwargs': {
                 'action': 'store_true',
                 'help': 'Add the solution to the maze.'
+            },
+        },
+        'today': {
+            'args': ('-t', '--today',),
+            'kwargs': {
+                'action': 'store_true',
+                'help': 'Use the current date for the seed.'
             },
         },
     }
@@ -127,4 +158,10 @@ if __name__ == '__main__':
 
     # Parse the command line arguments.
     args = p.parse_args()
-    main(args.seed, args.origin, args.solve)
+    if args.today or args.seed == None:
+        args.seed = get_today()
+    if args.middle:
+        args.origin = 'm'
+    if args.save_dir and not args.save_dir.endswith(path.sep):
+        args.save_dir = f'{args.save_dir}{path.sep}'
+    main(args.seed, args.origin, args.solve, args.save_dir)

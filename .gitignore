@@ -30,4 +30,5 @@ audio.py
 chunk_video.sh
 
 # Working scripts.
+make_todays_maze.sh
 working.py

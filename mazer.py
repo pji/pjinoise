@@ -15,6 +15,7 @@ from pjinoise import operations as op
 from pjinoise import pjinoise as pn
 from pjinoise import sources as s
 from pjinoise.__version__ import __version__
+from pjinoise.constants import X, Y
 
 
 def get_today(delim='.'):
@@ -23,13 +24,14 @@ def get_today(delim='.'):
     return f'{year}{delim}{month:02d}{delim}{day:02d}'
 
 
-def main(seed=None, origin=(0, 0, 0), solve=False, save_dir=''):
+def main(seed=None, origin=(0, 0, 0), solve=False, save_dir='', unit=20):
     # Make sure the version of pjinoise supports mazer.
     assert __version__ == '0.3.1'
 
     # Set up the size and structure of the maze.
     size = (1, 720, 560)
-    units = (1, 20, 20)
+    units = (1, unit, unit)
+    exit_size = (1, int(unit * .8), unit)
     title = seed.replace('_', ' ').upper()
 
     # The maze interior.
@@ -51,23 +53,32 @@ def main(seed=None, origin=(0, 0, 0), solve=False, save_dir=''):
 
     # The maze entrance.
     entrance = m.Layer(**{
-        'source': s.Box((0, 12, 0), (1, 16, 20), 1.0),
+        'source': s.Box((0, int(unit * .6), 0), exit_size, 1.0),
         'blend': op.lighter,
     })
 
     # The maze exit.
     exit = m.Layer(**{
-        'source': s.Box((0, 692, 540), (1, 16, 20), 1.0),
+        'source': s.Box(*[
+            (0, int(size[Y] - unit * 1.4), size[X] - unit),
+            exit_size,
+            1.0
+        ]),
         'blend': op.lighter,
     })
 
-    title = m.Layer(**{
-        'source': s.Text(title, origin=(12, 1), font='Helvetica', face=1),
-        'blend': op.lighter,
-    })
+    if unit >= 16:
+        ft_origin = (int(unit * .6), 1)
+        ft_size = int(unit * .5)
+        title = m.Layer(**{
+            'source': s.Text(title, size=ft_size, origin=ft_origin, font='Helvetica', face=1),
+            'blend': op.lighter,
+        })
 
     # Put it all together and you get the maze.
-    layers = [path, entrance, exit, title,]
+    layers = [path, entrance, exit,]
+    if unit >= 16:
+        layers.append(title)
     if solve:
         layers.append(sol)
     maze = m.Layer(**{
@@ -77,10 +88,13 @@ def main(seed=None, origin=(0, 0, 0), solve=False, save_dir=''):
 
     # Image output configuration.
     mode = 'L'
-    name = f'{save_dir}maze_{seed}_{origin}.png'
+    name = f'{save_dir}maze_{seed}_{origin}'
+    if unit != 20:
+        name = name + f'_{unit}'
     if solve:
         mode = 'RGB'
-        name = f'{save_dir}maze_{seed}_{origin}_solved.png'
+        name = name + '_solved'
+    name = f'{name}.png'
     conf = m.Image(**{
         'source': maze,
         'size': size,
@@ -144,6 +158,15 @@ if __name__ == '__main__':
                 'help': 'Use the current date for the seed.'
             },
         },
+        'unit': {
+            'args': ('-u', '--unit',),
+            'kwargs': {
+                'type': int,
+                'action': 'store',
+                'default': 20,
+                'help': 'The unit side for the maze grid.'
+            },
+        },
     }
 
     # Set up the argument parser.
@@ -164,4 +187,4 @@ if __name__ == '__main__':
         args.origin = 'm'
     if args.save_dir and not args.save_dir.endswith(path.sep):
         args.save_dir = f'{args.save_dir}{path.sep}'
-    main(args.seed, args.origin, args.solve, args.save_dir)
+    main(args.seed, args.origin, args.solve, args.save_dir, args.unit)

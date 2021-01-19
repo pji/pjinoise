@@ -20,6 +20,20 @@ wasn't intended to be used by anyone other than me. I can't promise
 it will ever be fully documented.
 
 
+Why can't I install the required statuswriter package from pip?
+---------------------------------------------------------------
+You can, but it's not up in PyPI yet. To install it:
+
+*   Clone the statuswriter repository from https://github.com/pji
+    /statuswriter
+*   Run the following from pip: `pip install <path/to/statuswriter>`
+
+Replace "<path/to/statuswriter>" with the path to your clone of the
+the statuswriter repository.
+
+NOTE: statuswriter requires Python 3.9.
+
+
 Can I install this as a package from pip?
 -----------------------------------------
 Not at this point. If someone else ever reads this and would like

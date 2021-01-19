@@ -40,11 +40,12 @@ from threading import Thread
 from typing import Sequence, Tuple, Union
 
 import numpy as np
+import statuswriter as sw
 
 from pjinoise import cli
 from pjinoise import filters as f
 from pjinoise import io
-from pjinoise import ui
+# from pjinoise import ui
 from pjinoise.common import convert_color_space as _convert_color_space
 from pjinoise.model import Image, Layer
 from pjinoise.sources import Source
@@ -98,7 +99,7 @@ def process_layers(size: Sequence[int],
     if isinstance(layers.source, Source):
         if status is not None:
             src_name = layers.source.__class__.__name__
-            status.put((ui.STATUS, f'Rendering {src_name}...'))
+            status.put((sw.MSG, f'Rendering {src_name}...'))
         kwargs = {
             'source': layers.source,
             'size': size,
@@ -108,7 +109,8 @@ def process_layers(size: Sequence[int],
         b = render_source(**kwargs)
         if status is not None:
             src_name = layers.source.__class__.__name__
-            status.put((ui.PROG, f'Rendered {src_name}.'))
+            status.put((sw.MSG, f'Rendered {src_name}.'))
+            status.put((sw.PROG,))
 
     # Otherwise we got a container layer, process its source and run
     # any filters that are set on the layer.
@@ -125,7 +127,7 @@ def process_layers(size: Sequence[int],
     if layers.mask is not None:
         if status is not None:
             src_name = layers.mask.__class__.__name__
-            status.put((ui.STATUS, f'Rendering {src_name}...'))
+            status.put((sw.MSG, f'Rendering {src_name}...'))
         kwargs = {
             'source': layers.mask,
             'size': size,
@@ -134,7 +136,8 @@ def process_layers(size: Sequence[int],
         mask = render_source(**kwargs)
         if status is not None:
             src_name = layers.mask.__class__.__name__
-            status.put((ui.PROG, f'Rendered {src_name}.'))
+            status.put((sw.MSG, f'Rendered {src_name}.'))
+            status.put((sw.PROG,))
         a, b, mask = _normalize_color_space(a, b, mask)
         return layers.blend(a, b, layers.blend_amount, mask)
 
@@ -190,23 +193,33 @@ def main(silent: bool = True, conf: Image = None) -> None:
         if not silent:
             status = Queue()
             stages = 2 + conf.count_sources()
-            t = Thread(target=ui.status_writer, args=(status, stages))
+            status_args = (
+                status,
+                'PJINOISE: Pattern and Noise Generation',
+                2 + conf.count_sources(),
+                4,
+                1,
+            )
+            t = Thread(target=sw.status_writer, args=status_args)
             t.start()
-            status.put((ui.INIT,))
+            status.put((sw.INIT,))
 
         if not silent:
-            status.put((ui.STATUS, 'Generating image...'))
+            status.put((sw.MSG, 'Generating image...'))
         a = process_layers(conf.size, conf.source, None, status)
         if not silent:
-            status.put((ui.PROG, 'Image generated.'))
+            status.put((sw.MSG, 'Image generated.'))
+            status.put((sw.PROG,))
 
         if not silent:
-            status.put((ui.STATUS, 'Saving...'))
+            status.put((sw.MSG, 'Saving...'))
         io.save_image(a, conf.filename, conf.format, conf.mode, conf.framerate)
         io.save_conf(conf)
         if not silent:
-            status.put((ui.PROG, f'Saved as {conf.filename}.'))
-            status.put((ui.END, 'Good-bye.'))
+            status.put((sw.MSG, f'Saved as {conf.filename}.'))
+            status.put((sw.PROG,))
+            status.put((sw.MSG, 'Good-bye.'))
+            status.put((sw.END,))
 
     # Since the status updates run in an independent thread, letting
     # exceptions bubble up from this thread causes the last status
@@ -215,7 +228,7 @@ def main(silent: bool = True, conf: Image = None) -> None:
     # thread. This also ensures the status update thread is terminated.
     except Exception as e:
         if status:
-            status.put((ui.KILL, e))
+            status.put((sw.KILL, e))
         else:
             raise e
 

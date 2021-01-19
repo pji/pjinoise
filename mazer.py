@@ -71,7 +71,13 @@ def main(seed=None, origin=(0, 0, 0), solve=False, save_dir='', unit=20):
         ft_origin = (int(unit * .6), 1)
         ft_size = int(unit * .5)
         title = m.Layer(**{
-            'source': s.Text(title, size=ft_size, origin=ft_origin, font='Helvetica', face=1),
+            'source': s.Text(
+                title,
+                size=ft_size,
+                origin=ft_origin,
+                font='Helvetica',
+                face=1
+            ),
             'blend': op.lighter,
         })
 
@@ -181,7 +187,7 @@ if __name__ == '__main__':
 
     # Parse the command line arguments.
     args = p.parse_args()
-    if args.today or args.seed == None:
+    if args.today or args.seed is None:
         args.seed = get_today()
     if args.middle:
         args.origin = 'm'

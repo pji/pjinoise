@@ -16,5 +16,5 @@ rstcheck==3.3.1
 scikit-image==0.18.1
 scipy==1.6.0
 six==1.15.0
-statuswriter==0.0.1
+statuswriter==0.0.3
 tifffile==2021.1.11

@@ -45,7 +45,6 @@ import statuswriter as sw
 from pjinoise import cli
 from pjinoise import filters as f
 from pjinoise import io
-# from pjinoise import ui
 from pjinoise.common import convert_color_space as _convert_color_space
 from pjinoise.model import Image, Layer
 from pjinoise.sources import Source

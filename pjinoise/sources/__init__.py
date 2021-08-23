@@ -183,17 +183,10 @@ if __name__ == '__main__':
     doctest.testmod()
 
     kwargs = {
-        'start': 'tl',
-        'end': 'br',
-        'width': .34,
-        'inset': (0, 1, 1),
-        'origin': 'm',
-        'unit': (1, 3, 3),
-        'seed': 'spam',
-        'ease': 'l',
+        'seed': b'\x00\x01\x02\x03',
     }
-    cls = SolvedPath
-    size = (2, 10, 10)
+    cls = SeededRandom
+    size = (2, 8, 8)
     obj = cls(**kwargs)
     val = obj.fill(size)
     c.print_array(val)

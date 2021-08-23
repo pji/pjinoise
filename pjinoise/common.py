@@ -119,7 +119,7 @@ def print_array(a: np.ndarray, depth: int = 0, color: bool = True) -> None:
 
     else:
         if a.dtype != np.uint8 and color:
-            a = np.around(a.copy() * 0xff).astype(np.uint8)
+            a = (a.copy() * 0xff).astype(np.uint8)
             tmp = '0x{:02x}'
         else:
             tmp = '{}'
